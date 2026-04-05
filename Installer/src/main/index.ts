@@ -5,6 +5,11 @@ import log from "electron-log";
 
 import { registerIpcHandlers } from "./ipc-handlers";
 
+// VMs frequently present black windows when Chromium GPU compositing is unstable.
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("disable-gpu");
+app.commandLine.appendSwitch("disable-software-rasterizer");
+
 function renderFailurePage(window: BrowserWindow, title: string, details: string) {
   const html = `<!doctype html>
   <html>
@@ -66,6 +71,46 @@ function createWindow() {
     const summary = [`reason: ${details.reason}`, `exitCode: ${details.exitCode}`].join("\n");
     log.error("Renderer process exited", summary);
     renderFailurePage(window, "Installer renderer crashed", summary);
+  });
+
+  window.webContents.on("preload-error", (_event, preloadPath, error) => {
+    const details = [`preload: ${preloadPath}`, `error: ${error?.message ?? "Unknown preload error"}`].join("\n");
+    log.error("Preload script error", details);
+    renderFailurePage(window, "Installer preload failed", details);
+  });
+
+  window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    if (level >= 2) {
+      log.error("Renderer console error", { message, line, sourceId });
+    }
+  });
+
+  window.webContents.on("did-finish-load", () => {
+    const timeout = setTimeout(() => {
+      void window.webContents
+        .executeJavaScript(
+          `({ bodyText: document.body?.innerText ?? '', bodyChildren: document.body?.children?.length ?? 0 })`,
+          true,
+        )
+        .then((state) => {
+          const bodyText = typeof state?.bodyText === "string" ? state.bodyText.trim() : "";
+          const bodyChildren = typeof state?.bodyChildren === "number" ? state.bodyChildren : 0;
+          if (!bodyText && bodyChildren === 0) {
+            const details = "Renderer finished loading, but no visible content was rendered.";
+            log.error(details);
+            renderFailurePage(window, "Installer rendered no content", details);
+          }
+        })
+        .catch((error) => {
+          const details = error instanceof Error ? error.message : String(error);
+          log.error("Unable to inspect renderer DOM", details);
+          renderFailurePage(window, "Installer UI check failed", details);
+        });
+    }, 3000);
+
+    window.once("closed", () => {
+      clearTimeout(timeout);
+    });
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {

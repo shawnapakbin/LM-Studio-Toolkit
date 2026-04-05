@@ -9,12 +9,13 @@
   "scripts": {
     "dev": "electron-vite dev",
     "icons:build": "node scripts/select-icon.mjs llm-toolkit-installer-nodes.svg",
+    "counter:next": "node scripts/compile-counter.mjs",
     "prepare:resources": "node scripts/prepare-resources.mjs",
-    "build": "npm run icons:build && npm run prepare:resources && electron-vite build",
-    "dist": "npm run icons:build && npm run prepare:resources && electron-builder",
-    "dist:win": "npm run icons:build && npm run prepare:resources && set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win",
-    "dist:mac": "npm run icons:build && npm run prepare:resources && electron-builder --mac",
-    "dist:linux": "npm run icons:build && npm run prepare:resources && electron-builder --linux",
+    "build": "node scripts/compile-counter.mjs build && npm run icons:build && npm run prepare:resources && electron-vite build",
+    "dist": "node scripts/compile-counter.mjs dist && npm run icons:build && npm run prepare:resources && electron-builder",
+    "dist:win": "node scripts/dist-win.mjs",
+    "dist:mac": "node scripts/compile-counter.mjs dist:mac && npm run icons:build && npm run prepare:resources && electron-builder --mac",
+    "dist:linux": "node scripts/compile-counter.mjs dist:linux && npm run icons:build && npm run prepare:resources && electron-builder --linux",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "build": {

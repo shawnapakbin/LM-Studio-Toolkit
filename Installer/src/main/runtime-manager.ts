@@ -250,6 +250,7 @@ export function spawnNpmCommand(
 ) {
   const runtimeStatus = getRuntimeStatus();
   const env = { ...process.env };
+  env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
 
   const prependNodePath = (nodeExecutablePath: string) => {
     const nodeDir = dirname(nodeExecutablePath);

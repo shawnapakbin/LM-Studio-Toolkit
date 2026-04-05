@@ -105,6 +105,14 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
   }
 
   emitProgress(handlers, 3, "install", "section", "Installing workspace dependencies", 10);
+  emitProgress(
+    handlers,
+    3,
+    "install",
+    "info",
+    "Skipping Playwright browser binary downloads during install to reduce disk usage. Browser assets can be installed later if needed.",
+    15,
+  );
   await runProcess(handlers, ["install"], context.installRoot, 3, "install", signal);
 
   emitProgress(handlers, 4, "build", "section", "Building toolkit packages", 10);

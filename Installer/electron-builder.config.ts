@@ -11,10 +11,6 @@ const config = {
       from: "resources/payload",
       to: "payload",
     },
-    {
-      from: "resources/runtime",
-      to: "runtime",
-    },
   ],
   win: {
     target: ["portable"],

@@ -74,3 +74,4 @@ shared/toolCallNormalizer.js.map
 
 # Installer build artifacts
 Installer/release/
+Installer/resources/runtime/

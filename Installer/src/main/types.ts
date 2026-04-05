@@ -23,11 +23,14 @@ export interface SetupLogEvent {
 export interface RuntimeStatus {
   bundledNodePath: string | null;
   bundledNpmCliPath: string | null;
+  downloadedNodePath: string | null;
+  downloadedNpmCliPath: string | null;
   systemNodePath: string | null;
   systemNodeVersion: string | null;
   systemNpmVersion: string | null;
   isBundledRuntimeReady: boolean;
-  mode: "bundled" | "system" | "missing";
+  isDownloadedRuntimeReady: boolean;
+  mode: "bundled" | "downloaded" | "system" | "missing";
 }
 
 export interface InstallContext {

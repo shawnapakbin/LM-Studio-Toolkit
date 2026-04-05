@@ -82,7 +82,6 @@ function stageCuratedPayload() {
 
 function writeManifest() {
   const manifest = {
-    createdAt: new Date().toISOString(),
     source: "llm-toolkit workspace",
     mode: "directory",
   };

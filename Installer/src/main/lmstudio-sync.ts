@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { buildBridgeConfig, TOOL_DESCRIPTORS } from "./mcp-config";
+import { resolveActiveNodePath } from "./runtime-manager";
 import type { LmStudioInstallationStatus, LmStudioStatus } from "./types";
 
 function resolvePluginRoot(override?: string) {
@@ -89,10 +90,11 @@ export function verifyLmStudio(installRoot: string, override?: string): LmStudio
   let skipped = 0;
 
   // Build the mcpServers map for the top-level mcp.json that LM Studio reads.
+  const nodePath = resolveActiveNodePath();
   const mcpServers: Record<string, ReturnType<typeof buildBridgeConfig>> = {};
 
   for (const tool of TOOL_DESCRIPTORS) {
-    const config = buildBridgeConfig(installRoot, tool);
+    const config = buildBridgeConfig(installRoot, tool, nodePath);
     mcpServers[tool.id] = config;
 
     // Also write per-plugin bridge config for the extension plugin loader.

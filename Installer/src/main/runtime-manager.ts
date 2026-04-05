@@ -82,6 +82,12 @@ export function getRuntimeStatus(): RuntimeStatus {
   };
 }
 
+/** Returns the absolute path to the best available Node.js executable, falling back to "node". */
+export function resolveActiveNodePath(): string {
+  const status = getRuntimeStatus();
+  return status.bundledNodePath ?? status.downloadedNodePath ?? status.systemNodePath ?? "node";
+}
+
 function resolvePortableArchiveName() {
   if (process.platform === "win32") {
     return `node-v${PORTABLE_NODE_VERSION}-win-${process.arch}.zip`;

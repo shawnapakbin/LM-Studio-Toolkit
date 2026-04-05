@@ -118,11 +118,11 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
   },
 ];
 
-export function buildBridgeConfig(installRoot: string, tool: ToolDescriptor) {
+export function buildBridgeConfig(installRoot: string, tool: ToolDescriptor, nodePath = "node") {
   const { resolvedPath } = resolveToolScriptPath(installRoot, tool);
 
   return {
-    command: "node",
+    command: nodePath.replace(/\\/g, "/"),
     args: [resolvedPath.replace(/\\/g, "/")],
     cwd: installRoot.replace(/\\/g, "/"),
     env: tool.env,

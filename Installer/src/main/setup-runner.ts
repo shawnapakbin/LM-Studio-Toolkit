@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { extractPayloadToInstallRoot, getPackagedPayloadRoot, inspectPayload } from "./bootstrap";
 import { ensureEnvState } from "./env-manager";
 import { getLmStudioInstallationStatus, verifyLmStudio } from "./lmstudio-sync";
-import { ensureRuntimeReady, spawnNpmCommand } from "./runtime-manager";
+import { ensureRuntimeReady, resolveActiveNodePath, spawnNpmCommand } from "./runtime-manager";
 import { getToolStatuses } from "./tool-status";
 import type { InstallContext, SetupLogEvent, SetupProgressEvent } from "./types";
 
@@ -185,6 +185,10 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
     line: `[lmstudio] pluginRoot=${lmStudioInstall.pluginRoot} exists=${lmStudioInstall.pluginRootExists ? "yes" : "no"}`,
   });
   const lmStudioStatus = verifyLmStudio(context.installRoot);
+  handlers.onLog({
+    stream: "stdout",
+    line: `[lmstudio] node command=${resolveActiveNodePath()}`,
+  });
   handlers.onLog({
     stream: "stdout",
     line: `[lmstudio] sync result updated=${lmStudioStatus.updated} skipped=${lmStudioStatus.skipped}`,

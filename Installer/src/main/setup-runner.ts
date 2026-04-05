@@ -1,6 +1,6 @@
 import { extractPayloadToInstallRoot, getPackagedPayloadRoot, inspectPayload } from "./bootstrap";
 import { ensureEnvState } from "./env-manager";
-import { verifyLmStudio } from "./lmstudio-sync";
+import { getLmStudioInstallationStatus, verifyLmStudio } from "./lmstudio-sync";
 import { ensureRuntimeReady, spawnNpmCommand } from "./runtime-manager";
 import { getToolStatuses } from "./tool-status";
 import type { InstallContext, SetupLogEvent, SetupProgressEvent } from "./types";
@@ -172,7 +172,20 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
   emitProgress(handlers, 5, "verify", "ok", `Verified ${statuses.length} tool binaries.`, 100);
 
   emitProgress(handlers, 6, "lmstudio", "section", "Syncing LM Studio bridge configs", 20);
+  const lmStudioInstall = getLmStudioInstallationStatus();
+  handlers.onLog({
+    stream: "stdout",
+    line: `[lmstudio] appInstalled=${lmStudioInstall.appInstalled ? "yes" : "no"} appPath=${lmStudioInstall.appPath ?? "n/a"}`,
+  });
+  handlers.onLog({
+    stream: "stdout",
+    line: `[lmstudio] pluginRoot=${lmStudioInstall.pluginRoot} exists=${lmStudioInstall.pluginRootExists ? "yes" : "no"}`,
+  });
   const lmStudioStatus = verifyLmStudio(context.installRoot);
+  handlers.onLog({
+    stream: "stdout",
+    line: `[lmstudio] sync result updated=${lmStudioStatus.updated} skipped=${lmStudioStatus.skipped}`,
+  });
   emitProgress(
     handlers,
     6,

@@ -62,7 +62,7 @@ export function getLmStudioInstallationStatus(override?: string): LmStudioInstal
     message: appPath
       ? pluginRootExists
         ? "LM Studio app and plugin directory detected."
-        : "LM Studio app detected, but the MCP plugin directory is not present yet."
+        : "LM Studio app detected. The MCP plugin directory will be created during sync."
       : "LM Studio app was not detected on this machine.",
   };
 }
@@ -71,29 +71,25 @@ export function verifyLmStudio(installRoot: string, override?: string): LmStudio
   const installation = getLmStudioInstallationStatus(override);
   const { pluginRoot } = installation;
 
-  if (!installation.pluginRootExists) {
+  if (!installation.appInstalled) {
     return {
       pluginRoot,
       exists: false,
       mode: "skipped",
       updated: 0,
       skipped: TOOL_DESCRIPTORS.length,
-      message: installation.appInstalled
-        ? "LM Studio was found, but its MCP plugin root is missing. Sync can be retried later from the dashboard."
-        : "LM Studio installation not found. Sync can be retried later from the dashboard.",
+      message: "LM Studio installation not found. Sync can be retried later from the dashboard.",
     };
   }
+
+  // Ensure the LM Studio MCP plugin root exists so first-time installs can sync immediately.
+  mkdirSync(pluginRoot, { recursive: true });
 
   let updated = 0;
   let skipped = 0;
 
   for (const tool of TOOL_DESCRIPTORS) {
     const pluginDir = join(pluginRoot, tool.id);
-    if (!existsSync(pluginDir)) {
-      skipped += 1;
-      continue;
-    }
-
     mkdirSync(pluginDir, { recursive: true });
     const targetFile = join(pluginDir, "mcp-bridge-config.json");
     writeFileSync(

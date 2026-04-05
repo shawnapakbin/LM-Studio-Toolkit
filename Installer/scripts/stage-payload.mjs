@@ -20,6 +20,7 @@ const PAYLOAD_ITEMS = [
   "AskUser",
   "RAG",
   "Memory",
+  "Observability",
   "Skills",
   "ECM",
   "SlashCommands",

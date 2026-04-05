@@ -40,12 +40,29 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
   const [allowDownloads, setAllowDownloads] = useState(false);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [lmStudioInstallation, setLmStudioInstallation] = useState<LmStudioInstallationStatus | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const { cancel, error, isRunning, logs, progress, start } = useSetup();
 
   useEffect(() => {
-    void window.electronAPI.getInstallRoot().then((value) => setInstallRoot(value));
-    void window.electronAPI.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus));
-    void window.electronAPI.getLmStudioStatus().then((value) => setLmStudioInstallation(value as LmStudioInstallationStatus));
+    const api = window.electronAPI;
+    if (!api) {
+      setBootstrapError("Electron preload API was not available.");
+      return;
+    }
+
+    Promise.allSettled([
+      api.getInstallRoot().then((value) => setInstallRoot(value)),
+      api.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus)),
+      typeof api.getLmStudioStatus === "function"
+        ? api.getLmStudioStatus().then((value) => setLmStudioInstallation(value as LmStudioInstallationStatus))
+        : Promise.reject(new Error("getLmStudioStatus is missing from preload API")),
+    ]).then((results) => {
+      const firstRejected = results.find((result) => result.status === "rejected") as PromiseRejectedResult | undefined;
+      if (firstRejected) {
+        const reason = firstRejected.reason instanceof Error ? firstRejected.reason.message : String(firstRejected.reason);
+        setBootstrapError(reason);
+      }
+    });
   }, []);
 
   const currentEvent = progress.at(-1);
@@ -190,6 +207,7 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
               style={{ width: `${currentPhasePercent}%` }}
             />
           </div>
+          {bootstrapError ? <p className="text-sm text-[#fca5a5]">{bootstrapError}</p> : null}
           {error ? <p className="text-sm text-[#fca5a5]">{error}</p> : null}
           <div className="grid gap-2">
             {progress.length === 0 ? (

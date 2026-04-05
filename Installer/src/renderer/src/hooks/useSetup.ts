@@ -21,6 +21,11 @@ export function useSetup() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!window.electronAPI?.onSetupProgress || !window.electronAPI?.onSetupLog) {
+      setError("Installer preload event APIs are unavailable.");
+      return;
+    }
+
     const disposeProgress = window.electronAPI.onSetupProgress((payload) => {
       setProgress((current) => [...current, payload as SetupProgressEvent]);
     });

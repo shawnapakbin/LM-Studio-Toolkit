@@ -151,8 +151,22 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
 
   emitProgress(handlers, 5, "verify", "section", "Verifying tool binaries", 20);
   const statuses = getToolStatuses(context.installRoot);
+  for (const status of statuses) {
+    handlers.onLog({
+      stream: "stdout",
+      line: `[verify] ${status.displayName}: resolved=${status.scriptPath} exists=${status.binaryExists ? "yes" : "no"}`,
+    });
+  }
+
   const missing = statuses.filter((status) => !status.binaryExists);
   if (missing.length > 0) {
+    for (const status of missing) {
+      handlers.onLog({
+        stream: "stderr",
+        line: `[verify] ${status.displayName} missing. Checked: ${status.checkedPaths.join(" | ")}`,
+      });
+    }
+
     throw new Error(`Missing tool binaries: ${missing.map((status) => status.displayName).join(", ")}.`);
   }
   emitProgress(handlers, 5, "verify", "ok", `Verified ${statuses.length} tool binaries.`, 100);

@@ -1,5 +1,4 @@
-import { join } from "node:path";
-
+import { resolveToolScriptPath } from "./script-path";
 import type { ToolDescriptor } from "./types";
 
 export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
@@ -120,9 +119,11 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
 ];
 
 export function buildBridgeConfig(installRoot: string, tool: ToolDescriptor) {
+  const { resolvedPath } = resolveToolScriptPath(installRoot, tool);
+
   return {
     command: "node",
-    args: [join(installRoot, tool.relativeScript).replace(/\\/g, "/")],
+    args: [resolvedPath.replace(/\\/g, "/")],
     cwd: installRoot.replace(/\\/g, "/"),
     env: tool.env,
   };

@@ -65,6 +65,7 @@ export interface ToolStatus {
   toolId: string;
   displayName: string;
   scriptPath: string;
+  checkedPaths: string[];
   binaryExists: boolean;
   lastModifiedAt: string | null;
 }

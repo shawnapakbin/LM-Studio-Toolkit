@@ -197,9 +197,14 @@ function runInstallAttempt(command: string, args: string[]) {
   };
 }
 
-export function ensureRuntimeReady(onLog: (line: string) => void) {
+export function ensureRuntimeReady(onLog: (line: string) => void, options?: { allowDownload?: boolean }) {
   const current = getRuntimeStatus();
   if (current.mode === "bundled" || current.mode === "downloaded" || current.mode === "system") {
+    return getRuntimeStatus();
+  }
+
+  if (!options?.allowDownload) {
+    onLog("Runtime download was required but user permission was not granted.");
     return getRuntimeStatus();
   }
 
@@ -207,41 +212,6 @@ export function ensureRuntimeReady(onLog: (line: string) => void) {
   if (downloadAndExtractPortableRuntime(onLog)) {
     onLog("Portable runtime downloaded successfully.");
     return getRuntimeStatus();
-  }
-
-  const attempts: Array<{ command: string; args: string[]; label: string }> = [];
-
-  if (process.platform === "win32") {
-    attempts.push({
-      command: "winget",
-      args: ["install", "OpenJS.NodeJS.LTS", "--accept-package-agreements", "--accept-source-agreements"],
-      label: "winget Node.js LTS",
-    });
-    attempts.push({
-      command: "choco",
-      args: ["install", "nodejs-lts", "-y"],
-      label: "choco nodejs-lts",
-    });
-  } else if (process.platform === "darwin") {
-    attempts.push({ command: "brew", args: ["install", "node@20"], label: "brew node@20" });
-  } else {
-    attempts.push({ command: "apt-get", args: ["update"], label: "apt-get update" });
-    attempts.push({ command: "apt-get", args: ["install", "-y", "nodejs", "npm"], label: "apt-get install nodejs npm" });
-  }
-
-  for (const attempt of attempts) {
-    onLog(`Attempting to install runtime dependencies via ${attempt.label}...`);
-    const result = runInstallAttempt(attempt.command, attempt.args);
-    if (result.output) {
-      onLog(result.output);
-    }
-    if (result.ok) {
-      const refreshed = getRuntimeStatus();
-      if (refreshed.mode === "system" || refreshed.mode === "bundled") {
-        onLog("Runtime dependencies are now available.");
-        return refreshed;
-      }
-    }
   }
 
   return getRuntimeStatus();

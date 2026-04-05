@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 
 import { buildBridgeConfig, TOOL_DESCRIPTORS } from "./mcp-config";
-import type { LmStudioStatus } from "./types";
+import type { LmStudioInstallationStatus, LmStudioStatus } from "./types";
 
 function resolvePluginRoot(override?: string) {
   if (override && override.trim()) {
@@ -13,17 +14,73 @@ function resolvePluginRoot(override?: string) {
   return join(homedir(), ".lmstudio", "extensions", "plugins", "mcp");
 }
 
-export function verifyLmStudio(installRoot: string, override?: string): LmStudioStatus {
-  const pluginRoot = resolvePluginRoot(override);
+function detectLmStudioAppPath() {
+  const home = homedir();
 
-  if (!existsSync(pluginRoot)) {
+  if (process.platform === "win32") {
+    const candidates = [
+      process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "LM Studio", "LM Studio.exe") : null,
+      process.env.ProgramFiles ? join(process.env.ProgramFiles, "LM Studio", "LM Studio.exe") : null,
+      process.env["ProgramFiles(x86)"] ? join(process.env["ProgramFiles(x86)"], "LM Studio", "LM Studio.exe") : null,
+    ].filter((value): value is string => Boolean(value));
+
+    return candidates.find((candidate) => existsSync(candidate)) ?? null;
+  }
+
+  if (process.platform === "darwin") {
+    const candidates = [join("/Applications", "LM Studio.app"), join(home, "Applications", "LM Studio.app")];
+    return candidates.find((candidate) => existsSync(candidate)) ?? null;
+  }
+
+  const commandResult = spawnSync("which", ["lmstudio"], { encoding: "utf8" });
+  if (commandResult.status === 0) {
+    const candidate = (commandResult.stdout ?? "").trim();
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const linuxCandidates = [
+    join(home, "Applications", "LM-Studio.AppImage"),
+    join(home, "Applications", "LM Studio.AppImage"),
+    join("/opt", "LM Studio", "lmstudio"),
+  ];
+
+  return linuxCandidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+export function getLmStudioInstallationStatus(override?: string): LmStudioInstallationStatus {
+  const pluginRoot = resolvePluginRoot(override);
+  const appPath = detectLmStudioAppPath();
+  const pluginRootExists = existsSync(pluginRoot);
+
+  return {
+    appInstalled: Boolean(appPath),
+    appPath,
+    pluginRoot,
+    pluginRootExists,
+    message: appPath
+      ? pluginRootExists
+        ? "LM Studio app and plugin directory detected."
+        : "LM Studio app detected, but the MCP plugin directory is not present yet."
+      : "LM Studio app was not detected on this machine.",
+  };
+}
+
+export function verifyLmStudio(installRoot: string, override?: string): LmStudioStatus {
+  const installation = getLmStudioInstallationStatus(override);
+  const { pluginRoot } = installation;
+
+  if (!installation.pluginRootExists) {
     return {
       pluginRoot,
       exists: false,
       mode: "skipped",
       updated: 0,
       skipped: TOOL_DESCRIPTORS.length,
-      message: "LM Studio plugin root not found. Sync can be retried later from the dashboard.",
+      message: installation.appInstalled
+        ? "LM Studio was found, but its MCP plugin root is missing. Sync can be retried later from the dashboard."
+        : "LM Studio installation not found. Sync can be retried later from the dashboard.",
     };
   }
 

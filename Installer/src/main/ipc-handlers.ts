@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { ensureInstallRoot } from "./bootstrap";
 import { loadEnvState, saveEnvState } from "./env-manager";
-import { verifyLmStudio } from "./lmstudio-sync";
+import { getLmStudioInstallationStatus, verifyLmStudio } from "./lmstudio-sync";
 import { getRuntimeStatus } from "./runtime-manager";
 import { runSetup } from "./setup-runner";
 import { getToolStatuses } from "./tool-status";
@@ -36,15 +36,16 @@ export function registerIpcHandlers(window: BrowserWindow) {
     (_event, installRoot: string, entries: Record<string, string>) => saveEnvState(installRoot, entries),
   );
   ipcMain.handle("tools:status-all", (_event, installRoot: string) => getToolStatuses(installRoot));
+  ipcMain.handle("lmstudio:status", (_event, override?: string) => getLmStudioInstallationStatus(override));
   ipcMain.handle("lmstudio:verify", (_event, installRoot: string, override?: string) =>
     verifyLmStudio(installRoot, override),
   );
-  ipcMain.handle("setup:start", async (_event, installRoot: string) => {
+  ipcMain.handle("setup:start", async (_event, installRoot: string, options?: { allowDownloads?: boolean }) => {
     ensureInstallRoot(installRoot);
     activeRunController = new AbortController();
     try {
       return await runSetup(
-        { installRoot, repair: false },
+        { installRoot, repair: false, allowDownloads: options?.allowDownloads === true },
         {
           onProgress: (payload) => sendProgress(window, "setup:progress", payload),
           onLog: (payload) => sendProgress(window, "setup:log", payload),
@@ -55,12 +56,12 @@ export function registerIpcHandlers(window: BrowserWindow) {
       activeRunController = null;
     }
   });
-  ipcMain.handle("setup:repair", async (_event, installRoot: string) => {
+  ipcMain.handle("setup:repair", async (_event, installRoot: string, options?: { allowDownloads?: boolean }) => {
     ensureInstallRoot(installRoot);
     activeRunController = new AbortController();
     try {
       return await runSetup(
-        { installRoot, repair: true },
+        { installRoot, repair: true, allowDownloads: options?.allowDownloads === true },
         {
           onProgress: (payload) => sendProgress(window, "setup:progress", payload),
           onLog: (payload) => sendProgress(window, "setup:log", payload),

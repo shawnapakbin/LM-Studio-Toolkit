@@ -12,11 +12,22 @@ interface DashboardPageProps {
 interface RuntimeStatus {
   bundledNodePath: string | null;
   bundledNpmCliPath: string | null;
+  downloadedNodePath: string | null;
+  downloadedNpmCliPath: string | null;
   systemNodePath: string | null;
   systemNodeVersion: string | null;
   systemNpmVersion: string | null;
   isBundledRuntimeReady: boolean;
-  mode: "bundled" | "system" | "missing";
+  isDownloadedRuntimeReady: boolean;
+  mode: "bundled" | "downloaded" | "system" | "missing";
+}
+
+interface LmStudioInstallationStatus {
+  appInstalled: boolean;
+  appPath: string | null;
+  pluginRoot: string;
+  pluginRootExists: boolean;
+  message: string;
 }
 
 interface LmStudioStatus {
@@ -32,11 +43,13 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
   const [installRoot, setInstallRoot] = useState("");
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [lmStudioStatus, setLmStudioStatus] = useState<LmStudioStatus | null>(null);
+  const [lmStudioInstallation, setLmStudioInstallation] = useState<LmStudioInstallationStatus | null>(null);
   const { isLoading, toolStatuses } = useToolStatus(installRoot);
 
   useEffect(() => {
     void window.electronAPI.getInstallRoot().then((value) => setInstallRoot(value));
     void window.electronAPI.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus));
+    void window.electronAPI.getLmStudioStatus().then((value) => setLmStudioInstallation(value));
   }, []);
 
   useEffect(() => {
@@ -66,6 +79,7 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
             className="action-button"
             onClick={() => {
               void window.electronAPI.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus));
+              void window.electronAPI.getLmStudioStatus().then((value) => setLmStudioInstallation(value));
               if (installRoot) {
                 void window.electronAPI
                   .verifyLmStudio(installRoot)
@@ -92,16 +106,16 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
               <dd className="mt-1 text-white">{runtimeStatus?.mode ?? "Loading..."}</dd>
             </div>
             <div>
-              <dt className="text-app-muted">Bundled runtime ready</dt>
-              <dd className="mt-1 text-white">{runtimeStatus?.isBundledRuntimeReady ? "Yes" : "Not yet"}</dd>
+              <dt className="text-app-muted">Downloaded runtime ready</dt>
+              <dd className="mt-1 text-white">{runtimeStatus?.isDownloadedRuntimeReady ? "Yes" : "Not yet"}</dd>
             </div>
             <div>
-              <dt className="text-app-muted">Node binary</dt>
-              <dd className="mt-1 break-all text-white">{runtimeStatus?.bundledNodePath ?? "Not packaged yet"}</dd>
+              <dt className="text-app-muted">Downloaded node binary</dt>
+              <dd className="mt-1 break-all text-white">{runtimeStatus?.downloadedNodePath ?? "Not downloaded yet"}</dd>
             </div>
             <div>
-              <dt className="text-app-muted">npm CLI</dt>
-              <dd className="mt-1 break-all text-white">{runtimeStatus?.bundledNpmCliPath ?? "Not packaged yet"}</dd>
+              <dt className="text-app-muted">Downloaded npm CLI</dt>
+              <dd className="mt-1 break-all text-white">{runtimeStatus?.downloadedNpmCliPath ?? "Not downloaded yet"}</dd>
             </div>
             <div>
               <dt className="text-app-muted">System node path</dt>
@@ -123,12 +137,16 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
           </div>
           <dl className="grid gap-4 text-sm">
             <div>
+              <dt className="text-app-muted">LM Studio app</dt>
+              <dd className="mt-1 break-all text-white">{lmStudioInstallation?.appPath ?? "Not detected"}</dd>
+            </div>
+            <div>
               <dt className="text-app-muted">Plugin root</dt>
-              <dd className="mt-1 break-all text-white">{lmStudioStatus?.pluginRoot ?? "Loading..."}</dd>
+              <dd className="mt-1 break-all text-white">{lmStudioInstallation?.pluginRoot ?? "Loading..."}</dd>
             </div>
             <div>
               <dt className="text-app-muted">Status</dt>
-              <dd className="mt-1 text-white">{lmStudioStatus?.message ?? "Checking..."}</dd>
+              <dd className="mt-1 text-white">{lmStudioStatus?.message ?? lmStudioInstallation?.message ?? "Checking..."}</dd>
             </div>
             <div className="grid gap-2 md:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">

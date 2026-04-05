@@ -13,6 +13,8 @@ export interface SetupProgressEvent {
   message: string;
   phase: SetupPhase;
   step: number;
+  totalSteps: number;
+  phaseProgress: number;
 }
 
 export interface SetupLogEvent {
@@ -36,6 +38,7 @@ export interface RuntimeStatus {
 export interface InstallContext {
   installRoot: string;
   repair: boolean;
+  allowDownloads: boolean;
 }
 
 export interface EnvField {
@@ -71,5 +74,13 @@ export interface LmStudioStatus {
   mode: "ready" | "skipped";
   updated: number;
   skipped: number;
+  message: string;
+}
+
+export interface LmStudioInstallationStatus {
+  appInstalled: boolean;
+  appPath: string | null;
+  pluginRoot: string;
+  pluginRootExists: boolean;
   message: string;
 }

@@ -5,6 +5,8 @@ export interface SetupProgressEvent {
   message: string;
   phase: string;
   step: number;
+  totalSteps: number;
+  phaseProgress: number;
 }
 
 export interface SetupLogEvent {
@@ -32,7 +34,7 @@ export function useSetup() {
     };
   }, []);
 
-  async function start(installRoot: string, repair = false) {
+  async function start(installRoot: string, repair = false, options?: { allowDownloads?: boolean }) {
     setIsRunning(true);
     setError(null);
     setProgress([]);
@@ -40,9 +42,9 @@ export function useSetup() {
 
     try {
       if (repair) {
-        await window.electronAPI.repairSetup(installRoot);
+        await window.electronAPI.repairSetup(installRoot, options);
       } else {
-        await window.electronAPI.startSetup(installRoot);
+        await window.electronAPI.startSetup(installRoot, options);
       }
     } catch (setupError) {
       setError(setupError instanceof Error ? setupError.message : "Setup failed.");

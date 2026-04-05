@@ -9,16 +9,51 @@ interface WizardPageProps {
   onOpenDashboard: () => void;
 }
 
+interface RuntimeStatus {
+  mode: "bundled" | "downloaded" | "system" | "missing";
+}
+
+interface LmStudioInstallationStatus {
+  appInstalled: boolean;
+  appPath: string | null;
+  pluginRoot: string;
+  pluginRootExists: boolean;
+  message: string;
+}
+
+function formatPhaseLabel(phase: string) {
+  const labels: Record<string, string> = {
+    bootstrap: "Bootstrap",
+    env: "Environment",
+    install: "Dependency install",
+    build: "Build",
+    verify: "Verification",
+    lmstudio: "LM Studio sync",
+  };
+
+  return labels[phase] ?? phase;
+}
+
 export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
   const [installRoot, setInstallRoot] = useState("");
   const [mode, setMode] = useState<"install" | "repair">("install");
+  const [allowDownloads, setAllowDownloads] = useState(false);
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
+  const [lmStudioInstallation, setLmStudioInstallation] = useState<LmStudioInstallationStatus | null>(null);
   const { cancel, error, isRunning, logs, progress, start } = useSetup();
 
   useEffect(() => {
     void window.electronAPI.getInstallRoot().then((value) => setInstallRoot(value));
+    void window.electronAPI.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus));
+    void window.electronAPI.getLmStudioStatus().then((value) => setLmStudioInstallation(value as LmStudioInstallationStatus));
   }, []);
 
-  const currentStep = progress.at(-1)?.step ?? 0;
+  const currentEvent = progress.at(-1);
+  const totalSteps = currentEvent?.totalSteps ?? 7;
+  const currentStep = currentEvent?.step ?? 0;
+  const totalProgressPercent = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
+  const currentPhasePercent = currentEvent?.phaseProgress ?? 0;
+  const runtimeDownloadNeeded = runtimeStatus?.mode === "missing";
 
   return (
     <div className="grid flex-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -32,6 +67,25 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
             This installer ships with payload extraction, runtime bootstrap, and graceful LM Studio sync behavior so
             setup can complete even when the machine starts with missing prerequisites.
           </p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+          <div className="text-sm uppercase tracking-[0.24em] text-app-muted">Current Request</div>
+          <p className="mt-3 text-sm text-white">
+            {mode === "repair"
+              ? "Repair this LLM Toolkit installation, verify binaries, and refresh LM Studio MCP bridge settings."
+              : "Install LLM Toolkit, bootstrap dependencies, build all tool packages, and set up LM Studio MCP bridge settings."}
+          </p>
+          <ul className="mt-3 grid gap-2 text-sm text-app-muted">
+            <li>LM Studio app detection: {lmStudioInstallation?.appInstalled ? "Detected" : "Not detected"}</li>
+            <li>
+              LM Studio plugin root: {lmStudioInstallation?.pluginRootExists ? "Detected" : "Not detected yet"}
+            </li>
+            <li>Runtime status: {runtimeStatus?.mode ?? "Checking..."}</li>
+            <li>
+              Download requirement: {runtimeDownloadNeeded ? "Portable Node runtime download required" : "Package download may still occur during npm install"}
+            </li>
+          </ul>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -67,9 +121,9 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
             </button>
             <button
               className="action-button"
-              disabled={!installRoot || isRunning}
+              disabled={!installRoot || isRunning || !allowDownloads}
               onClick={() => {
-                void start(installRoot, mode === "repair")
+                void start(installRoot, mode === "repair", { allowDownloads })
                   .then(() => onComplete())
                   .catch(() => {
                     // Error state is surfaced by useSetup.
@@ -94,15 +148,47 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
               Open dashboard
             </button>
           </div>
+          <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-app-muted">
+            <input
+              checked={allowDownloads}
+              className="mt-0.5 h-4 w-4 accent-[#8bd8a8]"
+              onChange={(event) => setAllowDownloads(event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              I approve downloads needed by this installer (portable Node runtime when missing and npm package dependencies).
+              {!allowDownloads ? " Granting permission is required before setup can run." : " Permission granted for this run."}
+            </span>
+          </label>
+          <p className="text-xs text-app-muted">
+            {lmStudioInstallation?.message ?? "Checking LM Studio installation..."}
+          </p>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between text-sm text-app-muted">
-            <span>Installer progress</span>
-            <span>Step {currentStep} / 7</span>
+            <span>Total installation progress</span>
+            <span>
+              Step {currentStep} / {totalSteps}
+            </span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full bg-[linear-gradient(90deg,#8bd8a8,#f5d06d)] transition-all" style={{ width: `${(currentStep / 7) * 100}%` }} />
+            <div
+              className="h-full bg-[linear-gradient(90deg,#8bd8a8,#f5d06d)] transition-all"
+              style={{ width: `${totalProgressPercent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-sm text-app-muted">
+            <span>Current process progress</span>
+            <span>
+              {currentEvent ? `${formatPhaseLabel(currentEvent.phase)}: ${Math.round(currentPhasePercent)}%` : "Waiting to start"}
+            </span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full bg-[linear-gradient(90deg,#69c9ff,#8bd8a8)] transition-all"
+              style={{ width: `${currentPhasePercent}%` }}
+            />
           </div>
           {error ? <p className="text-sm text-[#fca5a5]">{error}</p> : null}
           <div className="grid gap-2">

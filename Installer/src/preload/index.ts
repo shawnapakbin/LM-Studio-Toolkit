@@ -9,10 +9,13 @@ const electronApi = {
   saveEnv: (installRoot: string, entries: Record<string, string>) =>
     ipcRenderer.invoke("env:save", installRoot, entries),
   getToolStatuses: (installRoot: string) => ipcRenderer.invoke("tools:status-all", installRoot),
+  getLmStudioStatus: (override?: string) => ipcRenderer.invoke("lmstudio:status", override),
   verifyLmStudio: (installRoot: string, override?: string) =>
     ipcRenderer.invoke("lmstudio:verify", installRoot, override),
-  startSetup: (installRoot: string) => ipcRenderer.invoke("setup:start", installRoot),
-  repairSetup: (installRoot: string) => ipcRenderer.invoke("setup:repair", installRoot),
+  startSetup: (installRoot: string, options?: { allowDownloads?: boolean }) =>
+    ipcRenderer.invoke("setup:start", installRoot, options),
+  repairSetup: (installRoot: string, options?: { allowDownloads?: boolean }) =>
+    ipcRenderer.invoke("setup:repair", installRoot, options),
   cancelSetup: () => ipcRenderer.invoke("setup:cancel"),
   onSetupProgress: (handler: (payload: unknown) => void) => {
     const listener = (_event: unknown, payload: unknown) => handler(payload);

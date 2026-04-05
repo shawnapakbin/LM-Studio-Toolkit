@@ -67,7 +67,7 @@ export function App() {
   return (
     <AppErrorBoundary>
       <div className="min-h-screen bg-app text-app-foreground">
-        <main className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col px-6 py-8">
+        <main className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col overflow-auto px-4 py-4 lg:px-5 lg:py-5">
           {page === "wizard" ? (
             <WizardPage onComplete={() => setPage("dashboard")} onOpenDashboard={() => setPage("dashboard")} />
           ) : (

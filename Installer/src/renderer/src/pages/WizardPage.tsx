@@ -73,14 +73,14 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
   const runtimeDownloadNeeded = runtimeStatus?.mode === "missing";
 
   return (
-    <div className="grid flex-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <Panel className="flex flex-col gap-8 bg-[radial-gradient(circle_at_top_left,rgba(181,255,214,0.18),transparent_35%),rgba(255,255,255,0.04)]">
-        <div className="space-y-4">
+    <div className="grid flex-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <Panel className="flex flex-col gap-5 bg-[radial-gradient(circle_at_top_left,rgba(181,255,214,0.18),transparent_35%),rgba(255,255,255,0.04)]">
+        <div className="space-y-3">
           <span className="eyebrow">Self-Sufficient Installer</span>
-          <h1 className="max-w-3xl text-5xl font-semibold tracking-tight text-white">
+          <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-white lg:text-4xl">
             Install LLM Toolkit without relying on a preconfigured machine.
           </h1>
-          <p className="max-w-2xl text-lg text-app-muted">
+          <p className="max-w-3xl text-sm text-app-muted lg:text-base">
             This installer ships with payload extraction, runtime bootstrap, and graceful LM Studio sync behavior so
             setup can complete even when the machine starts with missing prerequisites.
           </p>
@@ -224,13 +224,13 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
         </div>
       </Panel>
 
-      <Panel className="flex flex-col gap-5">
+      <Panel className="flex flex-col gap-4">
         <div>
           <span className="eyebrow">Live Log</span>
-          <h2 className="mt-3 text-2xl font-semibold text-white">Command stream</h2>
+          <h2 className="mt-2 text-xl font-semibold text-white">Command stream</h2>
           <p className="mt-2 text-sm text-app-muted">Main-process setup events and child-process output are streamed here.</p>
         </div>
-        <div className="min-h-[420px] flex-1 overflow-auto rounded-2xl border border-white/10 bg-[#09100e] p-4 font-mono text-xs leading-6 text-[#dcf7e6]">
+        <div className="min-h-[260px] flex-1 overflow-auto rounded-2xl border border-white/10 bg-[#09100e] p-3 font-mono text-xs leading-5 text-[#dcf7e6]">
           {logs.length === 0 ? (
             <span className="text-app-muted">Waiting for setup output...</span>
           ) : (

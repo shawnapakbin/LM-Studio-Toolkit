@@ -61,11 +61,11 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
   }, [installRoot]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Panel className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="eyebrow">Dashboard</span>
-          <h1 className="mt-3 text-4xl font-semibold text-white">Installer control surface</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-white lg:text-4xl">Installer control surface</h1>
           <p className="mt-2 max-w-3xl text-sm text-app-muted">
             This dashboard is the post-install home for runtime health, tool binaries, and LM Studio bridge status.
           </p>
@@ -94,7 +94,7 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
         </div>
       </Panel>
 
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <Panel className="space-y-5">
           <div>
             <h2 className="text-xl font-semibold text-white">Runtime</h2>

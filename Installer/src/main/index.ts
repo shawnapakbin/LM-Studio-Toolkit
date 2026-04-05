@@ -41,10 +41,10 @@ function renderFailurePage(window: BrowserWindow, title: string, details: string
 
 function createWindow() {
   const window = new BrowserWindow({
-    width: 1440,
-    height: 940,
-    minWidth: 1180,
-    minHeight: 760,
+    width: 1200,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 768,
     backgroundColor: "#0d1412",
     autoHideMenuBar: true,
     show: false,

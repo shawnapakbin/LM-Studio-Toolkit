@@ -11,11 +11,11 @@
     "icons:build": "node scripts/select-icon.mjs llm-toolkit-installer-nodes.svg",
     "counter:next": "node scripts/compile-counter.mjs",
     "prepare:resources": "node scripts/prepare-resources.mjs",
-    "build": "node scripts/compile-counter.mjs build && npm run icons:build && npm run prepare:resources && electron-vite build",
-    "dist": "node scripts/compile-counter.mjs dist && npm run icons:build && npm run prepare:resources && electron-builder",
+    "build": "node scripts/compile-counter.mjs build && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs",
+    "dist": "node scripts/compile-counter.mjs dist && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs && electron-builder",
     "dist:win": "node scripts/dist-win.mjs",
-    "dist:mac": "node scripts/compile-counter.mjs dist:mac && npm run icons:build && npm run prepare:resources && electron-builder --mac",
-    "dist:linux": "node scripts/compile-counter.mjs dist:linux && npm run icons:build && npm run prepare:resources && electron-builder --linux",
+    "dist:mac": "node scripts/compile-counter.mjs dist:mac && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs && electron-builder --mac",
+    "dist:linux": "node scripts/compile-counter.mjs dist:linux && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs && electron-builder --linux",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "build": {

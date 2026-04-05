@@ -61,6 +61,7 @@ function main() {
 
   run("npm", ["run", "icons:build"]);
   run("npm", ["run", "prepare:resources"]);
+  run("node", ["scripts/electron-vite-build.mjs"]);
   run("electron-builder", ["--win"], { CSC_IDENTITY_AUTO_DISCOVERY: "false" });
 
   const baseArtifact = join(releaseRoot, "install.exe");

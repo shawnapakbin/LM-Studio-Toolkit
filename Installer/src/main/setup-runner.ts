@@ -30,6 +30,7 @@ function runProcess(
   step: number,
   phase: SetupProgressEvent["phase"],
   signal?: AbortSignal,
+  options?: { envOverrides?: Record<string, string> },
 ) {
   return new Promise<void>((resolve, reject) => {
     const child = spawnNpmCommand(
@@ -37,6 +38,7 @@ function runProcess(
       cwd,
       (line) => handlers.onLog({ stream: "stdout", line }),
       (line) => handlers.onLog({ stream: "stderr", line }),
+      options,
     );
 
     const abortListener = () => {
@@ -114,6 +116,35 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
     15,
   );
   await runProcess(handlers, ["install"], context.installRoot, 3, "install", signal);
+
+  if (context.installPlaywrightBrowsers) {
+    emitProgress(
+      handlers,
+      3,
+      "install",
+      "info",
+      "Installing Playwright Chromium browser binaries for the WebBrowser MCP tool.",
+      65,
+    );
+    await runProcess(
+      handlers,
+      ["run", "-w", "WebBrowser", "postinstall"],
+      context.installRoot,
+      3,
+      "install",
+      signal,
+      { envOverrides: { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0" } },
+    );
+  } else {
+    emitProgress(
+      handlers,
+      3,
+      "install",
+      "warn",
+      "Skipped Playwright browser binary installation. WebBrowser MCP may need browser install later.",
+      65,
+    );
+  }
 
   emitProgress(handlers, 4, "build", "section", "Building toolkit packages", 10);
   await runProcess(handlers, ["run", "build"], context.installRoot, 4, "build", signal);

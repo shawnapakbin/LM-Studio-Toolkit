@@ -247,10 +247,16 @@ export function spawnNpmCommand(
   cwd: string,
   onStdout: (line: string) => void,
   onStderr: (line: string) => void,
+  options?: { envOverrides?: Record<string, string> },
 ) {
   const runtimeStatus = getRuntimeStatus();
   const env = { ...process.env };
   env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+  if (options?.envOverrides) {
+    for (const [key, value] of Object.entries(options.envOverrides)) {
+      env[key] = value;
+    }
+  }
 
   const prependNodePath = (nodeExecutablePath: string) => {
     const nodeDir = dirname(nodeExecutablePath);

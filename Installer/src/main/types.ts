@@ -39,6 +39,7 @@ export interface InstallContext {
   installRoot: string;
   repair: boolean;
   allowDownloads: boolean;
+  installPlaywrightBrowsers: boolean;
 }
 
 export interface EnvField {

@@ -40,12 +40,23 @@ export function registerIpcHandlers(window: BrowserWindow) {
   ipcMain.handle("lmstudio:verify", (_event, installRoot: string, override?: string) =>
     verifyLmStudio(installRoot, override),
   );
-  ipcMain.handle("setup:start", async (_event, installRoot: string, options?: { allowDownloads?: boolean }) => {
+  ipcMain.handle(
+    "setup:start",
+    async (
+      _event,
+      installRoot: string,
+      options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
+    ) => {
     ensureInstallRoot(installRoot);
     activeRunController = new AbortController();
     try {
       return await runSetup(
-        { installRoot, repair: false, allowDownloads: options?.allowDownloads === true },
+        {
+          installRoot,
+          repair: false,
+          allowDownloads: options?.allowDownloads === true,
+          installPlaywrightBrowsers: options?.installPlaywrightBrowsers !== false,
+        },
         {
           onProgress: (payload) => sendProgress(window, "setup:progress", payload),
           onLog: (payload) => sendProgress(window, "setup:log", payload),
@@ -55,13 +66,25 @@ export function registerIpcHandlers(window: BrowserWindow) {
     } finally {
       activeRunController = null;
     }
-  });
-  ipcMain.handle("setup:repair", async (_event, installRoot: string, options?: { allowDownloads?: boolean }) => {
+    },
+  );
+  ipcMain.handle(
+    "setup:repair",
+    async (
+      _event,
+      installRoot: string,
+      options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
+    ) => {
     ensureInstallRoot(installRoot);
     activeRunController = new AbortController();
     try {
       return await runSetup(
-        { installRoot, repair: true, allowDownloads: options?.allowDownloads === true },
+        {
+          installRoot,
+          repair: true,
+          allowDownloads: options?.allowDownloads === true,
+          installPlaywrightBrowsers: options?.installPlaywrightBrowsers !== false,
+        },
         {
           onProgress: (payload) => sendProgress(window, "setup:progress", payload),
           onLog: (payload) => sendProgress(window, "setup:log", payload),
@@ -71,7 +94,8 @@ export function registerIpcHandlers(window: BrowserWindow) {
     } finally {
       activeRunController = null;
     }
-  });
+    },
+  );
   ipcMain.handle("setup:cancel", () => {
     if (activeRunController) {
       activeRunController.abort();

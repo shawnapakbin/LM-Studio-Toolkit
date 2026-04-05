@@ -12,9 +12,9 @@ const electronApi = {
   getLmStudioStatus: (override?: string) => ipcRenderer.invoke("lmstudio:status", override),
   verifyLmStudio: (installRoot: string, override?: string) =>
     ipcRenderer.invoke("lmstudio:verify", installRoot, override),
-  startSetup: (installRoot: string, options?: { allowDownloads?: boolean }) =>
+  startSetup: (installRoot: string, options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean }) =>
     ipcRenderer.invoke("setup:start", installRoot, options),
-  repairSetup: (installRoot: string, options?: { allowDownloads?: boolean }) =>
+  repairSetup: (installRoot: string, options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean }) =>
     ipcRenderer.invoke("setup:repair", installRoot, options),
   cancelSetup: () => ipcRenderer.invoke("setup:cancel"),
   onSetupProgress: (handler: (payload: unknown) => void) => {

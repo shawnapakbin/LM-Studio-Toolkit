@@ -38,6 +38,7 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
   const [installRoot, setInstallRoot] = useState("");
   const [mode, setMode] = useState<"install" | "repair">("install");
   const [allowDownloads, setAllowDownloads] = useState(false);
+  const [installPlaywrightBrowsers, setInstallPlaywrightBrowsers] = useState(true);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [lmStudioInstallation, setLmStudioInstallation] = useState<LmStudioInstallationStatus | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
             <li>
               Download requirement: {runtimeDownloadNeeded ? "Portable Node runtime download required" : "Package download may still occur during npm install"}
             </li>
+            <li>Playwright browser install: {installPlaywrightBrowsers ? "Enabled" : "Disabled"}</li>
           </ul>
         </div>
 
@@ -140,7 +142,7 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
               className="action-button"
               disabled={!installRoot || isRunning || !allowDownloads}
               onClick={() => {
-                void start(installRoot, mode === "repair", { allowDownloads })
+                void start(installRoot, mode === "repair", { allowDownloads, installPlaywrightBrowsers })
                   .then(() => onComplete())
                   .catch(() => {
                     // Error state is surfaced by useSetup.
@@ -175,6 +177,20 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
             <span>
               I approve downloads needed by this installer (portable Node runtime when missing and npm package dependencies).
               {!allowDownloads ? " Granting permission is required before setup can run." : " Permission granted for this run."}
+            </span>
+          </label>
+          <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-app-muted">
+            <input
+              checked={installPlaywrightBrowsers}
+              className="mt-0.5 h-4 w-4 accent-[#8bd8a8]"
+              onChange={(event) => setInstallPlaywrightBrowsers(event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              Install Playwright Chromium browser binaries for WebBrowser MCP.
+              {!installPlaywrightBrowsers
+                ? " Browser MCP web automation will be unavailable until browsers are installed later."
+                : " This may download hundreds of MB and requires sufficient free disk space."}
             </span>
           </label>
           <p className="text-xs text-app-muted">

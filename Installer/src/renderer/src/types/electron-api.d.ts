@@ -33,8 +33,14 @@ declare global {
       getToolStatuses: (installRoot: string) => Promise<unknown>;
       getLmStudioStatus: (override?: string) => Promise<LmStudioInstallationStatus>;
       verifyLmStudio: (installRoot: string, override?: string) => Promise<unknown>;
-      startSetup: (installRoot: string, options?: { allowDownloads?: boolean }) => Promise<unknown>;
-      repairSetup: (installRoot: string, options?: { allowDownloads?: boolean }) => Promise<unknown>;
+      startSetup: (
+        installRoot: string,
+        options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
+      ) => Promise<unknown>;
+      repairSetup: (
+        installRoot: string,
+        options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
+      ) => Promise<unknown>;
       cancelSetup: () => Promise<boolean>;
       onSetupProgress: (handler: (payload: unknown) => void) => () => void;
       onSetupLog: (handler: (payload: unknown) => void) => () => void;

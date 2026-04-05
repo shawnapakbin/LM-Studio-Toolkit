@@ -39,7 +39,11 @@ export function useSetup() {
     };
   }, []);
 
-  async function start(installRoot: string, repair = false, options?: { allowDownloads?: boolean }) {
+  async function start(
+    installRoot: string,
+    repair = false,
+    options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
+  ) {
     setIsRunning(true);
     setError(null);
     setProgress([]);

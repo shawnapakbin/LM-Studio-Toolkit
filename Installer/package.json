@@ -38,18 +38,21 @@
       "target": [
         "portable"
       ],
+      "artifactName": "install.exe",
       "icon": "resources/icons/icon.ico",
       "signAndEditExecutable": false
     },
     "mac": {
       "target": [
         "dmg"
-      ]
+      ],
+      "artifactName": "install.dmg"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
+      "artifactName": "install.appimage",
       "icon": "resources/icons/icon.png",
       "category": "Development"
     }

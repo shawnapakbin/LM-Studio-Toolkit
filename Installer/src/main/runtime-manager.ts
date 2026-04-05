@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { app } from "electron";
@@ -249,11 +249,21 @@ export function spawnNpmCommand(
   onStderr: (line: string) => void,
 ) {
   const runtimeStatus = getRuntimeStatus();
+  const env = { ...process.env };
+
+  const prependNodePath = (nodeExecutablePath: string) => {
+    const nodeDir = dirname(nodeExecutablePath);
+    const existingPath = env.PATH ?? env.Path ?? "";
+    const separator = process.platform === "win32" ? ";" : ":";
+    env.PATH = existingPath ? `${nodeDir}${separator}${existingPath}` : nodeDir;
+    env.Path = env.PATH;
+  };
 
   if (runtimeStatus.bundledNodePath && runtimeStatus.bundledNpmCliPath) {
+    prependNodePath(runtimeStatus.bundledNodePath);
     const child = spawn(runtimeStatus.bundledNodePath, [runtimeStatus.bundledNpmCliPath, ...args], {
       cwd,
-      env: process.env,
+      env,
     });
 
     child.stdout.on("data", (chunk) => {
@@ -268,9 +278,10 @@ export function spawnNpmCommand(
   }
 
   if (runtimeStatus.downloadedNodePath && runtimeStatus.downloadedNpmCliPath) {
+    prependNodePath(runtimeStatus.downloadedNodePath);
     const child = spawn(runtimeStatus.downloadedNodePath, [runtimeStatus.downloadedNpmCliPath, ...args], {
       cwd,
-      env: process.env,
+      env,
     });
 
     child.stdout.on("data", (chunk) => {
@@ -286,7 +297,7 @@ export function spawnNpmCommand(
 
   const child = spawn("npm", args, {
     cwd,
-    env: process.env,
+    env,
     shell: process.platform === "win32",
   });
 

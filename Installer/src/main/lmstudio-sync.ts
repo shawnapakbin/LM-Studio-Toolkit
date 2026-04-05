@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -88,17 +88,38 @@ export function verifyLmStudio(installRoot: string, override?: string): LmStudio
   let updated = 0;
   let skipped = 0;
 
+  // Build the mcpServers map for the top-level mcp.json that LM Studio reads.
+  const mcpServers: Record<string, ReturnType<typeof buildBridgeConfig>> = {};
+
   for (const tool of TOOL_DESCRIPTORS) {
+    const config = buildBridgeConfig(installRoot, tool);
+    mcpServers[tool.id] = config;
+
+    // Also write per-plugin bridge config for the extension plugin loader.
     const pluginDir = join(pluginRoot, tool.id);
     mkdirSync(pluginDir, { recursive: true });
-    const targetFile = join(pluginDir, "mcp-bridge-config.json");
     writeFileSync(
-      targetFile,
-      `${JSON.stringify(buildBridgeConfig(installRoot, tool), null, 2)}\n`,
+      join(pluginDir, "mcp-bridge-config.json"),
+      `${JSON.stringify(config, null, 2)}\n`,
       "utf8",
     );
     updated += 1;
   }
+
+  // Write the top-level mcp.json that LM Studio reads for MCP server registration.
+  const lmStudioConfigDir = join(homedir(), ".lmstudio");
+  mkdirSync(lmStudioConfigDir, { recursive: true });
+  const mcpJsonPath = join(lmStudioConfigDir, "mcp.json");
+  let existingConfig: Record<string, unknown> = {};
+  if (existsSync(mcpJsonPath)) {
+    try {
+      existingConfig = JSON.parse(readFileSync(mcpJsonPath, "utf8")) as Record<string, unknown>;
+    } catch {
+      // If the file is malformed, overwrite it.
+    }
+  }
+  const mcpJsonContent = { ...existingConfig, mcpServers };
+  writeFileSync(mcpJsonPath, `${JSON.stringify(mcpJsonContent, null, 2)}\n`, "utf8");
 
   return {
     pluginRoot,

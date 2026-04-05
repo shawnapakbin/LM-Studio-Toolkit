@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 import { extractPayloadToInstallRoot, getPackagedPayloadRoot, inspectPayload } from "./bootstrap";
 import { ensureEnvState } from "./env-manager";
 import { getLmStudioInstallationStatus, verifyLmStudio } from "./lmstudio-sync";
@@ -186,6 +189,12 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
     stream: "stdout",
     line: `[lmstudio] sync result updated=${lmStudioStatus.updated} skipped=${lmStudioStatus.skipped}`,
   });
+  if (lmStudioStatus.updated > 0) {
+    handlers.onLog({
+      stream: "stdout",
+      line: `[lmstudio] mcp.json written to ${join(homedir(), ".lmstudio", "mcp.json")}`,
+    });
+  }
   emitProgress(
     handlers,
     6,

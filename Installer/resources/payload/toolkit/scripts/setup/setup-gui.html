@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Toolkit — Setup</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 720px;
+    overflow: hidden;
+  }
+  .header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .header p { color: var(--muted); font-size: 13px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    margin-left: 8px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-alpha { background: #1e3a5f; color: var(--blue); }
+  .actions {
+    padding: 20px 28px;
+    display: flex;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  button {
+    padding: 10px 22px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-repair { background: var(--yellow); color: #000; }
+  .btn-clear { background: var(--border); color: var(--muted); }
+  .log-wrap {
+    padding: 16px 28px 24px;
+  }
+  .log-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  #log {
+    background: #0a0c12;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    min-height: 320px;
+    max-height: 480px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .log-ok    { color: var(--green); }
+  .log-warn  { color: var(--yellow); }
+  .log-error { color: var(--red); }
+  .log-info  { color: var(--cyan); }
+  .log-section { color: #fff; font-weight: 700; margin-top: 10px; }
+  .log-dim   { color: var(--muted); }
+  .log-done  { color: var(--green); font-weight: 700; }
+  .status-bar {
+    padding: 12px 28px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .dot.running { background: var(--blue); animation: pulse 1s infinite; }
+  .dot.ok      { background: var(--green); }
+  .dot.error   { background: var(--red); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .progress {
+    height: 3px;
+    background: var(--border);
+    border-radius: 0;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--blue);
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .progress-bar.done { background: var(--green); }
+  .progress-bar.error { background: var(--red); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>LLM Toolkit <span class="badge badge-alpha">v2.0.1</span></h1>
+    <p>Setup &amp; Repair — installs dependencies, builds all tools, and syncs LM Studio bridge configs.</p>
+  </div>
+  <div class="progress"><div class="progress-bar" id="progress"></div></div>
+  <div class="actions">
+    <button class="btn-primary" id="btnInstall" onclick="run('/run')">Install / Setup</button>
+    <button class="btn-repair" id="btnRepair" onclick="run('/repair')">Repair</button>
+    <button class="btn-clear" onclick="clearLog()">Clear Log</button>
+  </div>
+  <div class="log-wrap">
+    <div class="log-label">Output</div>
+    <div id="log">Ready. Click <strong>Install / Setup</strong> to begin, or <strong>Repair</strong> to reinstall from scratch.</div>
+  </div>
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span id="statusText">Idle</span>
+  </div>
+</div>
+
+<script>
+  let running = false;
+
+  function setStatus(state, text) {
+    const dot = document.getElementById("dot");
+    dot.className = "dot " + state;
+    document.getElementById("statusText").textContent = text;
+  }
+
+  function setProgress(pct, state) {
+    const bar = document.getElementById("progress");
+    bar.style.width = pct + "%";
+    bar.className = "progress-bar" + (state ? " " + state : "");
+  }
+
+  function clearLog() {
+    document.getElementById("log").innerHTML = "";
+  }
+
+  function appendLog(type, msg) {
+    const log = document.getElementById("log");
+    const span = document.createElement("span");
+    span.className = "log-" + type;
+    const icons = { ok: "✓ ", warn: "⚠  ", error: "✗ ", info: "→ ", section: "\n", dim: "  ", done: "✓ " };
+    span.textContent = (icons[type] || "") + msg + "\n";
+    log.appendChild(span);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  const STEPS = 6;
+  let stepCount = 0;
+
+  function run(endpoint) {
+    if (running) return;
+    running = true;
+    stepCount = 0;
+    clearLog();
+    setStatus("running", "Running...");
+    setProgress(2);
+    document.getElementById("btnInstall").disabled = true;
+    document.getElementById("btnRepair").disabled = true;
+
+    const es = new EventSource(endpoint);
+    // EventSource doesn't support POST — use fetch + ReadableStream instead
+    es.close();
+
+    fetch(endpoint, { method: "POST" }).then(res => {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            finish(true);
+            return;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const { type, msg } = JSON.parse(line.slice(6));
+              if (type === "section") stepCount++;
+              appendLog(type, msg);
+              setProgress(Math.min(95, Math.round((stepCount / STEPS) * 95)));
+              if (type === "done") finish(true);
+              if (type === "error") finish(false);
+            } catch {}
+          }
+          read();
+        });
+      }
+      read();
+    }).catch(err => {
+      appendLog("error", "Connection failed: " + err.message);
+      finish(false);
+    });
+  }
+
+  function finish(success) {
+    running = false;
+    document.getElementById("btnInstall").disabled = false;
+    document.getElementById("btnRepair").disabled = false;
+    if (success) {
+      setStatus("ok", "Complete");
+      setProgress(100, "done");
+    } else {
+      setStatus("error", "Failed — see log above");
+      setProgress(100, "error");
+    }
+  }
+</script>
+</body>
+</html>

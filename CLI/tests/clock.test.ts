@@ -11,7 +11,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -45,10 +45,7 @@ describe("clock command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "clock", "--timezone", "America/New_York"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.any(String),
-      { timezone: "America/New_York" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), { timezone: "America/New_York" });
   });
 
   it("includes format when provided", async () => {
@@ -56,10 +53,7 @@ describe("clock command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "clock", "--format", "unix"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.any(String),
-      { format: "unix" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), { format: "unix" });
   });
 
   it("calls handleError on failure", async () => {

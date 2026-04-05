@@ -39,7 +39,7 @@ export function registerSkillsCommands(program: Command): void {
   skills
     .command("run <name>")
     .description("Execute a skill by name")
-    .option("-p, --params <json>", "JSON params for the skill  e.g. '{\"key\":\"value\"}'")
+    .option("-p, --params <json>", 'JSON params for the skill  e.g. \'{"key":"value"}\'')
     .action(async (name: string, opts: { params?: string }) => {
       let params: Record<string, unknown> = {};
       if (opts.params) {

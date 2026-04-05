@@ -18,23 +18,29 @@ export function registerEcmCommands(program: Command): void {
     .description("Store a memory segment")
     .requiredOption("-c, --content <text>", "Content to store")
     .option("-s, --session <id>", "Session ID", DEFAULT_ECM_SESSION)
-    .option("-t, --type <type>", "Segment type: conversation_turn | tool_output | document | reasoning | summary", "conversation_turn")
+    .option(
+      "-t, --type <type>",
+      "Segment type: conversation_turn | tool_output | document | reasoning | summary",
+      "conversation_turn",
+    )
     .option("-i, --importance <n>", "Importance score 0–1", parseFloat)
-    .action(async (opts: { content: string; session: string; type: string; importance?: number }) => {
-      try {
-        printResult(
-          await ecmPost({
-            action: "store_segment",
-            sessionId: opts.session,
-            type: opts.type,
-            content: opts.content,
-            ...(opts.importance !== undefined && { importance: opts.importance }),
-          }),
-        );
-      } catch (err) {
-        handleError(err);
-      }
-    });
+    .action(
+      async (opts: { content: string; session: string; type: string; importance?: number }) => {
+        try {
+          printResult(
+            await ecmPost({
+              action: "store_segment",
+              sessionId: opts.session,
+              type: opts.type,
+              content: opts.content,
+              ...(opts.importance !== undefined && { importance: opts.importance }),
+            }),
+          );
+        } catch (err) {
+          handleError(err);
+        }
+      },
+    );
 
   ecm
     .command("retrieve")
@@ -44,22 +50,30 @@ export function registerEcmCommands(program: Command): void {
     .option("-k, --top-k <n>", "Max segments to return", parseInt)
     .option("--max-tokens <n>", "Max tokens in result", parseInt)
     .option("--min-score <n>", "Minimum relevance score 0–1", parseFloat)
-    .action(async (opts: { query: string; session: string; topK?: number; maxTokens?: number; minScore?: number }) => {
-      try {
-        printResult(
-          await ecmPost({
-            action: "retrieve_context",
-            sessionId: opts.session,
-            query: opts.query,
-            ...(opts.topK !== undefined && { topK: opts.topK }),
-            ...(opts.maxTokens !== undefined && { maxTokens: opts.maxTokens }),
-            ...(opts.minScore !== undefined && { minScore: opts.minScore }),
-          }),
-        );
-      } catch (err) {
-        handleError(err);
-      }
-    });
+    .action(
+      async (opts: {
+        query: string;
+        session: string;
+        topK?: number;
+        maxTokens?: number;
+        minScore?: number;
+      }) => {
+        try {
+          printResult(
+            await ecmPost({
+              action: "retrieve_context",
+              sessionId: opts.session,
+              query: opts.query,
+              ...(opts.topK !== undefined && { topK: opts.topK }),
+              ...(opts.maxTokens !== undefined && { maxTokens: opts.maxTokens }),
+              ...(opts.minScore !== undefined && { minScore: opts.minScore }),
+            }),
+          );
+        } catch (err) {
+          handleError(err);
+        }
+      },
+    );
 
   ecm
     .command("list")
@@ -135,7 +149,9 @@ export function registerEcmCommands(program: Command): void {
     .option("--keep-newest <n>", "Newest segments to keep after compaction (default: 5)", parseInt)
     .action(async (opts: { session: string; keepNewest?: number }) => {
       const keepNewest = opts.keepNewest ?? 5;
-      console.log(`Compacting session "${opts.session}" (keeping ${keepNewest} newest segments)...`);
+      console.log(
+        `Compacting session "${opts.session}" (keeping ${keepNewest} newest segments)...`,
+      );
       try {
         // Step 1: summarize — collapses old segments into a summary entry
         const summary = await ecmPost({

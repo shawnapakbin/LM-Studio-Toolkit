@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-by-shawna",
-  "version": "2.0.1",
+  "version": "2.2.0",
   "description": "Enterprise-grade LLM agent toolkit with multi-tool orchestration",
   "private": true,
   "main": "dist/index.js",
@@ -9,6 +9,9 @@
     "setup": "node scripts/setup/setup.js",
     "setup:repair": "node scripts/setup/setup.js --repair",
     "setup:gui": "node scripts/setup/setup.js --gui",
+    "installer:dev": "npm run -w Installer dev",
+    "installer:build": "npm run -w Installer build",
+    "installer:dist": "npm run -w Installer dist",
     "format:check": "biome format --check .",
     "lint": "biome lint --apply .",
     "lint:check": "biome lint .",
@@ -25,13 +28,14 @@
     "verify:vnext-scope": "node scripts/workspace/verify-vnext-scope.js",
     "startup:check": "node scripts/workspace/startup-check.js",
     "startup:check:strict": "node scripts/workspace/startup-check.js --strict-env",
+    "smoke-test:mcp": "node scripts/workspace/smoke-test-mcp.js",
     "mcp:print-config": "node scripts/workspace/generate-mcp-config.js",
     "mcp:sync-lmstudio": "node scripts/workspace/sync-lmstudio-bridge-configs.js",
     "type-check": "tsc --noEmit",
     "verify:all": "npm run verify:vnext-scope && npm run check:ci && npm run type-check && npm run test:ci && npm run build && npm run startup:check",
     "build": "npm run build:shared && npm run build:tools && npm run build:memory",
     "build:shared": "npm run -w shared build",
-    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w Skills build && npm run -w ECM build",
+    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w Skills build && npm run -w ECM build && npm run -w SlashCommands build",
     "build:memory": "npm run -w Memory build",
     "build:cli": "npm run -w CLI build",
     "cli": "node CLI/dist/index.js",
@@ -80,6 +84,7 @@
     "Skills",
     "ECM",
     "CLI",
-    "SlashCommands"
+    "SlashCommands",
+    "Installer"
   ]
 }

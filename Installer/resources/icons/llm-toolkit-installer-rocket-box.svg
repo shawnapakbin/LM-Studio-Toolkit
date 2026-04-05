@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1024 1024" width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff7d1a"/>
+      <stop offset="0.55" stop-color="#ffb300"/>
+      <stop offset="1" stop-color="#ffeb3b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#f5f7fa"/>
+  <rect x="140" y="120" width="744" height="784" rx="48" fill="#24b6a8" stroke="#137970" stroke-width="20"/>
+  <rect x="170" y="150" width="684" height="724" rx="36" fill="none" stroke="#ffeb3b" stroke-width="10" opacity="0.7"/>
+  <rect x="392" y="226" width="240" height="488" rx="24" fill="#0b66c3" stroke="#083f78" stroke-width="14"/>
+  <polygon points="512,140 462,226 562,226" fill="#ff9800" stroke="#c96f00" stroke-width="12"/>
+  <circle cx="512" cy="334" r="36" fill="#24b6a8" stroke="#ffeb3b" stroke-width="8"/>
+  <polygon points="392,532 306,618 392,590" fill="#24b6a8"/>
+  <polygon points="632,532 718,618 632,590" fill="#24b6a8"/>
+  <polygon points="462,714 442,896 488,748" fill="url(#flame)"/>
+  <polygon points="512,714 486,924 538,748" fill="url(#flame)"/>
+  <polygon points="562,714 582,896 536,748" fill="url(#flame)"/>
+</svg>

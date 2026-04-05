@@ -62,9 +62,7 @@ export function registerConfigCommands(program: Command): void {
 
   cfg
     .command("set <key> <value>")
-    .description(
-      "Set a config value (e.g. calculator.port 4000, calculator.host 192.168.1.10)",
-    )
+    .description("Set a config value (e.g. calculator.port 4000, calculator.host 192.168.1.10)")
     .option("--config-file <path>", "Path to config file", CONFIG_FILE_PATH)
     .action((key: string, value: string, opts: { configFile: string }) => {
       const config = loadConfig(opts.configFile);

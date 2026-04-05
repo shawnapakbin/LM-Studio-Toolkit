@@ -12,6 +12,7 @@ import { registerAskCommand } from "./commands/ask";
 import { registerBrowseCommand } from "./commands/browse";
 import { registerCalcCommand } from "./commands/calc";
 import { registerClockCommand } from "./commands/clock";
+import { registerConfigCommands } from "./commands/config";
 import { registerEcmCommands } from "./commands/ecm";
 import { registerMemoryCommands } from "./commands/memory";
 import { registerRagCommands } from "./commands/rag";
@@ -19,7 +20,6 @@ import { registerSkillsCommands } from "./commands/skills";
 import { registerTerminalCommand } from "./commands/terminal";
 import { registerToolsCommands } from "./commands/tools";
 import { registerWorkflowCommands } from "./commands/workflow";
-import { registerConfigCommands } from "./commands/config";
 
 dotenv.config();
 

@@ -3,14 +3,13 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import { Command } from "commander";
 import { registerWorkflowCommands } from "../src/commands/workflow";
 
 const mockExecuteWorkflow = jest.fn();
 const mockStoreRun = jest.fn();
 
-jest.mock("../../../AgentRunner/src/index", () => ({
+jest.mock("../../AgentRunner/src/index", () => ({
   createAgentRunner: jest.fn(() => ({
     runner: { executeWorkflow: mockExecuteWorkflow },
     memory: { storeRun: mockStoreRun },
@@ -80,7 +79,13 @@ describe("workflow command", () => {
       });
 
       await makeProgram().parseAsync([
-        "node", "llm", "workflow", "run", "wf.json", "--timeout", "9000",
+        "node",
+        "llm",
+        "workflow",
+        "run",
+        "wf.json",
+        "--timeout",
+        "9000",
       ]);
 
       expect(mockExecuteWorkflow).toHaveBeenCalledWith(
@@ -104,7 +109,12 @@ describe("workflow command", () => {
       });
 
       await makeProgram().parseAsync([
-        "node", "llm", "workflow", "run", "wf.json", "--auto-approve",
+        "node",
+        "llm",
+        "workflow",
+        "run",
+        "wf.json",
+        "--auto-approve",
       ]);
 
       expect(mockExecuteWorkflow).toHaveBeenCalledWith(
@@ -117,7 +127,9 @@ describe("workflow command", () => {
     it("exits with error when file does not exist", async () => {
       jest.spyOn(fs, "existsSync").mockReturnValue(false);
       const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
-      const exitSpy = jest.spyOn(process, "exit").mockImplementation(() => { throw new Error("exit"); });
+      const exitSpy = jest.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit");
+      });
 
       await expect(
         makeProgram().parseAsync(["node", "llm", "workflow", "run", "missing.json"]),

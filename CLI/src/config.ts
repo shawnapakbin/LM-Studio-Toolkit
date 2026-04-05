@@ -15,10 +15,7 @@ export const TOOL_PORTS: Record<string, number> = {
 };
 
 export const TOOL_ENDPOINTS: Record<string, string> = Object.fromEntries(
-  Object.entries(TOOL_PORTS).map(([name, port]) => [
-    name,
-    `http://localhost:${port}`,
-  ]),
+  Object.entries(TOOL_PORTS).map(([name, port]) => [name, `http://localhost:${port}`]),
 );
 
 export const DEFAULT_ECM_SESSION = "cli-session";

@@ -25,9 +25,7 @@ export function registerToolsCommands(program: Command): void {
     .description("Run health checks across all tools")
     .option("-t, --tool <name>", "Check a specific tool only")
     .action(async (opts: { tool?: string }) => {
-      const targets = opts.tool
-        ? { [opts.tool]: TOOL_ENDPOINTS[opts.tool] }
-        : TOOL_ENDPOINTS;
+      const targets = opts.tool ? { [opts.tool]: TOOL_ENDPOINTS[opts.tool] } : TOOL_ENDPOINTS;
 
       if (opts.tool && !TOOL_ENDPOINTS[opts.tool]) {
         console.error(`Unknown tool: ${opts.tool}`);

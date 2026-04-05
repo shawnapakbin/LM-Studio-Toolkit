@@ -11,7 +11,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -45,10 +45,10 @@ describe("calc command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "calc", "pi", "--precision", "5"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.any(String),
-      { expression: "pi", precision: 5 },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+      expression: "pi",
+      precision: 5,
+    });
   });
 
   it("calls handleError on HTTP failure", async () => {

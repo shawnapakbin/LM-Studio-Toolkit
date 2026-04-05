@@ -11,10 +11,9 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
-const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
 const mockHandleError = handleError as jest.MockedFunction<typeof handleError>;
 
 function makeProgram() {
@@ -31,9 +30,7 @@ describe("ecm command", () => {
     it("posts store_segment with required content", async () => {
       mockToolPost.mockResolvedValue({ segmentId: "seg-1" });
 
-      await makeProgram().parseAsync([
-        "node", "llm", "ecm", "store", "--content", "Hello world",
-      ]);
+      await makeProgram().parseAsync(["node", "llm", "ecm", "store", "--content", "Hello world"]);
 
       expect(mockToolPost).toHaveBeenCalledWith(
         expect.stringContaining("/tools/ecm"),
@@ -56,7 +53,14 @@ describe("ecm command", () => {
       mockToolPost.mockResolvedValue({});
 
       await makeProgram().parseAsync([
-        "node", "llm", "ecm", "store", "--content", "important", "--importance", "0.9",
+        "node",
+        "llm",
+        "ecm",
+        "store",
+        "--content",
+        "important",
+        "--importance",
+        "0.9",
       ]);
 
       expect(mockToolPost).toHaveBeenCalledWith(
@@ -82,7 +86,16 @@ describe("ecm command", () => {
       mockToolPost.mockResolvedValue({});
 
       await makeProgram().parseAsync([
-        "node", "llm", "ecm", "retrieve", "--query", "q", "--top-k", "3", "--min-score", "0.5",
+        "node",
+        "llm",
+        "ecm",
+        "retrieve",
+        "--query",
+        "q",
+        "--top-k",
+        "3",
+        "--min-score",
+        "0.5",
       ]);
 
       expect(mockToolPost).toHaveBeenCalledWith(
@@ -98,17 +111,24 @@ describe("ecm command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "ecm", "list"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "list_segments", sessionId: "cli-session" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "list_segments",
+        sessionId: "cli-session",
+      });
     });
 
     it("passes limit and offset options", async () => {
       mockToolPost.mockResolvedValue({});
 
       await makeProgram().parseAsync([
-        "node", "llm", "ecm", "list", "--limit", "10", "--offset", "5",
+        "node",
+        "llm",
+        "ecm",
+        "list",
+        "--limit",
+        "10",
+        "--offset",
+        "5",
       ]);
 
       expect(mockToolPost).toHaveBeenCalledWith(
@@ -161,10 +181,10 @@ describe("ecm command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "ecm", "clear"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "clear_session", sessionId: "cli-session" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "clear_session",
+        sessionId: "cli-session",
+      });
     });
   });
 

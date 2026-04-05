@@ -12,7 +12,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -35,10 +35,9 @@ describe("skills command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "skills", "list"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.stringContaining("/tools/skills"),
-        { action: "list_skills" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.stringContaining("/tools/skills"), {
+        action: "list_skills",
+      });
       expect(mockPrintResult).toHaveBeenCalledWith(result);
     });
 
@@ -56,10 +55,10 @@ describe("skills command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "skills", "get", "my-skill"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "get_skill", name: "my-skill" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "get_skill",
+        name: "my-skill",
+      });
       expect(mockPrintResult).toHaveBeenCalledWith(result);
     });
   });
@@ -70,23 +69,31 @@ describe("skills command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "skills", "run", "my-skill"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "execute_skill", name: "my-skill", params: {} },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "execute_skill",
+        name: "my-skill",
+        params: {},
+      });
     });
 
     it("parses --params JSON and includes in request", async () => {
       mockToolPost.mockResolvedValue({});
 
       await makeProgram().parseAsync([
-        "node", "llm", "skills", "run", "my-skill", "--params", '{"key":"value"}',
+        "node",
+        "llm",
+        "skills",
+        "run",
+        "my-skill",
+        "--params",
+        '{"key":"value"}',
       ]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "execute_skill", name: "my-skill", params: { key: "value" } },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "execute_skill",
+        name: "my-skill",
+        params: { key: "value" },
+      });
     });
 
     it("calls handleError on HTTP failure", async () => {
@@ -104,10 +111,10 @@ describe("skills command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "skills", "define", "skill.json"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "define_skill", ...skillDef },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "define_skill",
+        ...skillDef,
+      });
     });
   });
 
@@ -117,10 +124,10 @@ describe("skills command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "skills", "delete", "old-skill"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "delete_skill", name: "old-skill" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "delete_skill",
+        name: "old-skill",
+      });
     });
   });
 });

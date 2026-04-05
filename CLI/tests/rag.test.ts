@@ -11,7 +11,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -34,10 +34,10 @@ describe("rag command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "rag", "query", "what is AI?"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.stringContaining("/tools/rag"),
-        { action: "query", query: "what is AI?" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.stringContaining("/tools/rag"), {
+        action: "query",
+        query: "what is AI?",
+      });
       expect(mockPrintResult).toHaveBeenCalledWith(result);
     });
 
@@ -46,10 +46,11 @@ describe("rag command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "rag", "query", "test", "--top-k", "5"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "query", query: "test", topK: 5 },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "query",
+        query: "test",
+        topK: 5,
+      });
     });
 
     it("calls handleError on failure", async () => {
@@ -65,23 +66,30 @@ describe("rag command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "rag", "ingest", "Some document text"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "ingest", content: "Some document text" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "ingest",
+        content: "Some document text",
+      });
     });
 
     it("includes source label when provided", async () => {
       mockToolPost.mockResolvedValue({});
 
       await makeProgram().parseAsync([
-        "node", "llm", "rag", "ingest", "text", "--source", "my-doc",
+        "node",
+        "llm",
+        "rag",
+        "ingest",
+        "text",
+        "--source",
+        "my-doc",
       ]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "ingest", content: "text", source: "my-doc" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "ingest",
+        content: "text",
+        source: "my-doc",
+      });
     });
   });
 
@@ -91,10 +99,7 @@ describe("rag command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "rag", "list"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "list_sources" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), { action: "list_sources" });
     });
   });
 
@@ -104,10 +109,10 @@ describe("rag command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "rag", "delete", "src-99"]);
 
-      expect(mockToolPost).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "delete_source", sourceId: "src-99" },
-      );
+      expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+        action: "delete_source",
+        sourceId: "src-99",
+      });
     });
   });
 });

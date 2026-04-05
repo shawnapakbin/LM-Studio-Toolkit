@@ -56,6 +56,9 @@ test-output.json
 private.md
 **/private.md
 
+# Manifesto folder
+Manifesto/
+
 # Stale WAL/SHM files from SQLite
 *.db-shm
 *.db-wal
@@ -68,3 +71,6 @@ shared/toolCallNormalizer.d.ts
 shared/toolCallNormalizer.d.ts.map
 shared/toolCallNormalizer.js
 shared/toolCallNormalizer.js.map
+
+# Installer build artifacts
+Installer/release/

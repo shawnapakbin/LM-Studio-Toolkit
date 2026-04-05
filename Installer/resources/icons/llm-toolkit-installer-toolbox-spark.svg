@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1024 1024" width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#f5f7fa"/>
+  <rect x="220" y="412" width="584" height="360" rx="40" fill="#0b66c3" stroke="#083f78" stroke-width="18"/>
+  <rect x="280" y="344" width="464" height="84" rx="24" fill="#1d7fe0" stroke="#083f78" stroke-width="14"/>
+  <path d="M368 344 Q368 212 512 168 Q656 212 656 344" fill="none" stroke="#ff9800" stroke-width="20" stroke-linecap="round"/>
+  <polygon points="512,180 548,270 640,270 566,326 594,418 512,364 430,418 458,326 384,270 476,270" fill="#ffeb3b"/>
+  <circle cx="512" cy="386" r="20" fill="#ff9800"/>
+  <rect x="328" y="530" width="90" height="140" rx="12" fill="#24b6a8"/>
+  <rect x="606" y="530" width="90" height="140" rx="12" fill="#24b6a8"/>
+</svg>

@@ -11,7 +11,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -33,17 +33,24 @@ describe("browse command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "browse", "https://example.com"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.stringContaining("/tools/browse_web"),
-      { url: "https://example.com", outputFormat: "markdown" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.stringContaining("/tools/browse_web"), {
+      url: "https://example.com",
+      outputFormat: "markdown",
+    });
     expect(mockPrintResult).toHaveBeenCalledWith(result);
   });
 
   it("passes --format option", async () => {
     mockToolPost.mockResolvedValue({});
 
-    await makeProgram().parseAsync(["node", "llm", "browse", "https://example.com", "--format", "text"]);
+    await makeProgram().parseAsync([
+      "node",
+      "llm",
+      "browse",
+      "https://example.com",
+      "--format",
+      "text",
+    ]);
 
     expect(mockToolPost).toHaveBeenCalledWith(
       expect.any(String),
@@ -54,7 +61,13 @@ describe("browse command", () => {
   it("passes --screenshot flag", async () => {
     mockToolPost.mockResolvedValue({});
 
-    await makeProgram().parseAsync(["node", "llm", "browse", "https://example.com", "--screenshot"]);
+    await makeProgram().parseAsync([
+      "node",
+      "llm",
+      "browse",
+      "https://example.com",
+      "--screenshot",
+    ]);
 
     expect(mockToolPost).toHaveBeenCalledWith(
       expect.any(String),
@@ -66,7 +79,12 @@ describe("browse command", () => {
     mockToolPost.mockResolvedValue({});
 
     await makeProgram().parseAsync([
-      "node", "llm", "browse", "https://example.com", "--wait-selector", "#main",
+      "node",
+      "llm",
+      "browse",
+      "https://example.com",
+      "--wait-selector",
+      "#main",
     ]);
 
     expect(mockToolPost).toHaveBeenCalledWith(

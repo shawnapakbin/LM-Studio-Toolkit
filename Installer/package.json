@@ -1,0 +1,87 @@
+{
+  "name": "llm-toolkit-installer",
+  "version": "2.2.0",
+  "private": true,
+  "author": "Shawna Pakbin",
+  "description": "Self-sufficient desktop installer for LLM Toolkit",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "icons:build": "node scripts/select-icon.mjs llm-toolkit-installer-nodes.svg",
+    "prepare:resources": "node scripts/prepare-resources.mjs",
+    "build": "npm run icons:build && npm run prepare:resources && electron-vite build",
+    "dist": "npm run icons:build && npm run prepare:resources && electron-builder",
+    "dist:win": "npm run icons:build && npm run prepare:resources && set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win",
+    "dist:mac": "npm run icons:build && npm run prepare:resources && electron-builder --mac",
+    "dist:linux": "npm run icons:build && npm run prepare:resources && electron-builder --linux",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "build": {
+    "appId": "com.llmtoolkit.installer",
+    "productName": "LLM Toolkit Installer",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/payload",
+        "to": "payload"
+      },
+      {
+        "from": "resources/runtime",
+        "to": "runtime"
+      }
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "resources/icons/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "resources/icons/icon.png",
+      "category": "Development"
+    }
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.0.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.6.1",
+    "electron-log": "^5.4.0",
+    "lucide-react": "^0.510.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-hook-form": "^7.56.4",
+    "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/node": "^22.13.1",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "electron": "35.1.2",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.1.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.6"
+  }
+}

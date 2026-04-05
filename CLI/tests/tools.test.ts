@@ -10,7 +10,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolGet, handleError } from "../src/http";
+import { handleError, toolGet } from "../src/http";
 
 const mockToolGet = toolGet as jest.MockedFunction<typeof toolGet>;
 const mockHandleError = handleError as jest.MockedFunction<typeof handleError>;

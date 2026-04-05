@@ -11,7 +11,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -33,10 +33,10 @@ describe("ask command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "ask", "What is your name?"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.stringContaining("/tools/ask_user"),
-      { action: "create_interview", prompt: "What is your name?" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.stringContaining("/tools/ask_user"), {
+      action: "create_interview",
+      prompt: "What is your name?",
+    });
     expect(mockPrintResult).toHaveBeenCalledWith(result);
   });
 

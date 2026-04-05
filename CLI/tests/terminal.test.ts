@@ -11,7 +11,7 @@ jest.mock("../src/http", () => ({
   handleError: jest.fn(),
 }));
 
-import { toolPost, printResult, handleError } from "../src/http";
+import { handleError, printResult, toolPost } from "../src/http";
 
 const mockToolPost = toolPost as jest.MockedFunction<typeof toolPost>;
 const mockPrintResult = printResult as jest.MockedFunction<typeof printResult>;
@@ -45,10 +45,7 @@ describe("terminal command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "terminal", "ls", "--cwd", "/tmp"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.any(String),
-      { command: "ls", cwd: "/tmp" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), { command: "ls", cwd: "/tmp" });
   });
 
   it("includes timeout option when provided", async () => {
@@ -56,10 +53,10 @@ describe("terminal command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "terminal", "sleep 1", "--timeout", "5000"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.any(String),
-      { command: "sleep 1", timeoutMs: 5000 },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.any(String), {
+      command: "sleep 1",
+      timeoutMs: 5000,
+    });
   });
 
   it("calls handleError on failure", async () => {

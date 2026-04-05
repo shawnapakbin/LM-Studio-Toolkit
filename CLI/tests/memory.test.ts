@@ -50,11 +50,13 @@ describe("memory command", () => {
         throw new Error("DB not found");
       });
       const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
-      const exitSpy = jest.spyOn(process, "exit").mockImplementation(() => { throw new Error("exit"); });
+      const exitSpy = jest.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit");
+      });
 
-      await expect(
-        makeProgram().parseAsync(["node", "llm", "memory", "stats"]),
-      ).rejects.toThrow("exit");
+      await expect(makeProgram().parseAsync(["node", "llm", "memory", "stats"])).rejects.toThrow(
+        "exit",
+      );
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("DB not found"));
       consoleSpy.mockRestore();

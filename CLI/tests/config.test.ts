@@ -3,7 +3,12 @@
  */
 
 import { Command } from "commander";
-import { registerConfigCommands, loadConfig, saveConfig, CONFIG_FILE_PATH } from "../src/commands/config";
+import {
+  CONFIG_FILE_PATH,
+  loadConfig,
+  registerConfigCommands,
+  saveConfig,
+} from "../src/commands/config";
 
 // Mock fs so no real files are touched
 jest.mock("fs");
@@ -28,7 +33,9 @@ describe("loadConfig", () => {
   });
 
   it("returns empty object when file does not exist", () => {
-    mockReadFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error("ENOENT");
+    });
     expect(loadConfig()).toEqual({});
   });
 
@@ -52,7 +59,9 @@ describe("saveConfig", () => {
 describe("config command", () => {
   describe("config show", () => {
     it("prints all tool endpoints with defaults when no overrides", async () => {
-      mockReadFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error("ENOENT");
+      });
       const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
 
       await makeProgram().parseAsync(["node", "llm", "config", "show"]);
@@ -90,7 +99,9 @@ describe("config command", () => {
 
   describe("config set", () => {
     it("saves a port override as a number", async () => {
-      mockReadFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error("ENOENT");
+      });
       const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
 
       await makeProgram().parseAsync(["node", "llm", "config", "set", "calculator.port", "4000"]);
@@ -105,10 +116,19 @@ describe("config command", () => {
     });
 
     it("saves a host override as a string", async () => {
-      mockReadFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error("ENOENT");
+      });
       const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
 
-      await makeProgram().parseAsync(["node", "llm", "config", "set", "calculator.host", "192.168.1.10"]);
+      await makeProgram().parseAsync([
+        "node",
+        "llm",
+        "config",
+        "set",
+        "calculator.host",
+        "192.168.1.10",
+      ]);
 
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.any(String),
@@ -125,7 +145,7 @@ describe("config command", () => {
 
       await makeProgram().parseAsync(["node", "llm", "config", "set", "calculator.port", "4000"]);
 
-      const written = (mockWriteFileSync.mock.calls[0][1] as string);
+      const written = mockWriteFileSync.mock.calls[0][1] as string;
       const parsed = JSON.parse(written);
       expect(parsed).toEqual({ "clock.port": 5000, "calculator.port": 4000 });
       consoleSpy.mockRestore();

@@ -3,8 +3,8 @@
  */
 
 import path from "path";
-import type { Command } from "commander";
 import Database from "better-sqlite3";
+import type { Command } from "commander";
 
 function openDb(dbPath?: string): Database.Database {
   const resolved = dbPath || path.join(process.cwd(), "data", "agent-memory.db");

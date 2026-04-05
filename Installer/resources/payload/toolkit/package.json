@@ -83,8 +83,6 @@
     "Memory",
     "Skills",
     "ECM",
-    "CLI",
-    "SlashCommands",
-    "Installer"
+    "SlashCommands"
   ]
 }

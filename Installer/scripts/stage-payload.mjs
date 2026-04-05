@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -81,6 +81,26 @@ function stageCuratedPayload() {
   log(`Staged curated payload items: ${copiedCount}.`);
 }
 
+function filterPackageJsonWorkspaces() {
+  const packageJsonPath = join(toolkitRoot, "package.json");
+  const content = readFileSync(packageJsonPath, "utf8");
+  const pkg = JSON.parse(content);
+
+  if (pkg.workspaces && Array.isArray(pkg.workspaces)) {
+    const workspaceRoots = new Set(PAYLOAD_ITEMS.filter((item) => existsSync(join(toolkitRoot, item))));
+    const filteredWorkspaces = pkg.workspaces.filter((ws) => {
+      const wsName = typeof ws === "string" ? ws : ws.replace(/\/\*$/, "");
+      return workspaceRoots.has(wsName);
+    });
+
+    if (filteredWorkspaces.length !== pkg.workspaces.length) {
+      pkg.workspaces = filteredWorkspaces;
+      writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+      log(`Filtered workspaces to ${filteredWorkspaces.length} items (removed non-existent references).`);
+    }
+  }
+}
+
 function writeManifest() {
   const manifest = {
     source: "llm-toolkit workspace",
@@ -95,6 +115,7 @@ function main() {
   resetPayloadDir();
 
   stageCuratedPayload();
+  filterPackageJsonWorkspaces();
 
   writeManifest();
   log("Payload staging complete.");

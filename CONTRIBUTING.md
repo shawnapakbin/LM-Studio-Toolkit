@@ -130,6 +130,7 @@ chore(CI): update GitHub Actions workflow
   - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) reflects changes
   - Tool README updated if new tool
   - AGENT_ROADMAP.md updated for Phase progress
+  - [docs/VNEXT_FEATURES.md](docs/VNEXT_FEATURES.md) updated if new release scope
 
 ---
 
@@ -381,6 +382,8 @@ Fixes #123
 - **Architecture questions**: Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Code quality standards**: See [docs/CODE-QUALITY.md](docs/CODE-QUALITY.md)
 - **Memory patterns**: Read [docs/MEMORY-PATTERNS.md](docs/MEMORY-PATTERNS.md)
+- **Slash commands**: See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md)
+- **CLI commands**: See [CLI/README.md](CLI/README.md)
 - **Stuck on tests**: See examples in existing tools (Terminal, Calculator, etc.)
 
 ---

@@ -1,4 +1,4 @@
-# LM Studio Tools - AskUser
+# LLM Toolkit — AskUser
 
 Interactive interview tool for collecting clarifications before implementation.
 

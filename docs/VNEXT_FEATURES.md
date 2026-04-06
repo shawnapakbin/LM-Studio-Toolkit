@@ -3,10 +3,22 @@
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
 Release target: `v2.1.0`
-Status: `release-hardening`
+Status: `released`
 Owner: `core-maintainers`
 
-## Included vNext Features
+## Included vNext Features (v2.1.0 — Released)
+
+1. `CLI` workspace (`CLI/`)
+- Scope: `llm <command>` terminal binary for invoking all tools from the shell. Uses `commander` for argument parsing; routes to tool HTTP endpoints.
+- Key paths: `CLI/src/`, `CLI/tests/`.
+
+2. `SlashCommands` workspace (`SlashCommands/`)
+- Scope: MCP server exposing a single `slash_command` tool. Intercepts `/command` messages in LM Studio chat and routes them to the appropriate tool via HTTP.
+- Key paths: `SlashCommands/src/`, `SlashCommands/tests/`.
+
+---
+
+## v2.1.0 Features (Released)
 
 1. `AskUser` tool
 - Scope: async interview workflow for planning and approval collection.
@@ -37,6 +49,8 @@ Owner: `core-maintainers`
 | Document | Purpose |
 |----------|---------|
 | [Browserless/README.md](../Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
+| [CLI/README.md](../CLI/README.md) | CLI command reference |
+| [docs/SLASH-COMMANDS.md](SLASH-COMMANDS.md) | Slash command reference |
 
 ## Marking Rules (Going Forward)
 
@@ -45,8 +59,44 @@ Owner: `core-maintainers`
 3. Commits that only harden vNext functionality should use prefix: `chore(vnext-hardening): ...`.
 4. If scope changes, update this file and `docs/RELEASE_CHECKLIST.md` in the same PR.
 
+---
+
+## In-Progress / Staging (Not Yet Released)
+
+The following directories contain source code that builds successfully and is included in `build:tools`, but does not yet have full test suites or startup-check entries. They are intentional future scope — do not treat as unrelated drift.
+
+### `PackageManager/`
+- Scope: MCP server and policy layer for installing/removing npm packages on behalf of the agent. Key files: `src/mcp-server.ts`, `src/package-manager.ts`, `src/policy.ts`.
+- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
+
+### `Git/`
+- Scope: MCP server wrapping common git operations (status, diff, commit, push) with policy guards. Key files: `src/mcp-server.ts`, `src/git.ts`, `src/policy.ts`.
+- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
+
+### `FileEditor/`
+- Scope: MCP server exposing read/write/patch file operations with safety policy. Key files: `src/file-editor.ts`, `src/policy.ts`.
+- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
+
+### `Observability/`
+- Scope: Shared logging, metrics, and tracing library for all LLM Toolkit tools. Provides structured logger, OpenTelemetry-compatible tracer, and Prometheus-style metrics. Key files: `src/logger.ts`, `src/tracer.ts`, `src/metrics.ts`.
+- Status: library (no MCP entry point), compiles, wired as workspace dependency into Terminal, Clock, Calculator, AgentRunner.
+
+### `CSVExporter/`
+- Scope: MCP server for exporting parsed table data to CSV files. Key files: `src/mcp-server.ts`, `src/csv-exporter.ts`.
+- Status: source present, compiles, included in `build:tools`, not in startup-check.
+
+### `Manifesto/Vibing-Manifesto.md`
+- Scope: Project philosophy document — not a code workspace.
+- Status: documentation only, no build artifact needed.
+
 ## Out Of Scope For v2.1.0
 
-- Unlisted new tool directories.
-- Major schema rewrites not tied to listed features.
+- Phase 2 tools (Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability HTTP endpoint).
+- Agent orchestrator (Phase 3).
 - Breaking API changes without explicit migration notes.
+
+## Planned for v2.3.0
+
+- Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm file *`, `llm pkg *`, `llm build *`, `llm observe *`, `llm session *`
+- Corresponding slash commands: `/workflow`, `/git`, `/file`, `/build`, `/observe`, `/session`
+- Phase 2 tools as they become available

@@ -1,0 +1,23 @@
+{
+  "name": "llm-toolkit-observability",
+  "version": "1.0.0",
+  "description": "Structured logging, metrics, and tracing for LLM Toolkit",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "jest"
+  },
+  "keywords": ["observability", "logging", "metrics", "tracing"],
+  "author": "Shawna Pakbin",
+  "license": "LicenseRef-Shawna-NonCommercial",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.8.2"
+  }
+}

@@ -28,13 +28,22 @@
   - Terminal/dist/
   - WebBrowser/dist/
   - Calculator/dist/
+  - DocumentScraper/dist/
   - Clock/dist/
   - Browserless/dist/
   - AskUser/dist/
   - RAG/dist/
+  - Skills/dist/
+  - ECM/dist/
   - Memory/dist/
   - AgentRunner/dist/
   - Observability/dist/
+  - CSVExporter/dist/
+  - Git/dist/
+  - FileEditor/dist/
+  - PackageManager/dist/
+  - CLI/dist/
+  - SlashCommands/dist/
 
 ### 4. MCP Readiness ✅
 - [ ] Run `npm run startup:check:strict`

@@ -4,6 +4,19 @@
 
 Pre-push hooks automatically run quality gates before code is pushed to the remote repository, catching issues early and reducing CI failures.
 
+## Pre-Commit Hooks (Active)
+
+The project uses **Husky** + **lint-staged** for pre-commit checks. These are installed automatically when you run `npm install` (via the `prepare` script).
+
+**What runs on every commit:**
+- `biome check --diagnostic-level=error --no-errors-on-unmatched` on all staged `*.{ts,js,json}` files
+
+**Configuration:**
+- Husky: `.husky/pre-commit`
+- lint-staged: `lint-staged` key in root `package.json`
+
+## Pre-Push Hooks (Optional)
+
 ## Benefits
 
 - ✅ **Catch issues locally** before CI runs

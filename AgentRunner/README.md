@@ -324,10 +324,15 @@ console.log(`Running workflows: ${running.join(", ")}`);
 │                 │
 └─────────────────┘
         │
-        ├───────► Terminal (3330)
+        ├───────► Terminal (3333)
         ├───────► WebBrowser (3334)
         ├───────► Calculator (3335)
+        ├───────► DocumentScraper (3336)
         ├───────► Clock (3337)
+        ├───────► AskUser (3338)
+        ├───────► RAG (3339)
+        ├───────► Skills (3341)
+        ├───────► ECM (3342)
         └───────► Browserless (3003)
 ```
 

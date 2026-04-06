@@ -1,6 +1,6 @@
-import { type LogEntry, Logger, setLogger } from "../../Observability/src/logger";
-import { MetricsRegistry, setRegistry } from "../../Observability/src/metrics";
-import { Tracer, setTracer } from "../../Observability/src/tracer";
+import { type LogEntry, Logger, setLogger } from "llm-toolkit-observability";
+import { MetricsRegistry, setRegistry } from "llm-toolkit-observability";
+import { Tracer, setTracer } from "llm-toolkit-observability";
 import { type ToolMetadata, ToolRegistry, ToolStatus } from "../src/registry";
 import { AgentRunner, ExecutionMode } from "../src/runner";
 

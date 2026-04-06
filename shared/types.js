@@ -33,6 +33,7 @@ var ErrorCode;
  * Timing utility for tracking operation duration.
  */
 class OperationTimer {
+  startTime;
   constructor() {
     this.startTime = Date.now();
   }

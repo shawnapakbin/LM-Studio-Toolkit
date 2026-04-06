@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["*"],
+      "@shared/*": ["shared/*"]
+    }
+  },
+  "include": [
+    "shared/**/*.ts",
+    "Terminal/src/**/*",
+    "WebBrowser/src/**/*",
+    "Calculator/src/**/*",
+    "DocumentScraper/src/**/*",
+    "Clock/src/**/*",
+    "Browserless/src/**/*",
+    "AskUser/src/**/*",
+    "RAG/src/**/*",
+    "Memory/src/**/*",
+    "testing/**/*"
+  ],
+  "exclude": ["node_modules", "dist", "**/tests", "**/*.test.ts", "coverage"]
+}

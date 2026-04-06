@@ -93,18 +93,96 @@ SQLite tables capture agent intelligence:
 | Tool | Purpose | Port | Status |
 |------|---------|------|--------|
 | **Terminal** | Execute shell commands (OS-aware) | 3333 | ✅ Working |
-| **WebBrowser** | Fetch + parse web pages | 3334 | ✅ Working |
+| **WebBrowser** | Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output (v2.1.0) | 3334 | ✅ Working |
 | **Calculator** | Math expressions (engineering notation) | 3335 | ✅ Working |
+| **DocumentScraper** | Read documents with structured extraction + encrypted PDF detection | 3336 | ✅ Working |
 | **AskUser** | Interactive interview and clarification workflows | 3338 | ✅ Working |
 | **Clock** | Current date/time + timezone | 3337 | ✅ Working |
 | **Browserless** | Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) | 3003 | ✅ Working |
-| **Git** (Phase 2) | Clone, commit, branch, merge | TBD | 🔄 Planned |
-| **FileEditor** (Phase 2) | Safe read/write code files | TBD | 🔄 Planned |
-| **PackageManager** (Phase 2) | npm/pip/cargo detection + install/update | TBD | 🔄 Planned |
+| **RAG** | Persistent retrieval augmented generation with source lifecycle + approval-gated writes | 3339 | ✅ Working |
+| **Skills** | Persistent skill/playbook system — define parameterized step templates, execute by name (v2.1.0) | 3341 | ✅ Working |
+| **ECM** | Extended Context Memory — 1M token context via vector retrieval, session isolation, extractive summarization (v2.1.0) | 3342 | ✅ Working |
+| **CSVExporter** | Export parsed table data to CSV files | 3340 | ✅ Working |
+| **Git** | Safe git operations with branch protection | 3011 | ✅ Working |
+| **FileEditor** | Safe file read/write/search with workspace sandboxing | TBD | ✅ Working |
+| **PackageManager** | Multi-ecosystem package management (npm/pip/cargo/maven/go) | TBD | ✅ Working |
+| **Observability** | Structured logging, metrics, tracing library | N/A | ✅ Working |
 | **BuildRunner** (Phase 2) | Compile, test, lint | TBD | 🔄 Planned |
 | **AIModel** (Phase 2) | In-agent Claude/OpenAI calls | TBD | 🔄 Planned |
-| **Observability** (Phase 2) | Logging, metrics, tracing | TBD | 🔄 Planned |
 | **Orchestrator** (Phase 3) | Master agent runner | N/A | 🔄 Planned |
+
+---
+
+## v2.1.0 Additions: CLI and Slash Commands
+
+### CLI Workspace (`CLI/`)
+
+The `CLI/` workspace provides a `llm <command>` binary for invoking all tools directly from the terminal. It uses `commander` for argument parsing and routes requests to tool HTTP endpoints (ports 3330–3342).
+
+**Install & build:**
+```bash
+npm install
+npm run build:cli
+# Optional: link globally
+npm link --workspace=CLI
+```
+
+**Command groups:**
+
+| Group | Commands |
+|---|---|
+| `llm tools` | `list`, `health`, `schema <tool>` |
+| `llm calc` | `"<expr>"` with optional `--precision` |
+| `llm browse` | `<url>` with `--format`, `--screenshot`, `--wait-selector` |
+| `llm clock` | current time with `--timezone`, `--format` |
+| `llm terminal` / `llm run` | `"<cmd>"` with `--cwd`, `--timeout` |
+| `llm skills` | `list`, `get`, `run`, `define`, `delete` |
+| `llm memory` | `stats`, `history`, `patterns`, `clear` |
+| `llm ecm` | `store`, `retrieve`, `list`, `delete`, `summarize`, `clear`, `compact` |
+| `llm rag` | `query`, `ingest`, `list`, `delete` |
+| `llm ask` | `"<prompt>"` with `--title`, `--expires` |
+| `llm workflow` | `run <file.json>` with `--session`, `--auto-approve`, `--timeout` |
+| `llm config` | `show`, `set <key> <value>` |
+| `llm compact` | top-level shortcut for ECM context compaction |
+
+The CLI is intended for scripting and automation. See [`CLI/README.md`](../CLI/README.md) for the full command reference.
+
+### SlashCommands Workspace (`SlashCommands/`)
+
+The `SlashCommands/` workspace is an MCP server that exposes a single `slash_command` tool. When the user types `/command` in LM Studio chat, the LLM calls this tool automatically — no system prompt injection required.
+
+**Architecture:**
+- `parser.ts` — tokenizer + flag extractor; handles quoted strings and `--flag <value>` / `--flag` boolean syntax
+- `router.ts` — maps parsed `DispatchDescriptor` to tool HTTP endpoints; `/compact` runs a two-step ECM summarize + list; `/tools health` runs parallel health checks
+- `mcp-server.ts` — registers the `slash_command` tool with the full command reference in its description
+
+**Handled commands:**
+
+| Command | Routes to |
+|---|---|
+| `/compact` | ECM `summarize_session` → `list_segments` (reports remaining count) |
+| `/ecm store\|retrieve\|list\|summarize\|clear` | ECM tool (port 3342) |
+| `/calc <expr>` | Calculator tool (port 3335) |
+| `/browse <url>` | WebBrowser tool (port 3334) |
+| `/clock` | Clock tool (port 3337) |
+| `/run <cmd>` | Terminal tool (port 3333) |
+| `/skills list\|run\|get` | Skills tool (port 3341) |
+| `/rag query\|ingest\|list` | RAG tool (port 3339) |
+| `/ask <prompt>` | AskUser tool (port 3338) |
+| `/tools list\|health\|schema` | All tool endpoints |
+| `/memory stats\|history\|patterns` | AgentRunner SQLite (direct query) |
+| `/config show` | CLI config |
+| `/workflow run <file>` | AgentRunner (port 3330) |
+
+**Setup:**
+```json
+"slash-commands": {
+  "command": "node",
+  "args": ["SlashCommands/dist/mcp-server.js"]
+}
+```
+
+Run `npm run build:slash` to build. See [`docs/SLASH-COMMANDS.md`](SLASH-COMMANDS.md) for the full command reference.
 
 ---
 
@@ -250,9 +328,11 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 | `testing/responses.ts` | Standard response envelope |
 | `docs/CODE-QUALITY.md` | Detailed quality standards |
 | `docs/MEMORY-PATTERNS.md` | Memory query patterns |
+| `docs/SLASH-COMMANDS.md` | Slash command reference (v2.1.0) |
+| `CLI/README.md` | CLI command reference (v2.1.0) |
 | `CONTRIBUTING.md` | PR workflow + checklist |
 
 ---
 
-**Last Updated**: March 1, 2026  
-**Version**: 2.0.0-alpha.1
+**Last Updated**: April 2026  
+**Version**: 2.1.0

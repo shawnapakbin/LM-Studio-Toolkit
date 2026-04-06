@@ -1,3 +1,4 @@
+﻿// @ts-nocheck -- MCP SDK Zod type recursion causes OOM/TS2589 with many registerTool calls
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";

@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.0.1  
-**Status**: Phase 0 (Foundation) ✅ Complete
+**Version**: 2.1.0  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.1.0 enhancements ✅ + CLI & Slash Commands ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -48,16 +48,25 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 8 Core Tools (v1 → v2 compatibility maintained)
+### 18 Tool Modules + CLI & Slash Commands
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
-- **[WebBrowser](WebBrowser/README.md)** — Fetch + parse web pages (SSRF-protected) ✅
+- **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
 - **[Calculator](Calculator/README.md)** — Math expressions (engineering notation, symbol normalization) ✅
 - **[DocumentScraper](DocumentScraper/README.md)** — Read documents with structured extraction + encrypted PDF detection ✅
 - **[Clock](Clock/README.md)** — Date/time + timezones (IANA + locale formatting) ✅
 - **[Browserless](Browserless/README.md)** — Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
 - **[AskUser](AskUser/README.md)** — Interactive interview workflow for planning and clarification ✅
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
+- **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
+- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅
+- **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
+- **[Git](Git/README.md)** — Safe git operations with branch protection ✅
+- **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing ✅
+- **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
+- **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
+- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
+- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
 ### Foundation Layer (Phase 0 ✅)
 
@@ -66,12 +75,22 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[SQLite Memory](Memory/)** — Task history, solution patterns, learned rules
 - **CI/CD Gates** — `.github/workflows/ci.yml` enforces quality on every PR
 
-### Phase 1–3 Roadmap (In progress)
+### Pre-Commit Hooks
 
-- Phase 1: Tool hardening + quality gates (1.5 weeks)
-- Phase 2: 6 new tools (Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability) (6 weeks)
-- Phase 3: Agent orchestrator + pattern replay (1 week)
-- Phase 4: Multi-interface launchers (LM Studio, CLI, VS Code, HTTP) (0.5 weeks)
+Pre-commit quality gates are enforced automatically via [Husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged). On every commit, `biome check` runs on staged `*.{ts,js,json}` files.
+
+### Build Order
+
+```bash
+npm run build   # shared → observability → tools (18 modules) → memory
+```
+
+### Phases Complete ✅
+
+- Phase 0: Foundation — code quality, tests, CI gates ✅
+- Phase 1: Tool hardening + safety ✅
+- Phase 2: Orchestration + workflow execution ✅
+- Phase 3: Extended tools (Git, FileEditor, PackageManager, CSVExporter, Observability) ✅
 
 See [AGENT_ROADMAP.md](AGENT_ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
@@ -133,6 +152,28 @@ git push origin feat/description
 # Create pull request
 ```
 
+## Slash Commands (LM Studio Chat)
+
+You can control the toolkit directly from the LM Studio chat window by typing `/commands`. The `slash_command` MCP tool intercepts messages starting with `/` and routes them to the appropriate tool automatically — no system prompt required.
+
+```
+/compact                  → Summarize + compact ECM context memory
+/calc sin(30°)            → Evaluate a math expression
+/browse https://...       → Fetch and render a URL
+/clock --timezone UTC     → Get current time
+/run ls -la               → Execute a shell command
+/skills list              → List all defined skills
+/rag query <text>         → Query the knowledge base
+/tools health             → Health-check all tools
+/memory stats             → Show workflow run statistics
+```
+
+Add `slash-commands` to your LM Studio `mcp.json` (run `npm run mcp:print-config` for the full config), then build with `npm run build:slash`.
+
+See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command reference.
+
+---
+
 ## Deployment
 
 ### LM Studio Integration (v1 Configuration)
@@ -161,6 +202,14 @@ npm run mcp:sync-lmstudio
 
 ## Complete `mcp.json` Example
 
+> **⚠ WARNING — Do NOT copy-paste this directly into LM Studio.**
+> The paths below are **relative** (illustration only). LM Studio resolves relative paths from its own plugin directory, not your project root, which will cause `Cannot find module` errors for every server.
+> Always generate the correct absolute-path config for your machine:
+> ```bash
+> npm run mcp:print-config   # print to stdout
+> npm run mcp:sync-lmstudio  # auto-deploy into LM Studio
+> ```
+
 ```json
 {
 	"mcpServers": {
@@ -178,7 +227,8 @@ npm run mcp:sync-lmstudio
 			"env": {
 				"BROWSER_DEFAULT_TIMEOUT_MS": "20000",
 				"BROWSER_MAX_TIMEOUT_MS": "60000",
-				"BROWSER_MAX_CONTENT_CHARS": "12000"
+				"BROWSER_MAX_CONTENT_CHARS": "12000",
+				"BROWSER_HEADLESS": "true"
 			}
 		},
 		"calculator": {
@@ -242,12 +292,34 @@ npm run mcp:sync-lmstudio
 				"RAG_CHUNK_SIZE_TOKENS": "384",
 				"RAG_CHUNK_OVERLAP_TOKENS": "75"
 			}
+		},
+		"skills": {
+			"command": "node",
+			"args": ["Skills/dist/mcp-server.js"],
+			"env": {
+				"SKILLS_DB_PATH": "./skills.db"
+			}
+		},
+		"ecm": {
+			"command": "node",
+			"args": ["ECM/dist/mcp-server.js"],
+			"env": {
+				"ECM_DB_PATH": "./ecm.db",
+				"ECM_EMBEDDINGS_MODE": "lmstudio",
+				"ECM_EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
+			}
+		},
+		"slash-commands": {
+			"command": "node",
+			"args": ["SlashCommands/dist/mcp-server.js"],
+			"env": {
+				"SLASH_DEFAULT_SESSION": "default"
+			}
 		}
 	}
 }
 ```
 
-**Note**: For production use, prefer `npm run mcp:print-config` or `npm run mcp:sync-lmstudio` so paths are generated automatically for your machine.  
 Phase 2 will introduce unified orchestrator MCP server and multi-interface launchers.
 
 
@@ -363,14 +435,23 @@ See [Memory/README.md](Memory/README.md) for details.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR workflow + code review checklist |
 | [Memory/README.md](Memory/README.md) | Memory persistence API |
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
+| [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
+| [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
+| [CLI/README.md](CLI/README.md) | CLI command reference (v2.1.0) |
+| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference (v2.1.0) |
+| [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
 
 
 ## Features & Status
 
 | Feature | Status | Notes |
 |---------|--------|-------|
+| CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 8 core tools | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG |
+| 11 core tools | ✅ | Terminal, WebBrowser (headless), Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, Skills, ECM |
+| WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
+| Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
+| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation (v2.1.0) |
 | Biome format + lint | ✅ | CI gate, auto-fix on save |
 | Jest test suite | ✅ | 80% coverage minimum |
 | SQLite memory | ✅ | Task history, patterns, rules |
@@ -404,5 +485,5 @@ Original Author: Shawna Pakbin
 
 ---
 
-**Last Updated**: March 30, 2026  
+**Last Updated**: April 2, 2026  
 Built with ❤️ for LLM-powered software engineering

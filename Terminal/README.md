@@ -1,6 +1,6 @@
-# LM Studio Tools - Terminal
+# LLM Toolkit — Terminal
 
-Local HTTP tool server that lets an LM Studio local model execute terminal commands.
+Local HTTP tool server that lets an LLM execute terminal commands.
 
 ## What this provides
 - `GET /tool-schema` returns a tool definition for `run_terminal_command` (includes OS detection)

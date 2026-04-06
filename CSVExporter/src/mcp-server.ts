@@ -20,26 +20,29 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
+const inputSchema = z.object({
+  filename: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Output filename. .csv will be added automatically when missing."),
+  subfolder: z.string().min(1).optional().describe("Optional subfolder inside Documents."),
+  headers: z.array(z.string().min(1)).min(1).describe("Column headers in output order."),
+  rows: z.array(z.array(z.any())).describe("Table rows matching header column count."),
+  append: z
+    .boolean()
+    .optional()
+    .describe("Append rows to existing CSV when true. Defaults to true."),
+});
+
 server.registerTool(
   "save_parsed_data_csv",
   {
     description:
       "Saves parsed tabular data as a clean CSV file in the user Documents folder. Supports appending rows and optional Documents subfolder.",
-    inputSchema: z.object({
-      filename: z
-        .string()
-        .min(1)
-        .optional()
-        .describe("Output filename. .csv will be added automatically when missing."),
-      subfolder: z.string().min(1).optional().describe("Optional subfolder inside Documents."),
-      headers: z.array(z.string().min(1)).min(1).describe("Column headers in output order."),
-      rows: z.array(z.array(z.unknown())).describe("Table rows matching header column count."),
-      append: z
-        .boolean()
-        .optional()
-        .describe("Append rows to existing CSV when true. Defaults to true."),
-    }),
+    inputSchema,
   },
+  // @ts-expect-error -- MCP SDK Zod type recursion limit with nested arrays
   async ({
     filename,
     subfolder,

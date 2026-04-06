@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --app-bg: #08110f;
+  --app-panel: rgba(255, 255, 255, 0.05);
+  --app-panel-strong: rgba(255, 255, 255, 0.08);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-foreground: #f7faf8;
+  --app-muted: rgba(224, 235, 231, 0.72);
+}
+
+@theme inline {
+  --color-app: var(--app-bg);
+  --color-app-foreground: var(--app-foreground);
+  --color-app-muted: var(--app-muted);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Inter", sans-serif;
+  background: radial-gradient(circle at top left, rgba(140, 235, 177, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(247, 208, 117, 0.14), transparent 22%),
+    linear-gradient(180deg, #07100e 0%, #091513 50%, #07110f 100%);
+  color: var(--app-foreground);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.eyebrow {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--app-muted);
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #9be0b4, #f2d985);
+  color: #10201a;
+  padding: 0.9rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.action-button--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-button--ghost {
+  background: transparent;
+  color: var(--app-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem 1.1rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mode-card--active {
+  border-color: rgba(155, 224, 180, 0.45);
+  background: rgba(155, 224, 180, 0.12);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.status-pill--ok {
+  background: rgba(113, 235, 163, 0.14);
+  color: #9be0b4;
+}
+
+.status-pill--error {
+  background: rgba(249, 115, 115, 0.12);
+  color: #fca5a5;
+}
+
+.status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.status-dot--info,
+.status-dot--section {
+  background: #93c5fd;
+}
+
+.status-dot--ok {
+  background: #86efac;
+}
+
+.status-dot--warn {
+  background: #fcd34d;
+}
+
+.status-dot--error {
+  background: #fca5a5;
+}

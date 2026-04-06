@@ -1,0 +1,52 @@
+name: Installer Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "installer-v*"
+
+jobs:
+  build-installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck installer
+        run: npm run -w Installer typecheck
+
+      - name: Build installer app
+        run: npm run -w Installer build
+
+      - name: Package installer
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            npm run -w Installer dist:win
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            npm run -w Installer dist:mac
+          else
+            npm run -w Installer dist:linux
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ runner.os }}
+          path: Installer/release/**/*
+          if-no-files-found: error

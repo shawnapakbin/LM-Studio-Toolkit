@@ -1,0 +1,82 @@
+{
+  "name": "llm-toolkit-installer",
+  "version": "2.1.0",
+  "private": true,
+  "author": "Shawna Pakbin",
+  "description": "Self-sufficient desktop installer for LLM Toolkit",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "icons:build": "node scripts/select-icon.mjs llm-toolkit-installer-nodes.svg",
+    "counter:next": "node scripts/compile-counter.mjs",
+    "prepare:resources": "node scripts/prepare-resources.mjs",
+    "build": "node scripts/compile-counter.mjs build && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs",
+    "dist": "node scripts/compile-counter.mjs dist && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs && electron-builder",
+    "dist:win": "node scripts/dist-win.mjs",
+    "dist:mac": "node scripts/compile-counter.mjs dist:mac && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs && electron-builder --mac",
+    "dist:linux": "node scripts/compile-counter.mjs dist:linux && npm run icons:build && npm run prepare:resources && node scripts/electron-vite-build.mjs && electron-builder --linux",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "jest --config jest.config.cjs"
+  },
+  "build": {
+    "appId": "com.llmtoolkit.installer",
+    "productName": "LLM Toolkit Installer",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": ["out/**/*", "package.json"],
+    "extraResources": [
+      {
+        "from": "resources/payload",
+        "to": "payload"
+      }
+    ],
+    "win": {
+      "target": ["portable"],
+      "artifactName": "install.exe",
+      "icon": "resources/icons/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": ["dmg"],
+      "artifactName": "install.dmg"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "artifactName": "install.AppImage",
+      "icon": "resources/icons/icon.png",
+      "category": "Development"
+    }
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.0.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.6.1",
+    "electron-log": "^5.4.0",
+    "lucide-react": "^0.510.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-hook-form": "^7.56.4",
+    "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.1",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "electron": "35.1.2",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.1.0",
+    "jest": "^29.7.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5",
+    "tailwindcss": "^4.1.4",
+    "ts-jest": "^29.4.9",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.6"
+  }
+}

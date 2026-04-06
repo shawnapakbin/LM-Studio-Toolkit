@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-ecm",
+  "name": "llm-toolkit-ecm",
   "version": "2.1.0",
   "private": true,
   "description": "Extended Context Memory MCP tool — enables effective 1M token context via vector retrieval",

@@ -48,20 +48,25 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 11 Core Tools (v2.1.0) + CLI & Slash Commands (v2.2.0)
+### 18 Tool Modules + CLI & Slash Commands
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
-- **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅ _(upgraded v2.1.0)_
+- **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
 - **[Calculator](Calculator/README.md)** — Math expressions (engineering notation, symbol normalization) ✅
 - **[DocumentScraper](DocumentScraper/README.md)** — Read documents with structured extraction + encrypted PDF detection ✅
 - **[Clock](Clock/README.md)** — Date/time + timezones (IANA + locale formatting) ✅
 - **[Browserless](Browserless/README.md)** — Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
 - **[AskUser](AskUser/README.md)** — Interactive interview workflow for planning and clarification ✅
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
-- **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅ _(new v2.1.0)_
-- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅ _(new v2.1.0)_
-- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅ _(new v2.2.0)_
-- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅ _(new v2.2.0)_
+- **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
+- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅
+- **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
+- **[Git](Git/README.md)** — Safe git operations with branch protection ✅
+- **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing ✅
+- **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
+- **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
+- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
+- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
 ### Foundation Layer (Phase 0 ✅)
 
@@ -70,12 +75,22 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[SQLite Memory](Memory/)** — Task history, solution patterns, learned rules
 - **CI/CD Gates** — `.github/workflows/ci.yml` enforces quality on every PR
 
-### Phase 1–3 Roadmap (In progress)
+### Pre-Commit Hooks
 
-- Phase 1: Tool hardening + quality gates (1.5 weeks)
-- Phase 2: 6 new tools (Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability) (6 weeks)
-- Phase 3: Agent orchestrator + pattern replay (1 week)
-- Phase 4: Multi-interface launchers (LM Studio, CLI, VS Code, HTTP) (0.5 weeks)
+Pre-commit quality gates are enforced automatically via [Husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged). On every commit, `biome check` runs on staged `*.{ts,js,json}` files.
+
+### Build Order
+
+```bash
+npm run build   # shared → observability → tools (18 modules) → memory
+```
+
+### Phases Complete ✅
+
+- Phase 0: Foundation — code quality, tests, CI gates ✅
+- Phase 1: Tool hardening + safety ✅
+- Phase 2: Orchestration + workflow execution ✅
+- Phase 3: Extended tools (Git, FileEditor, PackageManager, CSVExporter, Observability) ✅
 
 See [AGENT_ROADMAP.md](AGENT_ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 

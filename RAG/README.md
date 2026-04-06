@@ -1,4 +1,4 @@
-# LM Studio Tools - RAG
+# LLM Toolkit — RAG
 
 RAG MCP tool for persistent document ingestion and semantic retrieval, with robust support for dynamic/JavaScript documentation sites (e.g., browserless-docs.mcp.kapa.ai, docs.browserless.io) via browser-rendered fallback and BrowserQL guidance.
 

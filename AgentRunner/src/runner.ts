@@ -3,9 +3,9 @@
  */
 
 import { ErrorCode, OperationTimer, generateTraceId } from "@shared/types";
-import { type Logger, getLogger } from "../../Observability/src/logger";
-import { type MetricsRegistry, getRegistry } from "../../Observability/src/metrics";
-import { SpanStatus, type Tracer, getTracer } from "../../Observability/src/tracer";
+import { type Logger, getLogger } from "llm-toolkit-observability";
+import { type MetricsRegistry, getRegistry } from "llm-toolkit-observability";
+import { SpanStatus, type Tracer, getTracer } from "llm-toolkit-observability";
 import { normalizeToolCall } from "../../shared/toolCallNormalizer";
 import { type ToolRegistry, ToolStatus } from "./registry";
 

@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-web-browser",
+  "name": "llm-toolkit-web-browser",
   "version": "2.1.0",
   "private": true,
   "description": "Full headless Chromium browser tool for LM Studio Tools (Playwright-powered)",

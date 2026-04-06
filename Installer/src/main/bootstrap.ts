@@ -1,6 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 
 import { app } from "electron";
 
@@ -103,5 +103,7 @@ export function extractPayloadToInstallRoot(installRoot: string, handlers: Extra
     return;
   }
 
-  handlers.onProgress("Packaged payload directory exists, but no recognized payload artifact was found.");
+  handlers.onProgress(
+    "Packaged payload directory exists, but no recognized payload artifact was found.",
+  );
 }

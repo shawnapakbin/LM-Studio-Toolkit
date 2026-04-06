@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-skills",
+  "name": "llm-toolkit-skills",
   "version": "2.1.0",
   "private": true,
   "description": "Skills MCP tool for managing and executing agent skills",

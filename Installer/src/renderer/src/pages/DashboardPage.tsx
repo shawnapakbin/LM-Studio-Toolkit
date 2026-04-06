@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { House, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { ToolCard } from "@renderer/components/dashboard/ToolCard";
 import { Panel } from "@renderer/components/ui/Panel";
@@ -43,12 +43,15 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
   const [installRoot, setInstallRoot] = useState("");
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [lmStudioStatus, setLmStudioStatus] = useState<LmStudioStatus | null>(null);
-  const [lmStudioInstallation, setLmStudioInstallation] = useState<LmStudioInstallationStatus | null>(null);
+  const [lmStudioInstallation, setLmStudioInstallation] =
+    useState<LmStudioInstallationStatus | null>(null);
   const { isLoading, toolStatuses } = useToolStatus(installRoot);
 
   useEffect(() => {
     void window.electronAPI.getInstallRoot().then((value) => setInstallRoot(value));
-    void window.electronAPI.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus));
+    void window.electronAPI
+      .getRuntimeStatus()
+      .then((value) => setRuntimeStatus(value as RuntimeStatus));
     void window.electronAPI.getLmStudioStatus().then((value) => setLmStudioInstallation(value));
   }, []);
 
@@ -57,7 +60,9 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
       return;
     }
 
-    void window.electronAPI.verifyLmStudio(installRoot).then((value) => setLmStudioStatus(value as LmStudioStatus));
+    void window.electronAPI
+      .verifyLmStudio(installRoot)
+      .then((value) => setLmStudioStatus(value as LmStudioStatus));
   }, [installRoot]);
 
   return (
@@ -65,21 +70,32 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
       <Panel className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="eyebrow">Dashboard</span>
-          <h1 className="mt-2 text-3xl font-semibold text-white lg:text-4xl">Installer control surface</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-white lg:text-4xl">
+            Installer control surface
+          </h1>
           <p className="mt-2 max-w-3xl text-sm text-app-muted">
-            This dashboard is the post-install home for runtime health, tool binaries, and LM Studio bridge status.
+            This dashboard is the post-install home for runtime health, tool binaries, and LM Studio
+            bridge status.
           </p>
         </div>
         <div className="flex gap-3">
-          <button className="action-button action-button--secondary" onClick={onBackToWizard} type="button">
+          <button
+            className="action-button action-button--secondary"
+            onClick={onBackToWizard}
+            type="button"
+          >
             <House className="h-4 w-4" />
             Wizard
           </button>
           <button
             className="action-button"
             onClick={() => {
-              void window.electronAPI.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus));
-              void window.electronAPI.getLmStudioStatus().then((value) => setLmStudioInstallation(value));
+              void window.electronAPI
+                .getRuntimeStatus()
+                .then((value) => setRuntimeStatus(value as RuntimeStatus));
+              void window.electronAPI
+                .getLmStudioStatus()
+                .then((value) => setLmStudioInstallation(value));
               if (installRoot) {
                 void window.electronAPI
                   .verifyLmStudio(installRoot)
@@ -98,7 +114,9 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
         <Panel className="space-y-5">
           <div>
             <h2 className="text-xl font-semibold text-white">Runtime</h2>
-            <p className="mt-2 text-sm text-app-muted">Bundled runtime state for self-sufficient installs.</p>
+            <p className="mt-2 text-sm text-app-muted">
+              Bundled runtime state for self-sufficient installs.
+            </p>
           </div>
           <dl className="grid gap-4 text-sm">
             <div>
@@ -107,24 +125,33 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
             </div>
             <div>
               <dt className="text-app-muted">Downloaded runtime ready</dt>
-              <dd className="mt-1 text-white">{runtimeStatus?.isDownloadedRuntimeReady ? "Yes" : "Not yet"}</dd>
+              <dd className="mt-1 text-white">
+                {runtimeStatus?.isDownloadedRuntimeReady ? "Yes" : "Not yet"}
+              </dd>
             </div>
             <div>
               <dt className="text-app-muted">Downloaded node binary</dt>
-              <dd className="mt-1 break-all text-white">{runtimeStatus?.downloadedNodePath ?? "Not downloaded yet"}</dd>
+              <dd className="mt-1 break-all text-white">
+                {runtimeStatus?.downloadedNodePath ?? "Not downloaded yet"}
+              </dd>
             </div>
             <div>
               <dt className="text-app-muted">Downloaded npm CLI</dt>
-              <dd className="mt-1 break-all text-white">{runtimeStatus?.downloadedNpmCliPath ?? "Not downloaded yet"}</dd>
+              <dd className="mt-1 break-all text-white">
+                {runtimeStatus?.downloadedNpmCliPath ?? "Not downloaded yet"}
+              </dd>
             </div>
             <div>
               <dt className="text-app-muted">System node path</dt>
-              <dd className="mt-1 break-all text-white">{runtimeStatus?.systemNodePath ?? "Not detected"}</dd>
+              <dd className="mt-1 break-all text-white">
+                {runtimeStatus?.systemNodePath ?? "Not detected"}
+              </dd>
             </div>
             <div>
               <dt className="text-app-muted">System node/npm versions</dt>
               <dd className="mt-1 text-white">
-                {runtimeStatus?.systemNodeVersion ?? "n/a"} / {runtimeStatus?.systemNpmVersion ?? "n/a"}
+                {runtimeStatus?.systemNodeVersion ?? "n/a"} /{" "}
+                {runtimeStatus?.systemNpmVersion ?? "n/a"}
               </dd>
             </div>
           </dl>
@@ -133,29 +160,41 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
         <Panel className="space-y-5">
           <div>
             <h2 className="text-xl font-semibold text-white">LM Studio</h2>
-            <p className="mt-2 text-sm text-app-muted">Bridge sync is non-blocking and can be retried later.</p>
+            <p className="mt-2 text-sm text-app-muted">
+              Bridge sync is non-blocking and can be retried later.
+            </p>
           </div>
           <dl className="grid gap-4 text-sm">
             <div>
               <dt className="text-app-muted">LM Studio app</dt>
-              <dd className="mt-1 break-all text-white">{lmStudioInstallation?.appPath ?? "Not detected"}</dd>
+              <dd className="mt-1 break-all text-white">
+                {lmStudioInstallation?.appPath ?? "Not detected"}
+              </dd>
             </div>
             <div>
               <dt className="text-app-muted">Plugin root</dt>
-              <dd className="mt-1 break-all text-white">{lmStudioInstallation?.pluginRoot ?? "Loading..."}</dd>
+              <dd className="mt-1 break-all text-white">
+                {lmStudioInstallation?.pluginRoot ?? "Loading..."}
+              </dd>
             </div>
             <div>
               <dt className="text-app-muted">Status</dt>
-              <dd className="mt-1 text-white">{lmStudioStatus?.message ?? lmStudioInstallation?.message ?? "Checking..."}</dd>
+              <dd className="mt-1 text-white">
+                {lmStudioStatus?.message ?? lmStudioInstallation?.message ?? "Checking..."}
+              </dd>
             </div>
             <div className="grid gap-2 md:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="text-app-muted">Updated</div>
-                <div className="mt-2 text-3xl font-semibold text-white">{lmStudioStatus?.updated ?? 0}</div>
+                <div className="mt-2 text-3xl font-semibold text-white">
+                  {lmStudioStatus?.updated ?? 0}
+                </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="text-app-muted">Skipped</div>
-                <div className="mt-2 text-3xl font-semibold text-white">{lmStudioStatus?.skipped ?? 0}</div>
+                <div className="mt-2 text-3xl font-semibold text-white">
+                  {lmStudioStatus?.skipped ?? 0}
+                </div>
               </div>
             </div>
           </dl>
@@ -166,7 +205,9 @@ export function DashboardPage({ onBackToWizard }: DashboardPageProps) {
         <div>
           <h2 className="text-xl font-semibold text-white">Tool binaries</h2>
           <p className="mt-2 text-sm text-app-muted">
-            {isLoading ? "Refreshing tool status..." : `${toolStatuses.length} tool definitions loaded from the MCP registry.`}
+            {isLoading
+              ? "Refreshing tool status..."
+              : `${toolStatuses.length} tool definitions loaded from the MCP registry.`}
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

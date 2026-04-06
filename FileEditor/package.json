@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-file-editor",
+  "name": "llm-toolkit-file-editor",
   "version": "1.0.0",
   "private": true,
   "description": "Safe file system operations for LLM agents - read, write, search, and edit files with workspace sandboxing",
@@ -20,12 +20,5 @@
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "zod": "^3.25.76"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.23",
-    "@types/node": "^22.13.1",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.2"
   }
 }

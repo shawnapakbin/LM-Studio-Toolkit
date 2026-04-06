@@ -17,5 +17,10 @@
       "@main/*": ["src/main/*"]
     }
   },
-  "include": ["electron.vite.config.ts", "electron-builder.config.ts", "src/**/*.ts", "src/**/*.tsx"]
+  "include": [
+    "electron.vite.config.ts",
+    "electron-builder.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
 }

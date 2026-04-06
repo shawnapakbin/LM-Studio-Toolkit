@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { ArrowRight, FolderOpen, Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Panel } from "@renderer/components/ui/Panel";
 import { useSetup } from "@renderer/hooks/useSetup";
@@ -40,7 +40,8 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
   const [allowDownloads, setAllowDownloads] = useState(false);
   const [installPlaywrightBrowsers, setInstallPlaywrightBrowsers] = useState(true);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
-  const [lmStudioInstallation, setLmStudioInstallation] = useState<LmStudioInstallationStatus | null>(null);
+  const [lmStudioInstallation, setLmStudioInstallation] =
+    useState<LmStudioInstallationStatus | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const { cancel, error, isRunning, logs, progress, start } = useSetup();
 
@@ -55,12 +56,19 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
       api.getInstallRoot().then((value) => setInstallRoot(value)),
       api.getRuntimeStatus().then((value) => setRuntimeStatus(value as RuntimeStatus)),
       typeof api.getLmStudioStatus === "function"
-        ? api.getLmStudioStatus().then((value) => setLmStudioInstallation(value as LmStudioInstallationStatus))
+        ? api
+            .getLmStudioStatus()
+            .then((value) => setLmStudioInstallation(value as LmStudioInstallationStatus))
         : Promise.reject(new Error("getLmStudioStatus is missing from preload API")),
     ]).then((results) => {
-      const firstRejected = results.find((result) => result.status === "rejected") as PromiseRejectedResult | undefined;
+      const firstRejected = results.find((result) => result.status === "rejected") as
+        | PromiseRejectedResult
+        | undefined;
       if (firstRejected) {
-        const reason = firstRejected.reason instanceof Error ? firstRejected.reason.message : String(firstRejected.reason);
+        const reason =
+          firstRejected.reason instanceof Error
+            ? firstRejected.reason.message
+            : String(firstRejected.reason);
         setBootstrapError(reason);
       }
     });
@@ -82,8 +90,9 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
             Install LLM Toolkit without relying on a preconfigured machine.
           </h1>
           <p className="max-w-3xl text-sm text-app-muted lg:text-base">
-            This installer ships with payload extraction, runtime bootstrap, and graceful LM Studio sync behavior so
-            setup can complete even when the machine starts with missing prerequisites.
+            This installer ships with payload extraction, runtime bootstrap, and graceful LM Studio
+            sync behavior so setup can complete even when the machine starts with missing
+            prerequisites.
           </p>
         </div>
 
@@ -95,31 +104,52 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
               : "Install LLM Toolkit, bootstrap dependencies, build all tool packages, and set up LM Studio MCP bridge settings."}
           </p>
           <ul className="mt-3 grid gap-2 text-sm text-app-muted">
-            <li>LM Studio app detection: {lmStudioInstallation?.appInstalled ? "Detected" : "Not detected"}</li>
             <li>
-              LM Studio plugin root: {lmStudioInstallation?.pluginRootExists ? "Detected" : "Not detected yet"}
+              LM Studio app detection:{" "}
+              {lmStudioInstallation?.appInstalled ? "Detected" : "Not detected"}
+            </li>
+            <li>
+              LM Studio plugin root:{" "}
+              {lmStudioInstallation?.pluginRootExists ? "Detected" : "Not detected yet"}
             </li>
             <li>Runtime status: {runtimeStatus?.mode ?? "Checking..."}</li>
             <li>
-              Download requirement: {runtimeDownloadNeeded ? "Portable Node runtime download required" : "Package download may still occur during npm install"}
+              Download requirement:{" "}
+              {runtimeDownloadNeeded
+                ? "Portable Node runtime download required"
+                : "Package download may still occur during npm install"}
             </li>
-            <li>Playwright browser install: {installPlaywrightBrowsers ? "Enabled" : "Disabled"}</li>
+            <li>
+              Playwright browser install: {installPlaywrightBrowsers ? "Enabled" : "Disabled"}
+            </li>
           </ul>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <button className={mode === "install" ? "mode-card mode-card--active" : "mode-card"} onClick={() => setMode("install")} type="button">
+          <button
+            className={mode === "install" ? "mode-card mode-card--active" : "mode-card"}
+            onClick={() => setMode("install")}
+            type="button"
+          >
             <ArrowRight className="h-5 w-5" />
             <div>
               <div className="font-medium text-white">Fresh install</div>
-              <div className="text-sm text-app-muted">Extract payload, install dependencies, build tools.</div>
+              <div className="text-sm text-app-muted">
+                Extract payload, install dependencies, build tools.
+              </div>
             </div>
           </button>
-          <button className={mode === "repair" ? "mode-card mode-card--active" : "mode-card"} onClick={() => setMode("repair")} type="button">
+          <button
+            className={mode === "repair" ? "mode-card mode-card--active" : "mode-card"}
+            onClick={() => setMode("repair")}
+            type="button"
+          >
             <Wrench className="h-5 w-5" />
             <div>
               <div className="font-medium text-white">Repair existing install</div>
-              <div className="text-sm text-app-muted">Re-run dependency, build, verification, and sync flows.</div>
+              <div className="text-sm text-app-muted">
+                Re-run dependency, build, verification, and sync flows.
+              </div>
             </div>
           </button>
         </div>
@@ -127,12 +157,18 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
         <div className="grid gap-4 rounded-3xl border border-white/10 bg-black/20 p-5">
           <div>
             <div className="text-sm uppercase tracking-[0.24em] text-app-muted">Install Root</div>
-            <div className="mt-2 break-all text-sm text-white">{installRoot || "No folder selected yet."}</div>
+            <div className="mt-2 break-all text-sm text-white">
+              {installRoot || "No folder selected yet."}
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
               className="action-button action-button--secondary"
-              onClick={() => void window.electronAPI.selectDirectory().then((value) => value && setInstallRoot(value))}
+              onClick={() =>
+                void window.electronAPI
+                  .selectDirectory()
+                  .then((value) => value && setInstallRoot(value))
+              }
               type="button"
             >
               <FolderOpen className="h-4 w-4" />
@@ -142,7 +178,10 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
               className="action-button"
               disabled={!installRoot || isRunning || !allowDownloads}
               onClick={() => {
-                void start(installRoot, mode === "repair", { allowDownloads, installPlaywrightBrowsers })
+                void start(installRoot, mode === "repair", {
+                  allowDownloads,
+                  installPlaywrightBrowsers,
+                })
                   .then(() => onComplete())
                   .catch(() => {
                     // Error state is surfaced by useSetup.
@@ -163,7 +202,11 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
                 Cancel
               </button>
             ) : null}
-            <button className="action-button action-button--ghost" onClick={onOpenDashboard} type="button">
+            <button
+              className="action-button action-button--ghost"
+              onClick={onOpenDashboard}
+              type="button"
+            >
               Open dashboard
             </button>
           </div>
@@ -175,8 +218,11 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
               type="checkbox"
             />
             <span>
-              I approve downloads needed by this installer (portable Node runtime when missing and npm package dependencies).
-              {!allowDownloads ? " Granting permission is required before setup can run." : " Permission granted for this run."}
+              I approve downloads needed by this installer (portable Node runtime when missing and
+              npm package dependencies).
+              {!allowDownloads
+                ? " Granting permission is required before setup can run."
+                : " Permission granted for this run."}
             </span>
           </label>
           <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-app-muted">
@@ -214,7 +260,9 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
           <div className="flex items-center justify-between text-sm text-app-muted">
             <span>Current process progress</span>
             <span>
-              {currentEvent ? `${formatPhaseLabel(currentEvent.phase)}: ${Math.round(currentPhasePercent)}%` : "Waiting to start"}
+              {currentEvent
+                ? `${formatPhaseLabel(currentEvent.phase)}: ${Math.round(currentPhasePercent)}%`
+                : "Waiting to start"}
             </span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-white/10">
@@ -244,7 +292,9 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
         <div>
           <span className="eyebrow">Live Log</span>
           <h2 className="mt-2 text-xl font-semibold text-white">Command stream</h2>
-          <p className="mt-2 text-sm text-app-muted">Main-process setup events and child-process output are streamed here.</p>
+          <p className="mt-2 text-sm text-app-muted">
+            Main-process setup events and child-process output are streamed here.
+          </p>
         </div>
         <div className="min-h-[260px] flex-1 overflow-auto rounded-2xl border border-white/10 bg-[#09100e] p-3 font-mono text-xs leading-5 text-[#dcf7e6]">
           {logs.length === 0 ? (
@@ -252,7 +302,9 @@ export function WizardPage({ onComplete, onOpenDashboard }: WizardPageProps) {
           ) : (
             logs.map((entry, index) => (
               <div key={`${entry.stream}-${index}`}>
-                <span className={entry.stream === "stderr" ? "text-[#fca5a5]" : "text-[#dcf7e6]"}>{entry.line}</span>
+                <span className={entry.stream === "stderr" ? "text-[#fca5a5]" : "text-[#dcf7e6]"}>
+                  {entry.line}
+                </span>
               </div>
             ))
           )}

@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // Minimal electron stub: only the `app` APIs used by runtime-manager.ts
 export const app = {

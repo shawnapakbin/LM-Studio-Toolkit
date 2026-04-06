@@ -26,10 +26,7 @@
       "output": "release",
       "buildResources": "resources"
     },
-    "files": [
-      "out/**/*",
-      "package.json"
-    ],
+    "files": ["out/**/*", "package.json"],
     "extraResources": [
       {
         "from": "resources/payload",
@@ -37,23 +34,17 @@
       }
     ],
     "win": {
-      "target": [
-        "portable"
-      ],
+      "target": ["portable"],
       "artifactName": "install.exe",
       "icon": "resources/icons/icon.ico",
       "signAndEditExecutable": false
     },
     "mac": {
-      "target": [
-        "dmg"
-      ],
+      "target": ["dmg"],
       "artifactName": "install.dmg"
     },
     "linux": {
-      "target": [
-        "AppImage"
-      ],
+      "target": ["AppImage"],
       "artifactName": "install.AppImage",
       "icon": "resources/icons/icon.png",
       "category": "Development"

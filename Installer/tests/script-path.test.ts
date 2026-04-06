@@ -8,8 +8,8 @@
  */
 
 import { join } from "node:path";
-import { getToolScriptCandidates } from "../src/main/script-path";
 import { TOOL_DESCRIPTORS } from "../src/main/mcp-config";
+import { getToolScriptCandidates } from "../src/main/script-path";
 
 const INSTALL_ROOT = join("C:", "Users", "Demo User", "AppData", "Roaming", "llm-toolkit");
 
@@ -28,17 +28,18 @@ describe("getToolScriptCandidates", () => {
       const normalized = candidates.map((c) => c.replace(/\\/g, "/"));
 
       // flat layout: <installRoot>/<Tool>/dist/mcp-server.js
-      expect(normalized.some((c) => c.endsWith(`/${tool.relativeScript.replace(/\\/g, "/")}`)))
-        .toBe(true);
+      expect(
+        normalized.some((c) => c.endsWith(`/${tool.relativeScript.replace(/\\/g, "/")}`)),
+      ).toBe(true);
 
       // TypeScript nested layout: dist/src/mcp-server.js
       const [toolRoot] = tool.relativeScript.split("/");
-      expect(normalized.some((c) => c.includes(`/${toolRoot}/dist/src/mcp-server.js`)))
-        .toBe(true);
+      expect(normalized.some((c) => c.includes(`/${toolRoot}/dist/src/mcp-server.js`))).toBe(true);
 
       // Worst-case nested layout: dist/<Tool>/src/mcp-server.js
-      expect(normalized.some((c) => c.includes(`/${toolRoot}/dist/${toolRoot}/src/mcp-server.js`)))
-        .toBe(true);
+      expect(
+        normalized.some((c) => c.includes(`/${toolRoot}/dist/${toolRoot}/src/mcp-server.js`)),
+      ).toBe(true);
     }
   });
 

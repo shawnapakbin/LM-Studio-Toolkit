@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-clock",
+  "name": "llm-toolkit-clock",
   "version": "1.0.0",
   "private": true,
   "description": "Clock and calendar tool for LM Studio Tools",

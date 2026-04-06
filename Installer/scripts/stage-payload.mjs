@@ -87,7 +87,9 @@ function filterPackageJsonWorkspaces() {
   const pkg = JSON.parse(content);
 
   if (pkg.workspaces && Array.isArray(pkg.workspaces)) {
-    const workspaceRoots = new Set(PAYLOAD_ITEMS.filter((item) => existsSync(join(toolkitRoot, item))));
+    const workspaceRoots = new Set(
+      PAYLOAD_ITEMS.filter((item) => existsSync(join(toolkitRoot, item))),
+    );
     const filteredWorkspaces = pkg.workspaces.filter((ws) => {
       const wsName = typeof ws === "string" ? ws : ws.replace(/\/\*$/, "");
       return workspaceRoots.has(wsName);
@@ -96,7 +98,9 @@ function filterPackageJsonWorkspaces() {
     if (filteredWorkspaces.length !== pkg.workspaces.length) {
       pkg.workspaces = filteredWorkspaces;
       writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
-      log(`Filtered workspaces to ${filteredWorkspaces.length} items (removed non-existent references).`);
+      log(
+        `Filtered workspaces to ${filteredWorkspaces.length} items (removed non-existent references).`,
+      );
     }
   }
 }
@@ -107,7 +111,11 @@ function writeManifest() {
     mode: "directory",
   };
 
-  writeFileSync(join(payloadRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  writeFileSync(
+    join(payloadRoot, "manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 function main() {

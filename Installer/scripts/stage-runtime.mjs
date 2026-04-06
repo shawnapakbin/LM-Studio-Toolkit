@@ -19,7 +19,11 @@ function writeManifest() {
     note: "Portable runtime is downloaded by the installer at first use.",
   };
 
-  writeFileSync(join(runtimeRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  writeFileSync(
+    join(runtimeRoot, "manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 function main() {

@@ -20,6 +20,7 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --maxWorkers=2 && npm run -w CLI test:ci && npm run -w SlashCommands test:ci",
+    "test:all": "jest --coverage && npm run -w CLI test && npm run -w SlashCommands test && npm run -w AgentRunner test && npm run -w Memory test && npm run -w ECM test && npm run -w Skills test",
     "test:mcp": "jest AskUser/tests/mcp.test.ts RAG/tests/mcp.test.ts Terminal/tests/mcp.test.ts",
     "test:mcp:live": "jest RAG/tests/mcp.live.test.ts",
     "test:mcp:live:matrix": "jest testing/evaluation/mcp.live-model-matrix.test.ts",
@@ -32,17 +33,20 @@
     "mcp:print-config": "node scripts/workspace/generate-mcp-config.js",
     "mcp:sync-lmstudio": "node scripts/workspace/sync-lmstudio-bridge-configs.js",
     "type-check": "tsc --noEmit",
+    "prepare": "husky",
     "verify:all": "npm run verify:vnext-scope && npm run check:ci && npm run type-check && npm run test:ci && npm run build && npm run startup:check",
-    "build": "npm run build:shared && npm run build:tools && npm run build:memory",
+    "build": "npm run build:shared && npm run build:observability && npm run build:tools && npm run build:memory",
     "build:shared": "npm run -w shared build",
-    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w Skills build && npm run -w ECM build && npm run -w SlashCommands build",
+    "build:observability": "npm run -w Observability build",
+    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w Skills build && npm run -w ECM build && npm run -w SlashCommands build && npm run -w CSVExporter build && npm run -w Git build && npm run -w FileEditor build && npm run -w PackageManager build",
     "build:memory": "npm run -w Memory build",
     "build:cli": "npm run -w CLI build",
     "cli": "node CLI/dist/index.js",
     "build:slash": "npm run -w SlashCommands build",
     "dev": "npm run dev -w Terminal",
     "clean": "rm -rf dist coverage .biome-cache && npm run clean:tools",
-    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w Browserless clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w Skills clean && npm run -w ECM clean"
+    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w Browserless clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w Skills clean && npm run -w ECM clean && npm run -w CSVExporter clean && npm run -w Git clean && npm run -w FileEditor clean && npm run -w PackageManager clean",
+    "prepare": "husky"
   },
   "keywords": [
     "llm",
@@ -60,15 +64,25 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
     "@types/jest": "^29.5.0",
     "@types/node": "^22.13.1",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^9.0.7",
+    "fast-check": "^3.23.2",
+    "husky": "^9.1.7",
     "jest": "^29.5.0",
+    "lint-staged": "^16.4.0",
     "supertest": "^7.1.1",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
     "typescript": "^5.8.2"
+  },
+  "lint-staged": {
+    "*.{ts,js,json}": ["biome check --diagnostic-level=error --no-errors-on-unmatched"]
   },
   "workspaces": [
     "shared",
@@ -85,6 +99,12 @@
     "ECM",
     "CLI",
     "SlashCommands",
-    "Installer"
+    "Installer",
+    "CSVExporter",
+    "FileEditor",
+    "Git",
+    "PackageManager",
+    "Observability",
+    "AgentRunner"
   ]
 }

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow, app } from "electron";
 import log from "electron-log";
 
 import { registerIpcHandlers } from "./ipc-handlers";
@@ -62,7 +62,11 @@ function createWindow() {
   });
 
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
-    const details = [`code: ${errorCode}`, `message: ${errorDescription}`, `url: ${validatedURL}`].join("\n");
+    const details = [
+      `code: ${errorCode}`,
+      `message: ${errorDescription}`,
+      `url: ${validatedURL}`,
+    ].join("\n");
     log.error("Renderer failed to load", details);
     renderFailurePage(window, "Installer failed to load", details);
   });
@@ -74,7 +78,10 @@ function createWindow() {
   });
 
   window.webContents.on("preload-error", (_event, preloadPath, error) => {
-    const details = [`preload: ${preloadPath}`, `error: ${error?.message ?? "Unknown preload error"}`].join("\n");
+    const details = [
+      `preload: ${preloadPath}`,
+      `error: ${error?.message ?? "Unknown preload error"}`,
+    ].join("\n");
     log.error("Preload script error", details);
     renderFailurePage(window, "Installer preload failed", details);
   });
@@ -118,7 +125,7 @@ function createWindow() {
   } else {
     const rendererEntry = join(__dirname, "../renderer/index.html");
     void window.loadFile(rendererEntry).catch((error) => {
-      const details = error instanceof Error ? error.stack ?? error.message : String(error);
+      const details = error instanceof Error ? (error.stack ?? error.message) : String(error);
       log.error("Unable to load packaged renderer", details);
       renderFailurePage(window, "Installer UI could not start", details);
     });

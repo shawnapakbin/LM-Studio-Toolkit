@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-calculator",
+  "name": "llm-toolkit-calculator",
   "version": "1.0.0",
   "private": true,
   "description": "Engineering calculator tool for LM Studio Tools",

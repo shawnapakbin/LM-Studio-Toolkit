@@ -95,18 +95,20 @@ SQLite tables capture agent intelligence:
 | **Terminal** | Execute shell commands (OS-aware) | 3333 | ✅ Working |
 | **WebBrowser** | Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output (v2.1.0) | 3334 | ✅ Working |
 | **Calculator** | Math expressions (engineering notation) | 3335 | ✅ Working |
+| **DocumentScraper** | Read documents with structured extraction + encrypted PDF detection | 3336 | ✅ Working |
 | **AskUser** | Interactive interview and clarification workflows | 3338 | ✅ Working |
 | **Clock** | Current date/time + timezone | 3337 | ✅ Working |
 | **Browserless** | Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) | 3003 | ✅ Working |
 | **RAG** | Persistent retrieval augmented generation with source lifecycle + approval-gated writes | 3339 | ✅ Working |
 | **Skills** | Persistent skill/playbook system — define parameterized step templates, execute by name (v2.1.0) | 3341 | ✅ Working |
 | **ECM** | Extended Context Memory — 1M token context via vector retrieval, session isolation, extractive summarization (v2.1.0) | 3342 | ✅ Working |
-| **Git** (Phase 2) | Clone, commit, branch, merge | TBD | 🔄 Planned |
-| **FileEditor** (Phase 2) | Safe read/write code files | TBD | 🔄 Planned |
-| **PackageManager** (Phase 2) | npm/pip/cargo detection + install/update | TBD | 🔄 Planned |
+| **CSVExporter** | Export parsed table data to CSV files | 3340 | ✅ Working |
+| **Git** | Safe git operations with branch protection | 3011 | ✅ Working |
+| **FileEditor** | Safe file read/write/search with workspace sandboxing | TBD | ✅ Working |
+| **PackageManager** | Multi-ecosystem package management (npm/pip/cargo/maven/go) | TBD | ✅ Working |
+| **Observability** | Structured logging, metrics, tracing library | N/A | ✅ Working |
 | **BuildRunner** (Phase 2) | Compile, test, lint | TBD | 🔄 Planned |
 | **AIModel** (Phase 2) | In-agent Claude/OpenAI calls | TBD | 🔄 Planned |
-| **Observability** (Phase 2) | Logging, metrics, tracing | TBD | 🔄 Planned |
 | **Orchestrator** (Phase 3) | Master agent runner | N/A | 🔄 Planned |
 
 ---

@@ -1,6 +1,6 @@
-import { ipcMain, dialog, shell, type BrowserWindow } from "electron";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { type BrowserWindow, dialog, ipcMain, shell } from "electron";
 
 import { ensureInstallRoot } from "./bootstrap";
 import { loadEnvState, saveEnvState } from "./env-manager";
@@ -24,19 +24,20 @@ export function registerIpcHandlers(window: BrowserWindow) {
       properties: ["openDirectory", "createDirectory"],
     });
 
-    return result.canceled ? null : result.filePaths[0] ?? null;
+    return result.canceled ? null : (result.filePaths[0] ?? null);
   });
   ipcMain.handle("shell:open-external", async (_event, url: string) => {
     await shell.openExternal(url);
   });
 
   ipcMain.handle("env:load", (_event, installRoot: string) => loadEnvState(installRoot));
-  ipcMain.handle(
-    "env:save",
-    (_event, installRoot: string, entries: Record<string, string>) => saveEnvState(installRoot, entries),
+  ipcMain.handle("env:save", (_event, installRoot: string, entries: Record<string, string>) =>
+    saveEnvState(installRoot, entries),
   );
   ipcMain.handle("tools:status-all", (_event, installRoot: string) => getToolStatuses(installRoot));
-  ipcMain.handle("lmstudio:status", (_event, override?: string) => getLmStudioInstallationStatus(override));
+  ipcMain.handle("lmstudio:status", (_event, override?: string) =>
+    getLmStudioInstallationStatus(override),
+  );
   ipcMain.handle("lmstudio:verify", (_event, installRoot: string, override?: string) =>
     verifyLmStudio(installRoot, override),
   );
@@ -47,25 +48,25 @@ export function registerIpcHandlers(window: BrowserWindow) {
       installRoot: string,
       options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
     ) => {
-    ensureInstallRoot(installRoot);
-    activeRunController = new AbortController();
-    try {
-      return await runSetup(
-        {
-          installRoot,
-          repair: false,
-          allowDownloads: options?.allowDownloads === true,
-          installPlaywrightBrowsers: options?.installPlaywrightBrowsers !== false,
-        },
-        {
-          onProgress: (payload) => sendProgress(window, "setup:progress", payload),
-          onLog: (payload) => sendProgress(window, "setup:log", payload),
-        },
-        activeRunController.signal,
-      );
-    } finally {
-      activeRunController = null;
-    }
+      ensureInstallRoot(installRoot);
+      activeRunController = new AbortController();
+      try {
+        return await runSetup(
+          {
+            installRoot,
+            repair: false,
+            allowDownloads: options?.allowDownloads === true,
+            installPlaywrightBrowsers: options?.installPlaywrightBrowsers !== false,
+          },
+          {
+            onProgress: (payload) => sendProgress(window, "setup:progress", payload),
+            onLog: (payload) => sendProgress(window, "setup:log", payload),
+          },
+          activeRunController.signal,
+        );
+      } finally {
+        activeRunController = null;
+      }
     },
   );
   ipcMain.handle(
@@ -75,25 +76,25 @@ export function registerIpcHandlers(window: BrowserWindow) {
       installRoot: string,
       options?: { allowDownloads?: boolean; installPlaywrightBrowsers?: boolean },
     ) => {
-    ensureInstallRoot(installRoot);
-    activeRunController = new AbortController();
-    try {
-      return await runSetup(
-        {
-          installRoot,
-          repair: true,
-          allowDownloads: options?.allowDownloads === true,
-          installPlaywrightBrowsers: options?.installPlaywrightBrowsers !== false,
-        },
-        {
-          onProgress: (payload) => sendProgress(window, "setup:progress", payload),
-          onLog: (payload) => sendProgress(window, "setup:log", payload),
-        },
-        activeRunController.signal,
-      );
-    } finally {
-      activeRunController = null;
-    }
+      ensureInstallRoot(installRoot);
+      activeRunController = new AbortController();
+      try {
+        return await runSetup(
+          {
+            installRoot,
+            repair: true,
+            allowDownloads: options?.allowDownloads === true,
+            installPlaywrightBrowsers: options?.installPlaywrightBrowsers !== false,
+          },
+          {
+            onProgress: (payload) => sendProgress(window, "setup:progress", payload),
+            onLog: (payload) => sendProgress(window, "setup:log", payload),
+          },
+          activeRunController.signal,
+        );
+      } finally {
+        activeRunController = null;
+      }
     },
   );
   ipcMain.handle("setup:cancel", () => {

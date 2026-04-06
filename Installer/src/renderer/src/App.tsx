@@ -24,8 +24,12 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: strin
           <main className="mx-auto flex min-h-screen max-w-[960px] items-center px-6 py-8">
             <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.2)]">
               <span className="eyebrow">Startup Error</span>
-              <h1 className="mt-4 text-4xl font-semibold text-white">The installer UI failed to render.</h1>
-              <p className="mt-3 text-app-muted">The error is shown below instead of leaving the window blank.</p>
+              <h1 className="mt-4 text-4xl font-semibold text-white">
+                The installer UI failed to render.
+              </h1>
+              <p className="mt-3 text-app-muted">
+                The error is shown below instead of leaving the window blank.
+              </p>
               <pre className="mt-6 overflow-auto rounded-2xl border border-white/10 bg-[#09100e] p-4 text-sm text-[#dcf7e6]">
                 {this.state.error}
               </pre>
@@ -53,10 +57,12 @@ export function App() {
         <main className="mx-auto flex min-h-screen max-w-[960px] items-center px-6 py-8">
           <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.2)]">
             <span className="eyebrow">Startup Error</span>
-            <h1 className="mt-4 text-4xl font-semibold text-white">The installer preload bridge was not available.</h1>
+            <h1 className="mt-4 text-4xl font-semibold text-white">
+              The installer preload bridge was not available.
+            </h1>
             <p className="mt-3 text-app-muted">
-              This usually means the packaged renderer failed to connect to Electron preload APIs. The app now surfaces
-              this state directly instead of showing a black screen.
+              This usually means the packaged renderer failed to connect to Electron preload APIs.
+              The app now surfaces this state directly instead of showing a black screen.
             </p>
           </section>
         </main>

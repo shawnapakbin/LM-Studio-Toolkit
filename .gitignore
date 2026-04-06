@@ -32,6 +32,15 @@ memory.db
 .DS_Store
 Thumbs.db
 
+# Installer release binaries
+Installer/release/*.exe
+Installer/release/*.yml
+Installer/release/*.yaml
+Installer/release/win-unpacked/
+
+# Root-level installer copy
+/install-*.exe
+
 # Dependencies
 */node_modules/
 */dist/

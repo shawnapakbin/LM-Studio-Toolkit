@@ -8,10 +8,20 @@
  */
 
 import { join } from "node:path";
-import { buildBridgeConfig, TOOL_DESCRIPTORS } from "../src/main/mcp-config";
+import { TOOL_DESCRIPTORS, buildBridgeConfig } from "../src/main/mcp-config";
 
 const INSTALL_ROOT = join("C:", "Users", "Demo User", "AppData", "Roaming", "llm-toolkit");
-const FAKE_NODE_PATH = join("C:", "Users", "Demo User", "AppData", "Roaming", "llm-toolkit-installer", "runtime-cache", "node-v20.17.0-win32-x64", "node.exe");
+const FAKE_NODE_PATH = join(
+  "C:",
+  "Users",
+  "Demo User",
+  "AppData",
+  "Roaming",
+  "llm-toolkit-installer",
+  "runtime-cache",
+  "node-v20.17.0-win32-x64",
+  "node.exe",
+);
 
 describe("TOOL_DESCRIPTORS completeness", () => {
   const EXPECTED_TOOL_IDS = [

@@ -15,7 +15,7 @@ function readCounter() {
 
   try {
     const raw = readFileSync(counterPath, "utf8");
-    const parsed = JSON.parse(raw) as { counter?: number };
+    const parsed = JSON.parse(raw);
     return Number.isFinite(parsed.counter) ? Number(parsed.counter) : 0;
   } catch {
     return 0;

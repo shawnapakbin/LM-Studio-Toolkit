@@ -1,9 +1,9 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 
-import { buildBridgeConfig, TOOL_DESCRIPTORS } from "./mcp-config";
+import { TOOL_DESCRIPTORS, buildBridgeConfig } from "./mcp-config";
 import { resolveActiveNodePath } from "./runtime-manager";
 import type { LmStudioInstallationStatus, LmStudioStatus } from "./types";
 
@@ -20,16 +20,25 @@ function detectLmStudioAppPath() {
 
   if (process.platform === "win32") {
     const candidates = [
-      process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "LM Studio", "LM Studio.exe") : null,
-      process.env.ProgramFiles ? join(process.env.ProgramFiles, "LM Studio", "LM Studio.exe") : null,
-      process.env["ProgramFiles(x86)"] ? join(process.env["ProgramFiles(x86)"], "LM Studio", "LM Studio.exe") : null,
+      process.env.LOCALAPPDATA
+        ? join(process.env.LOCALAPPDATA, "Programs", "LM Studio", "LM Studio.exe")
+        : null,
+      process.env.ProgramFiles
+        ? join(process.env.ProgramFiles, "LM Studio", "LM Studio.exe")
+        : null,
+      process.env["ProgramFiles(x86)"]
+        ? join(process.env["ProgramFiles(x86)"], "LM Studio", "LM Studio.exe")
+        : null,
     ].filter((value): value is string => Boolean(value));
 
     return candidates.find((candidate) => existsSync(candidate)) ?? null;
   }
 
   if (process.platform === "darwin") {
-    const candidates = [join("/Applications", "LM Studio.app"), join(home, "Applications", "LM Studio.app")];
+    const candidates = [
+      join("/Applications", "LM Studio.app"),
+      join(home, "Applications", "LM Studio.app"),
+    ];
     return candidates.find((candidate) => existsSync(candidate)) ?? null;
   }
 

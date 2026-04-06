@@ -1,7 +1,9 @@
 const { spawnSync } = require("node:child_process");
 
 if (process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD === "1") {
-  console.log("[WebBrowser] Skipping Playwright browser download because PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1.");
+  console.log(
+    "[WebBrowser] Skipping Playwright browser download because PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1.",
+  );
   process.exit(0);
 }
 

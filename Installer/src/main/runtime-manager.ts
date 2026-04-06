@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { app } from "electron";
 
@@ -16,7 +16,11 @@ function toPowerShellLiteral(value: string) {
 }
 
 function resolvePortableRuntimeDir() {
-  return join(app.getPath("userData"), "runtime-cache", `node-v${PORTABLE_NODE_VERSION}-${process.platform}-${process.arch}`);
+  return join(
+    app.getPath("userData"),
+    "runtime-cache",
+    `node-v${PORTABLE_NODE_VERSION}-${process.platform}-${process.arch}`,
+  );
 }
 
 function resolveDownloadedNodePath() {
@@ -55,18 +59,24 @@ export function getRuntimeStatus(): RuntimeStatus {
   const isBundledRuntimeReady = existsSync(bundledNodePath) && existsSync(bundledNpmCliPath);
   const downloadedNodePath = resolveDownloadedNodePath();
   const downloadedNpmCliPath = resolveDownloadedNpmCliPath();
-  const isDownloadedRuntimeReady = existsSync(downloadedNodePath) && existsSync(downloadedNpmCliPath);
-  const systemNodePath = isBundledRuntimeReady || isDownloadedRuntimeReady ? null : resolveSystemNodePath();
-  const systemNodeVersion = systemNodePath ? getCommandVersion(systemNodePath, ["--version"]) : null;
+  const isDownloadedRuntimeReady =
+    existsSync(downloadedNodePath) && existsSync(downloadedNpmCliPath);
+  const systemNodePath =
+    isBundledRuntimeReady || isDownloadedRuntimeReady ? null : resolveSystemNodePath();
+  const systemNodeVersion = systemNodePath
+    ? getCommandVersion(systemNodePath, ["--version"])
+    : null;
   const systemNpmVersion = systemNodePath ? getCommandVersion("npm", ["--version"]) : null;
 
   const mode: RuntimeStatus["mode"] = isBundledRuntimeReady
     ? "bundled"
     : isDownloadedRuntimeReady
       ? "downloaded"
-    : systemNodePath && isNodeVersionSupported(systemNodeVersion) && isNpmVersionSupported(systemNpmVersion)
-      ? "system"
-      : "missing";
+      : systemNodePath &&
+          isNodeVersionSupported(systemNodeVersion) &&
+          isNpmVersionSupported(systemNpmVersion)
+        ? "system"
+        : "missing";
 
   return {
     bundledNodePath: isBundledRuntimeReady ? bundledNodePath : null,
@@ -149,7 +159,10 @@ function downloadAndExtractPortableRuntime(onLog: (line: string) => void) {
     return false;
   }
 
-  const extractedBase = join(runtimeRoot, `node-v${PORTABLE_NODE_VERSION}-${process.platform === "win32" ? "win" : process.platform}-${process.arch}`);
+  const extractedBase = join(
+    runtimeRoot,
+    `node-v${PORTABLE_NODE_VERSION}-${process.platform === "win32" ? "win" : process.platform}-${process.arch}`,
+  );
   const escapedExtractedBase = toPowerShellLiteral(extractedBase);
   const moveResult =
     process.platform === "win32"
@@ -171,7 +184,10 @@ function downloadAndExtractPortableRuntime(onLog: (line: string) => void) {
 }
 
 function getCommandVersion(command: string, args: string[]) {
-  const result = spawnSync(command, args, { encoding: "utf8", shell: process.platform === "win32" });
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
   if (result.status !== 0) {
     return null;
   }
@@ -186,12 +202,20 @@ function getCommandVersion(command: string, args: string[]) {
 
 function resolveSystemNodePath() {
   const command = process.platform === "win32" ? "where" : "which";
-  const result = spawnSync(command, ["node"], { encoding: "utf8", shell: process.platform === "win32" });
+  const result = spawnSync(command, ["node"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
   if (result.status !== 0) {
     return null;
   }
 
-  return (result.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? null;
+  return (
+    (result.stdout ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean) ?? null
+  );
 }
 
 function parseMajor(version: string | null) {
@@ -228,7 +252,10 @@ function runInstallAttempt(command: string, args: string[]) {
   };
 }
 
-export function ensureRuntimeReady(onLog: (line: string) => void, options?: { allowDownload?: boolean }) {
+export function ensureRuntimeReady(
+  onLog: (line: string) => void,
+  options?: { allowDownload?: boolean },
+) {
   const current = getRuntimeStatus();
   if (current.mode === "bundled" || current.mode === "downloaded" || current.mode === "system") {
     return getRuntimeStatus();
@@ -292,10 +319,14 @@ export function spawnNpmCommand(
 
   if (runtimeStatus.downloadedNodePath && runtimeStatus.downloadedNpmCliPath) {
     prependNodePath(runtimeStatus.downloadedNodePath);
-    const child = spawn(runtimeStatus.downloadedNodePath, [runtimeStatus.downloadedNpmCliPath, ...args], {
-      cwd,
-      env,
-    });
+    const child = spawn(
+      runtimeStatus.downloadedNodePath,
+      [runtimeStatus.downloadedNpmCliPath, ...args],
+      {
+        cwd,
+        env,
+      },
+    );
 
     child.stdout.on("data", (chunk) => {
       onStdout(chunk.toString());

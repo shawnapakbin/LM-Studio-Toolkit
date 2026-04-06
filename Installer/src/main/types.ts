@@ -1,12 +1,6 @@
 export type ProgressLevel = "info" | "ok" | "warn" | "error" | "section";
 
-export type SetupPhase =
-  | "bootstrap"
-  | "env"
-  | "install"
-  | "build"
-  | "verify"
-  | "lmstudio";
+export type SetupPhase = "bootstrap" | "env" | "install" | "build" | "verify" | "lmstudio";
 
 export interface SetupProgressEvent {
   level: ProgressLevel;

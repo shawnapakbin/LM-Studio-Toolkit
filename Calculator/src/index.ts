@@ -9,7 +9,7 @@ import {
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
-import { getRegistry } from "../../Observability/src/metrics";
+import { getRegistry } from "llm-toolkit-observability";
 import { evaluateExpression } from "./calculator";
 import {
   DEFAULT_PRECISION,

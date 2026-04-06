@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-rag",
+  "name": "llm-toolkit-rag",
   "version": "1.0.0",
   "private": true,
   "description": "RAG MCP tool with ingestion, retrieval, and source lifecycle management",

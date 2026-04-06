@@ -30,7 +30,10 @@ window.addEventListener("error", (event) => {
 });
 
 window.addEventListener("unhandledrejection", (event) => {
-  const reason = event.reason instanceof Error ? event.reason.stack ?? event.reason.message : String(event.reason);
+  const reason =
+    event.reason instanceof Error
+      ? (event.reason.stack ?? event.reason.message)
+      : String(event.reason);
   showBootstrapError(`Unhandled promise rejection:\n${reason}`);
 });
 
@@ -46,5 +49,5 @@ try {
     </React.StrictMode>,
   );
 } catch (error) {
-  showBootstrapError(error instanceof Error ? error.stack ?? error.message : String(error));
+  showBootstrapError(error instanceof Error ? (error.stack ?? error.message) : String(error));
 }

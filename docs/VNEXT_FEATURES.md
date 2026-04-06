@@ -63,23 +63,27 @@ Owner: `core-maintainers`
 
 ## In-Progress / Staging (Not Yet Released)
 
-The following directories contain source code that is not yet gated by startup-check, not included in `build:tools`, and have no README startup entries. They are intentional future scope — do not treat as unrelated drift.
+The following directories contain source code that builds successfully and is included in `build:tools`, but does not yet have full test suites or startup-check entries. They are intentional future scope — do not treat as unrelated drift.
 
 ### `PackageManager/`
 - Scope: MCP server and policy layer for installing/removing npm packages on behalf of the agent. Key files: `src/mcp-server.ts`, `src/package-manager.ts`, `src/policy.ts`.
-- Status: source present, no tests, no dist binary, not in startup-check.
+- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
 
 ### `Git/`
 - Scope: MCP server wrapping common git operations (status, diff, commit, push) with policy guards. Key files: `src/mcp-server.ts`, `src/git.ts`, `src/policy.ts`.
-- Status: source present and pre-compiled (`.js` files in src/), no jest tests, not in startup-check.
+- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
 
 ### `FileEditor/`
 - Scope: MCP server exposing read/write/patch file operations with safety policy. Key files: `src/file-editor.ts`, `src/policy.ts`.
-- Status: source present and pre-compiled (`.js` files in src/), no jest tests, not in startup-check.
+- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
 
 ### `Observability/`
 - Scope: Shared logging, metrics, and tracing library for all LLM Toolkit tools. Provides structured logger, OpenTelemetry-compatible tracer, and Prometheus-style metrics. Key files: `src/logger.ts`, `src/tracer.ts`, `src/metrics.ts`.
-- Status: library (no MCP entry point), `src/index.test.ts` present but not wired into root Jest config.
+- Status: library (no MCP entry point), compiles, wired as workspace dependency into Terminal, Clock, Calculator, AgentRunner.
+
+### `CSVExporter/`
+- Scope: MCP server for exporting parsed table data to CSV files. Key files: `src/mcp-server.ts`, `src/csv-exporter.ts`.
+- Status: source present, compiles, included in `build:tools`, not in startup-check.
 
 ### `Manifesto/Vibing-Manifesto.md`
 - Scope: Project philosophy document — not a code workspace.

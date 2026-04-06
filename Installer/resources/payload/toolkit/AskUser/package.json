@@ -1,5 +1,5 @@
 {
-  "name": "lm-studio-tools-ask-user",
+  "name": "llm-toolkit-ask-user",
   "version": "1.0.0",
   "private": true,
   "description": "Interactive ask-user interview tool for planning and clarification",

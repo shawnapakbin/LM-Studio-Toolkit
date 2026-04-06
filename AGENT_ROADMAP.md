@@ -1,6 +1,6 @@
 # Robust Coding Agent Roadmap (Phase 1 → Phase 3)
 
-This plan is tailored to the current LM Studio Tools workspace:
+This plan is tailored to the current LLM Toolkit workspace:
 - Terminal
 - WebBrowser (headless Chromium, v2.1.0)
 - Calculator

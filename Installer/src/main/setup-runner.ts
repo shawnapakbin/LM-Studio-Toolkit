@@ -63,7 +63,11 @@ function runProcess(
   });
 }
 
-export async function runSetup(context: InstallContext, handlers: SetupRunnerHandlers, signal?: AbortSignal) {
+export async function runSetup(
+  context: InstallContext,
+  handlers: SetupRunnerHandlers,
+  signal?: AbortSignal,
+) {
   emitProgress(handlers, 1, "bootstrap", "section", "Inspecting packaged installer resources", 10);
   const payloadInfo = inspectPayload();
   if (!payloadInfo.exists) {
@@ -86,18 +90,34 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
     );
   }
 
-  emitProgress(handlers, 1, "bootstrap", "info", "Preparing install root from packaged payload.", 40);
+  emitProgress(
+    handlers,
+    1,
+    "bootstrap",
+    "info",
+    "Preparing install root from packaged payload.",
+    40,
+  );
   extractPayloadToInstallRoot(context.installRoot, {
     onProgress: (message) => emitProgress(handlers, 1, "bootstrap", "info", message, 55),
     onLog: (line) => handlers.onLog({ stream: "stdout", line }),
   });
 
-  emitProgress(handlers, 1, "bootstrap", "info", "Ensuring runtime dependencies are available.", 70);
+  emitProgress(
+    handlers,
+    1,
+    "bootstrap",
+    "info",
+    "Ensuring runtime dependencies are available.",
+    70,
+  );
   const runtimeStatus = ensureRuntimeReady((line) => handlers.onLog({ stream: "stdout", line }), {
     allowDownload: context.allowDownloads,
   });
   if (runtimeStatus.mode === "missing") {
-    throw new Error("Runtime download is required before installation can continue. Grant download permission and retry.");
+    throw new Error(
+      "Runtime download is required before installation can continue. Grant download permission and retry.",
+    );
   }
   emitProgress(handlers, 1, "bootstrap", "ok", "Runtime dependencies are available.", 100);
 
@@ -106,7 +126,9 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
   emitProgress(handlers, 2, "env", "ok", ".env is ready.", 100);
 
   if (!context.allowDownloads) {
-    throw new Error("Package downloads were not authorized. Review the installer actions, grant permission, and retry.");
+    throw new Error(
+      "Package downloads were not authorized. Review the installer actions, grant permission, and retry.",
+    );
   }
 
   emitProgress(handlers, 3, "install", "section", "Installing workspace dependencies", 10);
@@ -170,7 +192,9 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
       });
     }
 
-    throw new Error(`Missing tool binaries: ${missing.map((status) => status.displayName).join(", ")}.`);
+    throw new Error(
+      `Missing tool binaries: ${missing.map((status) => status.displayName).join(", ")}.`,
+    );
   }
   emitProgress(handlers, 5, "verify", "ok", `Verified ${statuses.length} tool binaries.`, 100);
 
@@ -208,7 +232,14 @@ export async function runSetup(context: InstallContext, handlers: SetupRunnerHan
     100,
   );
 
-  emitProgress(handlers, 7, "verify", "ok", context.repair ? "Repair completed." : "Install completed.", 100);
+  emitProgress(
+    handlers,
+    7,
+    "verify",
+    "ok",
+    context.repair ? "Repair completed." : "Install completed.",
+    100,
+  );
   return {
     toolStatuses: statuses,
     lmStudioStatus,

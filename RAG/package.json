@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-rag",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "RAG MCP tool with ingestion, retrieval, and source lifecycle management",
   "main": "dist/index.js",

@@ -1,4 +1,4 @@
-# SlashCommands (v2.2.0)
+# SlashCommands (v2.1.0)
 
 MCP server that exposes a single `slash_command` tool. When you type `/command` in LM Studio chat, the LLM calls this tool automatically and routes the request to the appropriate tool via HTTP — no system prompt injection required.
 

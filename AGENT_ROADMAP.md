@@ -10,8 +10,8 @@ This plan is tailored to the current LLM Toolkit workspace:
 - RAG
 - Skills (v2.1.0)
 - ECM (v2.1.0)
-- CLI (`llm` binary, v2.2.0)
-- SlashCommands (MCP `/command` shortcuts, v2.2.0)
+- CLI (`llm` binary, v2.1.0)
+- SlashCommands (MCP `/command` shortcuts, v2.1.0)
 
 ## Success Criteria
 - Agent can reliably plan, execute, validate, and recover.
@@ -156,7 +156,7 @@ This plan is tailored to the current LLM Toolkit workspace:
 14. Add monthly dependency audit task to keep workspace packages current.
 15. Plan Phase 4 launchers implementation (LM Studio + CLI + VS Code + HTTP) using current gates.
 
-> **v2.2.0 status**: CLI (`llm` binary) and SlashCommands MCP server are complete. Tasks 1–14 above are the active hardening backlog.
+> **v2.1.0 status**: CLI (`llm` binary) and SlashCommands MCP server are complete. Tasks 1–14 above are the active hardening backlog.
 
 ---
 

@@ -2,11 +2,11 @@
 
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
-Release target: `v2.2.0`
+Release target: `v2.1.0`
 Status: `released`
 Owner: `core-maintainers`
 
-## Included vNext Features (v2.2.0 — Released)
+## Included vNext Features (v2.1.0 — Released)
 
 1. `CLI` workspace (`CLI/`)
 - Scope: `llm <command>` terminal binary for invoking all tools from the shell. Uses `commander` for argument parsing; routes to tool HTTP endpoints.
@@ -89,7 +89,7 @@ The following directories contain source code that builds successfully and is in
 - Scope: Project philosophy document — not a code workspace.
 - Status: documentation only, no build artifact needed.
 
-## Out Of Scope For v2.2.0
+## Out Of Scope For v2.1.0
 
 - Phase 2 tools (Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability HTTP endpoint).
 - Agent orchestrator (Phase 3).

@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-agent-runner",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Agent orchestration and workflow execution for LLM Toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

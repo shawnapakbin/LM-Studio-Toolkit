@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.2.0  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.1.0 enhancements ✅ + v2.2.0 CLI & Slash Commands ✅
+**Version**: 2.1.0  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.1.0 enhancements ✅ + CLI & Slash Commands ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -48,7 +48,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 11 Core Tools (v2.1.0) + CLI & Slash Commands (v2.2.0)
+### 11 Core Tools (v2.1.0) + CLI & Slash Commands (v2.1.0)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅ _(upgraded v2.1.0)_
@@ -60,8 +60,8 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
 - **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅ _(new v2.1.0)_
 - **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅ _(new v2.1.0)_
-- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅ _(new v2.2.0)_
-- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅ _(new v2.2.0)_
+- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅ _(new v2.1.0)_
+- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅ _(new v2.1.0)_
 
 ### Foundation Layer (Phase 0 ✅)
 
@@ -422,8 +422,8 @@ See [Memory/README.md](Memory/README.md) for details.
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
 | [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
-| [CLI/README.md](CLI/README.md) | CLI command reference (v2.2.0) |
-| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference (v2.2.0) |
+| [CLI/README.md](CLI/README.md) | CLI command reference (v2.1.0) |
+| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference (v2.1.0) |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
 
 
@@ -431,7 +431,7 @@ See [Memory/README.md](Memory/README.md) for details.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.2.0) |
+| CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
 | 11 core tools | ✅ | Terminal, WebBrowser (headless), Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, Skills, ECM |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |

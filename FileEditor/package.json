@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-file-editor",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Safe file system operations for LLM agents - read, write, search, and edit files with workspace sandboxing",
   "main": "dist/index.js",

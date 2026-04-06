@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-installer",
-  "version": "2.2.0",
+  "version": "2.1.0",
   "private": true,
   "author": "Shawna Pakbin",
   "description": "Self-sufficient desktop installer for LLM Toolkit",

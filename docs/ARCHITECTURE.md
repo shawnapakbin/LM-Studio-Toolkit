@@ -113,7 +113,7 @@ SQLite tables capture agent intelligence:
 
 ---
 
-## v2.2.0 Additions: CLI and Slash Commands
+## v2.1.0 Additions: CLI and Slash Commands
 
 ### CLI Workspace (`CLI/`)
 
@@ -328,11 +328,11 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 | `testing/responses.ts` | Standard response envelope |
 | `docs/CODE-QUALITY.md` | Detailed quality standards |
 | `docs/MEMORY-PATTERNS.md` | Memory query patterns |
-| `docs/SLASH-COMMANDS.md` | Slash command reference (v2.2.0) |
-| `CLI/README.md` | CLI command reference (v2.2.0) |
+| `docs/SLASH-COMMANDS.md` | Slash command reference (v2.1.0) |
+| `CLI/README.md` | CLI command reference (v2.1.0) |
 | `CONTRIBUTING.md` | PR workflow + checklist |
 
 ---
 
 **Last Updated**: April 2026  
-**Version**: 2.2.0
+**Version**: 2.1.0

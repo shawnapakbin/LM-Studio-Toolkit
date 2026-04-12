@@ -13,6 +13,7 @@ const TOOL_NAMES: Record<string, string> = {
   webbrowser: "WebBrowser",
   clock: "Clock",
   terminal: "Terminal",
+  pythonshell: "PythonShell",
   askuser: "AskUser",
   rag: "RAG",
   skills: "Skills",
@@ -42,6 +43,11 @@ const HELP_TEXT = `Available slash commands:
 
   Terminal
   /run <command> [--cwd <dir>]
+
+  PythonShell
+  /python run <code> [--cwd <dir>] [--timeout <ms>]
+  /python repl [--cwd <dir>]
+  /python idle [--cwd <dir>]
 
   Skills
   /skills list
@@ -133,6 +139,27 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         command: desc.command,
         ...(desc.cwd && { cwd: desc.cwd }),
       });
+
+    // ── PythonShell ───────────────────────────────────────────────────────
+    case "pythonshell": {
+      if (desc.action === "run_code") {
+        return post(`${ENDPOINTS.pythonshell}/tools/python_run_code`, {
+          code: desc.code,
+          ...(desc.cwd && { cwd: desc.cwd }),
+          ...(desc.timeoutMs !== undefined && { timeoutMs: desc.timeoutMs }),
+        });
+      }
+
+      if (desc.action === "open_repl") {
+        return post(`${ENDPOINTS.pythonshell}/tools/python_open_repl`, {
+          ...(desc.cwd && { cwd: desc.cwd }),
+        });
+      }
+
+      return post(`${ENDPOINTS.pythonshell}/tools/python_open_idle`, {
+        ...(desc.cwd && { cwd: desc.cwd }),
+      });
+    }
 
     // ── Skills ────────────────────────────────────────────────────────────
     case "skills":
@@ -270,6 +297,7 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
           "/browse <url>",
           "/clock",
           "/run <cmd>",
+          "/python run|repl|idle",
           "/skills list|get|run|delete",
           "/rag query|ingest|list|delete",
           "/ask <prompt>",

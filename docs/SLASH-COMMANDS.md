@@ -70,6 +70,16 @@ Run `npm run mcp:print-config` to get the full generated config with correct pat
 | `/run <command>` | Execute a shell command — e.g. `/run ls -la` |
 | `/run <command> --cwd <dir>` | Run in a specific working directory |
 
+### PythonShell
+
+| Command | What it does |
+|---|---|
+| `/python run <code>` | Execute non-interactive Python code via PythonShell |
+| `/python run <code> --cwd <dir>` | Run Python code in a specific working directory |
+| `/python run <code> --timeout <ms>` | Set execution timeout |
+| `/python repl` | Open Python REPL in a visible shell |
+| `/python idle` | Launch Python IDLE shell |
+
 ### Skills
 
 | Command | What it does |

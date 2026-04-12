@@ -91,6 +91,17 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
     },
   },
   {
+    id: "python-shell",
+    displayName: "PythonShell",
+    relativeScript: "PythonShell/dist/mcp-server.js",
+    env: {
+      PYTHON_SHELL_DEFAULT_TIMEOUT_MS: "60000",
+      PYTHON_SHELL_MAX_TIMEOUT_MS: "120000",
+      PYTHON_SHELL_MAX_OUTPUT_CHARS: "50000",
+      PYTHON_SHELL_WORKSPACE_ROOT: "",
+    },
+  },
+  {
     id: "skills",
     displayName: "Skills",
     relativeScript: "Skills/dist/mcp-server.js",

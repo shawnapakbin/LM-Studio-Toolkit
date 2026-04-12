@@ -17,6 +17,7 @@ const config: Config = {
     "Browserless/src/**/*.ts",
     "AskUser/src/**/*.ts",
     "RAG/src/**/*.ts",
+    "PythonShell/src/**/*.ts",
     "Memory/src/**/*.ts",
     "CSVExporter/src/**/*.ts",
     "ECM/src/**/*.ts",

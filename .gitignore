@@ -61,6 +61,9 @@ yarn.lock
 jest-ecm-output.txt
 test-output.json
 
+# Startup/runtime logs
+scripts/workspace/logs/
+
 # Private notes (local only)
 private.md
 **/private.md

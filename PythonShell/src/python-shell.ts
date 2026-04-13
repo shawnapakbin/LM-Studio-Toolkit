@@ -1,4 +1,6 @@
-import { spawn, spawnSync } from "child_process";
+import { type SpawnSyncReturns, spawn, spawnSync } from "child_process";
+import fs from "fs";
+import os from "os";
 import path from "path";
 import { detectPythonEnvironment, getPythonInstallInstructions } from "./python-env";
 
@@ -74,7 +76,7 @@ function openVisibleTerminal(command: string, cwd: string): { pid: number; messa
   if (process.platform === "darwin") {
     const escaped = buildUnixLaunchCommand(cwd, command)
       .replace(/\\/g, "\\\\")
-      .replace(/\"/g, '\\\"');
+      .replace(/\"/g, '\\"');
     const script = `tell application \"Terminal\" to do script \"${escaped}\"`;
     const proc = spawn("osascript", ["-e", script], {
       detached: true,
@@ -130,14 +132,28 @@ export function runPythonCode(input: { code: string; timeoutMs?: number; cwd?: s
     ? Math.min(Math.max(Number(input.timeoutMs), 1), MAX_TIMEOUT_MS)
     : DEFAULT_TIMEOUT_MS;
 
-  const args = [...detection.launcher.baseArgs, "-c", input.code];
-  const result = spawnSync(detection.launcher.command, args, {
-    cwd: safeCwd.cwd,
-    encoding: "utf8",
-    timeout: effectiveTimeoutMs,
-    maxBuffer: 10 * 1024 * 1024,
-    shell: process.platform === "win32",
-  });
+  const tmpFile = path.join(
+    os.tmpdir(),
+    `python-shell-${Date.now()}-${Math.random().toString(36).slice(2)}.py`,
+  );
+  fs.writeFileSync(tmpFile, input.code, "utf8");
+
+  let result: SpawnSyncReturns<string>;
+  try {
+    const args = [...detection.launcher.baseArgs, tmpFile];
+    result = spawnSync(detection.launcher.command, args, {
+      cwd: safeCwd.cwd,
+      encoding: "utf8",
+      timeout: effectiveTimeoutMs,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+  } finally {
+    try {
+      fs.unlinkSync(tmpFile);
+    } catch {
+      /* ignore cleanup errors */
+    }
+  }
 
   return {
     success: result.status === 0,

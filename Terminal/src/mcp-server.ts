@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { platform } from "os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -80,7 +80,7 @@ export function createTerminalMcpServer(): McpServer {
   registerTool(
     "run_terminal_command",
     {
-      description: `TERMINAL EXECUTION ONLY: Run ${OPERATING_SYSTEM} commands for build/test automation, NOT for reasoning or data processing. Allowed: npm test, npm run build, npm run [script], listing files. Do NOT attempt to use for language analysis, text processing, or non-shell operations. Use ONLY ${OPERATING_SYSTEM}-native commands (${OPERATING_SYSTEM === "Windows" ? "cmd.exe like dir, cd, npm, powershell" : "bash like ls, cd, npm, sh"}). Non-interactive only. Always check success flag in response.`,
+      description: `TERMINAL EXECUTION ONLY: Run ${OPERATING_SYSTEM} commands for build/test automation, NOT for reasoning or data processing. Allowed: npm test, npm run build, npm run [script], listing files. Do NOT attempt to use for language analysis, text processing, or non-shell operations. Use ONLY ${OPERATING_SYSTEM}-native commands (${OPERATING_SYSTEM === "Windows" ? 'PowerShell (dir/Get-ChildItem, cd/Set-Location, npm, Set-Content, Out-File, here-strings @"..."@)' : "bash like ls, cd, npm, sh"}). Non-interactive only. Always check success flag in response.`,
       inputSchema: runTerminalCommandInputSchema,
     },
     async (input): Promise<CallToolResult> => {
@@ -149,9 +149,15 @@ export function createTerminalMcpServer(): McpServer {
         }
       }
 
+      const [shellBin, shellArgs] =
+        process.platform === "win32"
+          ? (["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command]] as const)
+          : (["/bin/sh", ["-c", command]] as const);
+
       return new Promise<CallToolResult>((resolve) => {
-        exec(
-          command,
+        execFile(
+          shellBin,
+          shellArgs,
           {
             timeout: effectiveTimeoutMs,
             cwd: safeCwd.cwd,

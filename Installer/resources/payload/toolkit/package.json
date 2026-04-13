@@ -20,7 +20,7 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --maxWorkers=2 && npm run -w CLI test:ci && npm run -w SlashCommands test:ci",
-    "test:mcp": "jest AskUser/tests/mcp.test.ts RAG/tests/mcp.test.ts Terminal/tests/mcp.test.ts",
+    "test:mcp": "jest AskUser/tests/mcp.test.ts RAG/tests/mcp.test.ts Terminal/tests/mcp.test.ts PythonShell/tests/mcp.test.ts",
     "test:mcp:live": "jest RAG/tests/mcp.live.test.ts",
     "test:mcp:live:matrix": "jest testing/evaluation/mcp.live-model-matrix.test.ts",
     "verify-tools": "node scripts/workspace/verify-tools.js",
@@ -35,14 +35,14 @@
     "verify:all": "npm run verify:vnext-scope && npm run check:ci && npm run type-check && npm run test:ci && npm run build && npm run startup:check",
     "build": "npm run build:shared && npm run build:tools && npm run build:memory",
     "build:shared": "npm run -w shared build",
-    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w Skills build && npm run -w ECM build && npm run -w SlashCommands build",
+    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w PythonShell build && npm run -w Skills build && npm run -w ECM build && npm run -w SlashCommands build",
     "build:memory": "npm run -w Memory build",
     "build:cli": "npm run -w CLI build",
     "cli": "node CLI/dist/index.js",
     "build:slash": "npm run -w SlashCommands build",
     "dev": "npm run dev -w Terminal",
     "clean": "rm -rf dist coverage .biome-cache && npm run clean:tools",
-    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w Browserless clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w Skills clean && npm run -w ECM clean"
+    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w Browserless clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w PythonShell clean && npm run -w Skills clean && npm run -w ECM clean"
   },
   "keywords": [
     "llm",
@@ -80,6 +80,7 @@
     "Browserless",
     "AskUser",
     "RAG",
+    "PythonShell",
     "Memory",
     "Skills",
     "ECM",

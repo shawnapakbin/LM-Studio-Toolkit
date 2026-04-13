@@ -17,6 +17,13 @@ export type DispatchDescriptor =
     }
   | { tool: "clock"; timeZone?: string }
   | { tool: "terminal"; command: string; cwd?: string }
+  | {
+      tool: "pythonshell";
+      action: "run_code" | "open_repl" | "open_idle";
+      code?: string;
+      cwd?: string;
+      timeoutMs?: number;
+    }
   | { tool: "skills"; action: string; params: Record<string, unknown> }
   | { tool: "rag"; action: string; params: Record<string, unknown> }
   | { tool: "askuser"; prompt: string; title?: string; expiresInSeconds?: number }
@@ -209,6 +216,36 @@ export function parseSlashCommand(raw: string): DispatchDescriptor {
     case "exec": {
       const command = [sub, ...positional].filter(Boolean).join(" ");
       return { tool: "terminal", command, cwd: flag(flags, "cwd") };
+    }
+
+    // ── /python <run|repl|idle> ──────────────────────────────────────────
+    case "python":
+    case "py": {
+      const action = (sub ?? "").toLowerCase();
+      if (action === "run") {
+        return {
+          tool: "pythonshell",
+          action: "run_code",
+          code: positional.slice(1).join(" "),
+          cwd: flag(flags, "cwd"),
+          timeoutMs: flag(flags, "timeout") ? Number(flag(flags, "timeout")) : undefined,
+        };
+      }
+      if (action === "repl") {
+        return {
+          tool: "pythonshell",
+          action: "open_repl",
+          cwd: flag(flags, "cwd"),
+        };
+      }
+      if (action === "idle") {
+        return {
+          tool: "pythonshell",
+          action: "open_idle",
+          cwd: flag(flags, "cwd"),
+        };
+      }
+      return { tool: "unknown", raw };
     }
 
     // ── /skills <action> ──────────────────────────────────────────────────

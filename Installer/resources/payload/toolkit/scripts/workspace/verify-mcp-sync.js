@@ -15,6 +15,7 @@ const expectedServers = {
   browserless: "Browserless/dist/mcp-server.js",
   "ask-user": "AskUser/dist/mcp-server.js",
   rag: "RAG/dist/mcp-server.js",
+  "python-shell": "PythonShell/dist/mcp-server.js",
 };
 
 const marker = "## Complete `mcp.json` Example";

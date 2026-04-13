@@ -48,7 +48,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 18 Tool Modules + CLI & Slash Commands
+### 19 Tool Modules + CLI & Slash Commands
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
@@ -58,6 +58,7 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[Browserless](Browserless/README.md)** — Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
 - **[AskUser](AskUser/README.md)** — Interactive interview workflow for planning and clarification ✅
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
+- **[PythonShell](PythonShell/README.md)** — Python code execution + REPL/IDLE launch with startup detection guidance ✅
 - **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
 - **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅
 - **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
@@ -82,7 +83,7 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (18 modules) → memory
+npm run build   # shared → observability → tools (19 modules) → memory
 ```
 
 ### Phases Complete ✅
@@ -291,6 +292,16 @@ npm run mcp:sync-lmstudio
 				"RAG_BYPASS_APPROVAL": "true",
 				"RAG_CHUNK_SIZE_TOKENS": "384",
 				"RAG_CHUNK_OVERLAP_TOKENS": "75"
+			}
+		},
+		"python-shell": {
+			"command": "node",
+			"args": ["PythonShell/dist/mcp-server.js"],
+			"env": {
+				"PYTHON_SHELL_DEFAULT_TIMEOUT_MS": "60000",
+				"PYTHON_SHELL_MAX_TIMEOUT_MS": "120000",
+				"PYTHON_SHELL_MAX_OUTPUT_CHARS": "50000",
+				"PYTHON_SHELL_WORKSPACE_ROOT": ""
 			}
 		},
 		"skills": {

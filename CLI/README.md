@@ -71,6 +71,16 @@ npx tsx CLI/src/index.ts <command>
 | `llm terminal "<cmd>" -d <dir>` | With working directory |
 | `llm terminal "<cmd>" --timeout <ms>` | With timeout |
 
+### PythonShell
+
+| Command | Description |
+|---|---|
+| `llm python run "<code>"` | Execute non-interactive Python code via PythonShell |
+| `llm python run "<code>" -d <dir>` | Run in a specific working directory |
+| `llm python run "<code>" --timeout <ms>` | Set execution timeout |
+| `llm python repl` | Open Python REPL in a visible shell |
+| `llm python idle` | Launch Python IDLE shell |
+
 ### Skills
 
 | Command | Description |

@@ -311,6 +311,43 @@ describe("/run", () => {
   });
 });
 
+// ── /python ───────────────────────────────────────────────────────────────
+
+describe("/python", () => {
+  it("parses python run code", () => {
+    expect(parse('/python run print("hi")')).toMatchObject({
+      tool: "pythonshell",
+      action: "run_code",
+      code: "print( hi )",
+    });
+  });
+
+  it("parses python run flags", () => {
+    expect(parse('/python run print(1) --cwd /tmp --timeout 5000')).toMatchObject({
+      tool: "pythonshell",
+      action: "run_code",
+      code: "print(1)",
+      cwd: "/tmp",
+      timeoutMs: 5000,
+    });
+  });
+
+  it("parses python repl", () => {
+    expect(parse("/python repl --cwd /work")).toMatchObject({
+      tool: "pythonshell",
+      action: "open_repl",
+      cwd: "/work",
+    });
+  });
+
+  it("parses python idle", () => {
+    expect(parse("/python idle")).toMatchObject({
+      tool: "pythonshell",
+      action: "open_idle",
+    });
+  });
+});
+
 // ── /skills ───────────────────────────────────────────────────────────────────
 
 describe("/skills list", () => {

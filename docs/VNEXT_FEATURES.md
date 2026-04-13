@@ -95,6 +95,13 @@ The following directories contain source code that builds successfully and is in
 - Agent orchestrator (Phase 3).
 - Breaking API changes without explicit migration notes.
 
+## In-Progress / Planned for v2.2.0
+
+1. `PythonShell` workspace (`PythonShell/`)
+- Scope: MCP tool that provides non-interactive Python code execution, Python REPL launch, and Python IDLE launch.
+- Startup behavior: startup checks run Python 3 detection on every run, persist detection history to `scripts/workspace/logs/python-detection.json`, and provide install guidance from the official source when Python is missing.
+- Key paths: `PythonShell/src/`, `PythonShell/tests/`, `scripts/workspace/check-python.js`.
+
 ## Planned for v2.3.0
 
 - Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm file *`, `llm pkg *`, `llm build *`, `llm observe *`, `llm session *`

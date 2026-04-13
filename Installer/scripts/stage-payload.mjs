@@ -19,6 +19,7 @@ const PAYLOAD_ITEMS = [
   "Browserless",
   "AskUser",
   "RAG",
+  "PythonShell",
   "Memory",
   "Observability",
   "Skills",

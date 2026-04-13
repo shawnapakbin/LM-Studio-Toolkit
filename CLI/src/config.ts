@@ -10,6 +10,7 @@ export const TOOL_PORTS: Record<string, number> = {
   clock: 3337,
   askuser: 3338,
   rag: 3339,
+  pythonshell: 3343,
   skills: 3341,
   ecm: 3342,
 };

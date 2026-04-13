@@ -267,6 +267,53 @@ describe("route — terminal", () => {
   });
 });
 
+// ── PythonShell ───────────────────────────────────────────────────────────
+
+describe("route — pythonshell", () => {
+  it("posts python_run_code action", async () => {
+    const desc: DispatchDescriptor = {
+      tool: "pythonshell",
+      action: "run_code",
+      code: "print(1)",
+      cwd: "/tmp",
+      timeoutMs: 5000,
+    };
+
+    await route(desc);
+
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.pythonshell}/tools/python_run_code`, {
+      code: "print(1)",
+      cwd: "/tmp",
+      timeoutMs: 5000,
+    });
+  });
+
+  it("posts python_open_repl action", async () => {
+    const desc: DispatchDescriptor = {
+      tool: "pythonshell",
+      action: "open_repl",
+      cwd: "/work",
+    };
+
+    await route(desc);
+
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.pythonshell}/tools/python_open_repl`, {
+      cwd: "/work",
+    });
+  });
+
+  it("posts python_open_idle action", async () => {
+    const desc: DispatchDescriptor = {
+      tool: "pythonshell",
+      action: "open_idle",
+    };
+
+    await route(desc);
+
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.pythonshell}/tools/python_open_idle`, {});
+  });
+});
+
 // ── Skills ────────────────────────────────────────────────────────────────────
 
 describe("route — skills", () => {

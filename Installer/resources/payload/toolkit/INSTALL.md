@@ -15,7 +15,18 @@ Quick reference for setting up LLM Toolkit.
 
 ---
 
-## Option A — GUI Setup (recommended)
+## Option A — Native GUI Installer (recommended)
+
+Download the latest release artifact for your OS from GitHub Releases:
+- Windows: `install-XXXX.exe` (portable)
+- macOS: `install.dmg`
+- Linux: `install.AppImage`
+
+If your platform artifact is temporarily unavailable, use Option B fallback below.
+
+---
+
+## Option B — GUI Setup via Repo Clone (fallback)
 
 ```bash
 git clone https://github.com/shawnapakbin/llm-toolkit-by-shawna.git llm-toolkit
@@ -34,7 +45,7 @@ Use **Repair** if the installation gets corrupted or you change your workspace p
 
 ---
 
-## Option B — CLI Setup
+## Option C — CLI Setup
 
 ```bash
 git clone https://github.com/shawnapakbin/llm-toolkit-by-shawna.git llm-toolkit

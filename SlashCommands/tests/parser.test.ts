@@ -323,7 +323,7 @@ describe("/python", () => {
   });
 
   it("parses python run flags", () => {
-    expect(parse('/python run print(1) --cwd /tmp --timeout 5000')).toMatchObject({
+    expect(parse("/python run print(1) --cwd /tmp --timeout 5000")).toMatchObject({
       tool: "pythonshell",
       action: "run_code",
       code: "print(1)",

@@ -1,4 +1,5 @@
 import type {
+  AutoCompactNowInput,
   ClearSessionInput,
   DeleteSegmentInput,
   ListSegmentsInput,
@@ -90,6 +91,16 @@ export function validateClearSession(input: unknown): ClearSessionInput {
 }
 
 export function validateSummarizeSession(input: unknown): SummarizeSessionInput {
+  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
+  const i = input as Record<string, unknown>;
+
+  return {
+    sessionId: requireString(i.sessionId, "sessionId"),
+    keepNewest: typeof i.keepNewest === "number" ? Math.max(0, Math.floor(i.keepNewest)) : 10,
+  };
+}
+
+export function validateAutoCompactNow(input: unknown): AutoCompactNowInput {
   if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
   const i = input as Record<string, unknown>;
 

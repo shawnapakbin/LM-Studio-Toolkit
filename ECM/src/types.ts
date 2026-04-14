@@ -67,12 +67,43 @@ export interface SummarizeSessionInput {
   keepNewest?: number;
 }
 
+export interface AutoCompactNowInput {
+  sessionId: string;
+  keepNewest?: number;
+}
+
 // ─── Result types ─────────────────────────────────────────────────────────────
 
 export interface RetrieveResult {
   segments: ScoredSegment[];
   totalTokens: number;
   truncated: boolean;
+  autoCompaction?: AutoCompactionTelemetry;
+}
+
+export interface AutoCompactionTelemetry {
+  checked: boolean;
+  enabled: boolean;
+  executed: boolean;
+  triggerRatio: number;
+  estimatedUsedTokens: number;
+  modelContextLimit: number;
+  threshold: number;
+  keepNewest: number;
+  sourceAction: "store_segment" | "retrieve_context";
+  reason:
+    | "disabled"
+    | "below_threshold"
+    | "cooldown"
+    | "in_progress"
+    | "not_enough_segments"
+    | "executed"
+    | "execution_failed";
+  strategy?: "extractive" | "llm_highlights";
+  fallbackUsed?: boolean;
+  summarySegmentId?: string;
+  segmentsRemoved?: number;
+  summaryTokenCount?: number;
 }
 
 export interface ListSegmentsResult {
@@ -92,6 +123,20 @@ export interface SummarizeResult {
   summarySegmentId: string;
   originalSegmentsRemoved: number;
   summaryTokenCount: number;
+}
+
+export interface AutoCompactNowResult {
+  executed: boolean;
+  reason: "not_enough_segments" | "executed";
+  triggerRatio: number;
+  estimatedUsedTokens: number;
+  modelContextLimit: number;
+  threshold: number;
+  summarySegmentId?: string;
+  originalSegmentsRemoved?: number;
+  summaryTokenCount?: number;
+  strategy?: "extractive" | "llm_highlights";
+  fallbackUsed?: boolean;
 }
 
 // ─── Store input ──────────────────────────────────────────────────────────────

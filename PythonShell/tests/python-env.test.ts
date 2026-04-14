@@ -14,7 +14,7 @@ describe("detectPythonEnvironment", () => {
   });
 
   test("rejects python 2 outputs", () => {
-    const result = detectPythonEnvironment((command, args) => {
+    const result = detectPythonEnvironment((_command, args) => {
       if (args.includes("--version")) {
         return { status: 0, stdout: "Python 2.7.18", stderr: "" };
       }

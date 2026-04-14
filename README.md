@@ -52,7 +52,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 19 Tool Modules + CLI & Slash Commands
+### 18 Toolkit Modules (16 Tool Servers + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
@@ -87,7 +87,7 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (19 modules) → memory
+npm run build   # shared → observability → tools (16 runtime servers) → memory
 ```
 
 ### Phases Complete ✅
@@ -452,8 +452,8 @@ See [Memory/README.md](Memory/README.md) for details.
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
 | [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
-| [CLI/README.md](CLI/README.md) | CLI command reference (v2.1.0) |
-| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference (v2.1.0) |
+| [CLI/README.md](CLI/README.md) | CLI command reference |
+| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
 
 
@@ -463,16 +463,17 @@ See [Memory/README.md](Memory/README.md) for details.
 |---------|--------|-------|
 | CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 11 core tools | ✅ | Terminal, WebBrowser (headless), Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, Skills, ECM |
+| 16 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
-| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation (v2.1.0) |
+| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |
 | Biome format + lint | ✅ | CI gate, auto-fix on save |
 | Jest test suite | ✅ | 80% coverage minimum |
 | SQLite memory | ✅ | Task history, patterns, rules |
 | GitHub Actions CI | ✅ | Biome + lint + test + build |
-| Tool hardening (Phase 1) | 🔄 | Command denylist, SSRF blocking, output truncation |
-| New tools (Phase 2) | 🔄 | Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability |
+| Tool hardening (Phase 1) | ✅ | Command denylist, SSRF blocking, output truncation |
+| Extended toolset (Phase 3) | ✅ | Git, FileEditor, PackageManager, CSVExporter, Observability |
+| Planned expansion (future) | 🔄 | BuildRunner, AIModel, broader orchestration surface |
 | Agent orchestrator (Phase 3) | 🔄 | Multi-step task planning + pattern replay |
 | Multi-interface launchers (Phase 4) | 🔄 | LM Studio + CLI + VS Code + HTTP |
 
@@ -500,5 +501,5 @@ Original Author: Shawna Pakbin
 
 ---
 
-**Last Updated**: April 2, 2026  
+**Last Updated**: April 13, 2026  
 Built with ❤️ for LLM-powered software engineering

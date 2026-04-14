@@ -116,3 +116,30 @@ If you see this error on an older build, run `npm run build` from the `Browserle
 | Tool call `apiKey` parameter | Depends on caller | Passed at runtime by the LLM from its config |
 
 Never hardcode a key in any file that is tracked by git.
+
+---
+
+## ECM (Context Memory)
+
+### Q: Why did my session suddenly show a summary segment and fewer old turns?
+
+ECM auto-compaction likely triggered.
+
+Auto-compaction runs when estimated context pressure crosses the configured threshold:
+
+```
+estimated_used_tokens / ECM_MODEL_CONTEXT_LIMIT >= ECM_AUTO_COMPACT_THRESHOLD
+```
+
+By default, the threshold is `0.70`. ECM then summarizes older segments, keeps the newest `N` segments, and purges compacted history.
+
+Controls:
+1. Disable auto-compaction globally:
+  - Set `ECM_AUTO_COMPACT_ENABLED=false`
+2. Tune when it triggers:
+  - `ECM_AUTO_COMPACT_THRESHOLD`
+  - `ECM_MODEL_CONTEXT_LIMIT`
+3. Force compaction manually for a session:
+  - Call ECM action `auto_compact_now` with `sessionId` and optional `keepNewest`
+
+You can also inspect `retrieve_context` response telemetry (`autoCompaction`) to confirm whether compaction ran and which strategy was used.

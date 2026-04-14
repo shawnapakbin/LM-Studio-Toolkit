@@ -22,6 +22,7 @@ where `recency = 1 / (1 + age_in_hours)` — decays over time.
 | `delete_segment` | Remove a segment by UUID |
 | `clear_session` | Delete all segments for a session |
 | `summarize_session` | Compress oldest segments into a single summary (extractive, no LLM call) |
+| `auto_compact_now` | Force hybrid compaction now (extractive first, LLM highlights fallback) |
 
 ## Endpoints
 
@@ -80,6 +81,13 @@ where `recency = 1 / (1 + age_in_hours)` — decays over time.
   sessionId: "my-session-uuid",
   keepNewest: 10   // optional — keep this many newest segments untouched
 }
+
+// auto_compact_now
+{
+  action: "auto_compact_now",
+  sessionId: "my-session-uuid",
+  keepNewest: 10   // optional — keep this many newest segments untouched
+}
 ```
 
 ## Typical Agent Loop
@@ -104,6 +112,20 @@ await ecm({ action: "summarize_session", sessionId, keepNewest: 20 });
 
 Token count is estimated as `Math.ceil(content.length / 4)`.
 
+## Automatic Compaction Policy
+
+ECM can compact automatically when estimated context pressure crosses a threshold:
+- Trigger basis: `estimated_used_tokens / ECM_MODEL_CONTEXT_LIMIT`
+- Trigger default: `>= 0.70`
+- Policy location: ECM server (independent of slash command usage)
+
+Compaction strategy:
+1. Build extractive summary from old non-summary segments.
+2. If summary quality/compression is insufficient, request LLM highlights summary.
+3. Persist summary and purge older segments while keeping newest `N` segments.
+
+`retrieve_context` includes `autoCompaction` telemetry with trigger ratio, execution status, and strategy details.
+
 ## Session Isolation
 
 All operations are scoped to `sessionId`. Segments from different sessions never mix. Use UUID v4 session IDs in multi-agent deployments to prevent cross-session leakage.
@@ -115,7 +137,32 @@ All operations are scoped to `sessionId`. Segments from different sessions never
 | `ECM_DB_PATH` | `../ecm.db` (relative to script dir) | SQLite database path |
 | `ECM_EMBEDDINGS_MODE` | `lmstudio` | `lmstudio` or `mock` (for testing) |
 | `ECM_EMBEDDING_MODEL` | `nomic-ai/nomic-embed-text-v1.5` | LM Studio embedding model |
+| `ECM_COMPACTOR_MODE` | `lmstudio` | `lmstudio` or `mock` for highlights fallback |
+| `ECM_COMPACTOR_MODEL` | `qwen2.5-7b-instruct` | LM Studio generation model for highlights fallback |
+| `ECM_COMPACTOR_MIN_CONFIDENCE` | `0.50` | Minimum LLM compactor confidence required to accept highlights summary |
+| `ECM_COMPACTOR_MIN_HIGHLIGHTS` | `2` | Minimum highlights entries required for LLM summary acceptance |
+| `ECM_COMPACTOR_MIN_DECISIONS` | `1` | Minimum decisions entries required for LLM summary acceptance |
+| `ECM_AUTO_COMPACT_ENABLED` | `true` | Enable automatic compaction policy |
+| `ECM_AUTO_COMPACT_THRESHOLD` | `0.70` | Trigger ratio for automatic compaction |
+| `ECM_MODEL_CONTEXT_LIMIT` | `8192` | Estimated model context window used for trigger ratio |
+| `ECM_AUTO_COMPACT_KEEP_NEWEST` | `10` | Number of newest non-summary segments to retain |
+| `ECM_AUTO_COMPACT_COOLDOWN_MS` | `120000` | Cooldown window between auto-compaction runs |
+| `ECM_AUTO_COMPACT_SUMMARY_MAX_TOKENS` | `600` | Extractive summary max token target before fallback |
+| `ECM_AUTO_COMPACT_MAX_COMPRESSION_RATIO` | `0.60` | Compression threshold that triggers fallback |
+| `ECM_AUTO_COMPACT_FORCE_LLM` | `false` | Force LLM fallback during compaction |
 | `PORT` | `3342` | HTTP server port |
+
+### Recommended Production Defaults
+
+For stable long-thread behavior in production, start with:
+- `ECM_AUTO_COMPACT_THRESHOLD=0.70`
+- `ECM_AUTO_COMPACT_COOLDOWN_MS=120000`
+- `ECM_AUTO_COMPACT_KEEP_NEWEST=10`
+- `ECM_COMPACTOR_MIN_CONFIDENCE=0.60`
+- `ECM_COMPACTOR_MIN_HIGHLIGHTS=2`
+- `ECM_COMPACTOR_MIN_DECISIONS=1`
+
+Tighten `ECM_COMPACTOR_MIN_CONFIDENCE` and `ECM_AUTO_COMPACT_THRESHOLD` gradually based on observed thread quality and model behavior.
 
 ## LM Studio Integration
 

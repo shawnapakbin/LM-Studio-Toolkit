@@ -88,35 +88,44 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
   });
 });
 
-app.post("/tools/python_run_code", (req: Request<unknown, unknown, PythonRunBody>, res: Response) => {
-  const code = req.body.code?.trim();
-  if (!code) {
-    res.status(400).json({
-      success: false,
-      errorCode: "INVALID_INPUT",
-      errorMessage: "'code' is required.",
+app.post(
+  "/tools/python_run_code",
+  (req: Request<unknown, unknown, PythonRunBody>, res: Response) => {
+    const code = req.body.code?.trim();
+    if (!code) {
+      res.status(400).json({
+        success: false,
+        errorCode: "INVALID_INPUT",
+        errorMessage: "'code' is required.",
+      });
+      return;
+    }
+
+    const result = runPythonCode({
+      code,
+      cwd: req.body.cwd,
+      timeoutMs: req.body.timeoutMs,
     });
-    return;
-  }
 
-  const result = runPythonCode({
-    code,
-    cwd: req.body.cwd,
-    timeoutMs: req.body.timeoutMs,
-  });
+    res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
+  },
+);
 
-  res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
-});
+app.post(
+  "/tools/python_open_repl",
+  (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
+    const result = openPythonRepl({ cwd: req.body.cwd });
+    res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
+  },
+);
 
-app.post("/tools/python_open_repl", (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
-  const result = openPythonRepl({ cwd: req.body.cwd });
-  res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
-});
-
-app.post("/tools/python_open_idle", (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
-  const result = openPythonIde({ cwd: req.body.cwd });
-  res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
-});
+app.post(
+  "/tools/python_open_idle",
+  (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
+    const result = openPythonIde({ cwd: req.body.cwd });
+    res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
+  },
+);
 
 export { app };
 

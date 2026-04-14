@@ -188,6 +188,34 @@ describe("ECM HTTP Endpoints", () => {
     expect(res.body.success).toBe(false);
   });
 
+  test("auto_compact_now compacts and returns strategy details", async () => {
+    const sessionId = "manual-compact-session";
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post("/tools/ecm")
+        .send({
+          action: "store_segment",
+          sessionId,
+          type: "conversation_turn",
+          content: `manual compact turn ${i} with details for summary generation`,
+        });
+    }
+
+    const res = await request(app).post("/tools/ecm").send({
+      action: "auto_compact_now",
+      sessionId,
+      keepNewest: 2,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.executed).toBe(true);
+    expect(res.body.data.reason).toBe("executed");
+    expect(typeof res.body.data.originalSegmentsRemoved).toBe("number");
+    expect(res.body.data.originalSegmentsRemoved).toBeGreaterThan(0);
+    expect(typeof res.body.data.summaryTokenCount).toBe("number");
+  });
+
   test("clear_session removes all segments", async () => {
     const clearSession = "clear-test-session";
     await request(app).post("/tools/ecm").send({

@@ -16,6 +16,7 @@ for (const fileName of [
   "store.js",
   "types.js",
   "embeddings.js",
+  "compactor.js",
 ]) {
   const source = path.join(nestedDist, fileName);
   const target = path.join(rootDist, fileName);

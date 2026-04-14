@@ -78,7 +78,7 @@ app.post("/tools/git_status", async (req, res) => {
     }
 
     const result = await gitStatus(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -90,7 +90,7 @@ app.post("/tools/git_status", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -116,7 +116,7 @@ app.post("/tools/git_diff", async (req, res) => {
     }
 
     const result = await gitDiff(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -128,7 +128,7 @@ app.post("/tools/git_diff", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -222,7 +222,7 @@ app.post("/tools/git_branch", async (req, res) => {
     }
 
     const result = await gitBranch(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -234,7 +234,7 @@ app.post("/tools/git_branch", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -274,7 +274,7 @@ app.post("/tools/git_checkout", async (req, res) => {
     }
 
     const result = await gitCheckout(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -286,7 +286,7 @@ app.post("/tools/git_checkout", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -324,7 +324,7 @@ app.post("/tools/git_commit", async (req, res) => {
     }
 
     const result = await gitCommit(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -336,7 +336,7 @@ app.post("/tools/git_commit", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -376,7 +376,7 @@ app.post("/tools/git_push", async (req, res) => {
     }
 
     const result = await gitPush(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -388,7 +388,7 @@ app.post("/tools/git_push", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -414,7 +414,7 @@ app.post("/tools/git_pull", async (req, res) => {
     }
 
     const result = await gitPull(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -426,7 +426,7 @@ app.post("/tools/git_pull", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -458,7 +458,7 @@ app.post("/tools/git_clone", async (req, res) => {
     }
 
     const result = await gitClone(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -470,7 +470,7 @@ app.post("/tools/git_clone", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -496,7 +496,7 @@ app.post("/tools/git_stash", async (req, res) => {
     }
 
     const result = await gitStash(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -508,7 +508,7 @@ app.post("/tools/git_stash", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -548,7 +548,7 @@ app.post("/tools/git_reset", async (req, res) => {
     }
 
     const result = await gitReset(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -560,7 +560,7 @@ app.post("/tools/git_reset", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),

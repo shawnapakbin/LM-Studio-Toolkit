@@ -2,11 +2,11 @@
 
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
-Release target: `v2.1.0`
+Release target: `v2.2.0`
 Status: `released`
 Owner: `core-maintainers`
 
-## Included vNext Features (v2.1.0 — Released)
+## Included vNext Features (v2.2.0 — Released)
 
 1. `CLI` workspace (`CLI/`)
 - Scope: `llm <command>` terminal binary for invoking all tools from the shell. Uses `commander` for argument parsing; routes to tool HTTP endpoints.
@@ -61,21 +61,21 @@ Owner: `core-maintainers`
 
 ---
 
-## In-Progress / Staging (Not Yet Released)
+## Included In v2.2.0 Hardening Release
 
-The following directories contain source code that builds successfully and is included in `build:tools`, but does not yet have full test suites or startup-check entries. They are intentional future scope — do not treat as unrelated drift.
+The following modules were fully integrated in the v2.2.0 release train and are now part of normal verification/build workflows.
 
 ### `PackageManager/`
 - Scope: MCP server and policy layer for installing/removing npm packages on behalf of the agent. Key files: `src/mcp-server.ts`, `src/package-manager.ts`, `src/policy.ts`.
-- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
+- Status: integrated, compiles, included in `build:tools`.
 
 ### `Git/`
 - Scope: MCP server wrapping common git operations (status, diff, commit, push) with policy guards. Key files: `src/mcp-server.ts`, `src/git.ts`, `src/policy.ts`.
-- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
+- Status: integrated, compiles, included in `build:tools`.
 
 ### `FileEditor/`
 - Scope: MCP server exposing read/write/patch file operations with safety policy. Key files: `src/file-editor.ts`, `src/policy.ts`.
-- Status: source present, compiles, included in `build:tools`, no jest tests, not in startup-check.
+- Status: integrated, compiles, included in `build:tools`.
 
 ### `Observability/`
 - Scope: Shared logging, metrics, and tracing library for all LLM Toolkit tools. Provides structured logger, OpenTelemetry-compatible tracer, and Prometheus-style metrics. Key files: `src/logger.ts`, `src/tracer.ts`, `src/metrics.ts`.
@@ -83,26 +83,26 @@ The following directories contain source code that builds successfully and is in
 
 ### `CSVExporter/`
 - Scope: MCP server for exporting parsed table data to CSV files. Key files: `src/mcp-server.ts`, `src/csv-exporter.ts`.
-- Status: source present, compiles, included in `build:tools`, not in startup-check.
+- Status: integrated, compiles, included in `build:tools`.
 
 ### `Manifesto/Vibing-Manifesto.md`
 - Scope: Project philosophy document — not a code workspace.
 - Status: documentation only, no build artifact needed.
 
-## Out Of Scope For v2.1.0
+## Out Of Scope For v2.2.0
 
-- Phase 2 tools (Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability HTTP endpoint).
+- Future expansion tools (BuildRunner, AIModel, Observability HTTP endpoint).
 - Agent orchestrator (Phase 3).
 - Breaking API changes without explicit migration notes.
 
-## In-Progress / Planned for v2.2.0
+## Included In v2.2.0
 
 1. `PythonShell` workspace (`PythonShell/`)
 - Scope: MCP tool that provides non-interactive Python code execution, Python REPL launch, and Python IDLE launch.
 - Startup behavior: startup checks run Python 3 detection on every run, persist detection history to `scripts/workspace/logs/python-detection.json`, and provide install guidance from the official source when Python is missing.
 - Key paths: `PythonShell/src/`, `PythonShell/tests/`, `scripts/workspace/check-python.js`.
 
-## Planned for v2.3.0
+## Planned for v2.3.0+
 
 - Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm file *`, `llm pkg *`, `llm build *`, `llm observe *`, `llm session *`
 - Corresponding slash commands: `/workflow`, `/git`, `/file`, `/build`, `/observe`, `/session`

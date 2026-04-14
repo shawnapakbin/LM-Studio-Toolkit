@@ -75,6 +75,11 @@ Manifesto/
 *.db-shm
 *.db-wal
 
+# Installer payload ECM runtime DB artifacts
+Installer/resources/payload/toolkit/ECM/ecm.db
+Installer/resources/payload/toolkit/ECM/ecm.db-wal
+Installer/resources/payload/toolkit/ECM/ecm.db-shm
+
 # TypeScript build info
 **/tsconfig.tsbuildinfo
 
@@ -87,3 +92,4 @@ shared/toolCallNormalizer.js.map
 # Installer build artifacts
 Installer/release/
 Installer/resources/runtime/
+compact instructions

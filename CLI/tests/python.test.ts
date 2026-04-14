@@ -33,10 +33,9 @@ describe("python command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "python", "run", "print('hi')"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.stringContaining("/tools/python_run_code"),
-      { code: "print('hi')" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.stringContaining("/tools/python_run_code"), {
+      code: "print('hi')",
+    });
     expect(mockPrintResult).toHaveBeenCalledWith(result);
   });
 
@@ -67,10 +66,9 @@ describe("python command", () => {
 
     await makeProgram().parseAsync(["node", "llm", "python", "repl", "--cwd", "/work"]);
 
-    expect(mockToolPost).toHaveBeenCalledWith(
-      expect.stringContaining("/tools/python_open_repl"),
-      { cwd: "/work" },
-    );
+    expect(mockToolPost).toHaveBeenCalledWith(expect.stringContaining("/tools/python_open_repl"), {
+      cwd: "/work",
+    });
   });
 
   it("calls python_open_idle", async () => {

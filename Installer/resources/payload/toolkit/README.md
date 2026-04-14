@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.1.0  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.1.0 enhancements ✅ + CLI & Slash Commands ✅
+**Version**: 2.2.0  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -17,10 +17,14 @@ Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-
 
 ### Installation
 
+Preferred: GUI installer artifacts from Releases (Windows portable EXE, macOS DMG, Linux AppImage).
+
+Fallback: script setup from a repo clone.
+
 ```bash
 git clone https://github.com/shawnapakbin/llm-toolkit-by-shawna.git llm-toolkit
 cd llm-toolkit
-node scripts/setup/setup.js --gui   # Browser GUI (recommended)
+node scripts/setup/setup.js --gui   # Browser GUI (fallback when installer artifact is unavailable)
 # or
 node scripts/setup/setup.js         # CLI
 ```
@@ -48,20 +52,26 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 11 Core Tools (v2.1.0) + CLI & Slash Commands (v2.1.0)
+### 18 Toolkit Modules (16 Tool Servers + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
-- **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅ _(upgraded v2.1.0)_
+- **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
 - **[Calculator](Calculator/README.md)** — Math expressions (engineering notation, symbol normalization) ✅
 - **[DocumentScraper](DocumentScraper/README.md)** — Read documents with structured extraction + encrypted PDF detection ✅
 - **[Clock](Clock/README.md)** — Date/time + timezones (IANA + locale formatting) ✅
 - **[Browserless](Browserless/README.md)** — Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
 - **[AskUser](AskUser/README.md)** — Interactive interview workflow for planning and clarification ✅
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
-- **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅ _(new v2.1.0)_
-- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅ _(new v2.1.0)_
-- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅ _(new v2.1.0)_
-- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅ _(new v2.1.0)_
+- **[PythonShell](PythonShell/README.md)** — Python code execution + REPL/IDLE launch with startup detection guidance ✅
+- **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
+- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅
+- **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
+- **[Git](Git/README.md)** — Safe git operations with branch protection ✅
+- **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing ✅
+- **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
+- **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
+- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
+- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
 ### Foundation Layer (Phase 0 ✅)
 
@@ -70,12 +80,22 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[SQLite Memory](Memory/)** — Task history, solution patterns, learned rules
 - **CI/CD Gates** — `.github/workflows/ci.yml` enforces quality on every PR
 
-### Phase 1–3 Roadmap (In progress)
+### Pre-Commit Hooks
 
-- Phase 1: Tool hardening + quality gates (1.5 weeks)
-- Phase 2: 6 new tools (Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability) (6 weeks)
-- Phase 3: Agent orchestrator + pattern replay (1 week)
-- Phase 4: Multi-interface launchers (LM Studio, CLI, VS Code, HTTP) (0.5 weeks)
+Pre-commit quality gates are enforced automatically via [Husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged). On every commit, `biome check` runs on staged `*.{ts,js,json}` files.
+
+### Build Order
+
+```bash
+npm run build   # shared → observability → tools (16 runtime servers) → memory
+```
+
+### Phases Complete ✅
+
+- Phase 0: Foundation — code quality, tests, CI gates ✅
+- Phase 1: Tool hardening + safety ✅
+- Phase 2: Orchestration + workflow execution ✅
+- Phase 3: Extended tools (Git, FileEditor, PackageManager, CSVExporter, Observability) ✅
 
 See [AGENT_ROADMAP.md](AGENT_ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
@@ -432,8 +452,8 @@ See [Memory/README.md](Memory/README.md) for details.
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
 | [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
-| [CLI/README.md](CLI/README.md) | CLI command reference (v2.1.0) |
-| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference (v2.1.0) |
+| [CLI/README.md](CLI/README.md) | CLI command reference |
+| [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
 
 
@@ -443,16 +463,17 @@ See [Memory/README.md](Memory/README.md) for details.
 |---------|--------|-------|
 | CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 11 core tools | ✅ | Terminal, WebBrowser (headless), Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, Skills, ECM |
+| 16 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
-| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation (v2.1.0) |
+| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |
 | Biome format + lint | ✅ | CI gate, auto-fix on save |
 | Jest test suite | ✅ | 80% coverage minimum |
 | SQLite memory | ✅ | Task history, patterns, rules |
 | GitHub Actions CI | ✅ | Biome + lint + test + build |
-| Tool hardening (Phase 1) | 🔄 | Command denylist, SSRF blocking, output truncation |
-| New tools (Phase 2) | 🔄 | Git, FileEditor, PackageManager, BuildRunner, AIModel, Observability |
+| Tool hardening (Phase 1) | ✅ | Command denylist, SSRF blocking, output truncation |
+| Extended toolset (Phase 3) | ✅ | Git, FileEditor, PackageManager, CSVExporter, Observability |
+| Planned expansion (future) | 🔄 | BuildRunner, AIModel, broader orchestration surface |
 | Agent orchestrator (Phase 3) | 🔄 | Multi-step task planning + pattern replay |
 | Multi-interface launchers (Phase 4) | 🔄 | LM Studio + CLI + VS Code + HTTP |
 
@@ -480,5 +501,5 @@ Original Author: Shawna Pakbin
 
 ---
 
-**Last Updated**: April 2, 2026  
+**Last Updated**: April 13, 2026  
 Built with ❤️ for LLM-powered software engineering

@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import {
+  autoCompactNow,
   clearSession,
   deleteSegment,
   listSegments,
@@ -40,6 +41,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
             "delete_segment",
             "clear_session",
             "summarize_session",
+            "auto_compact_now",
           ],
         },
         sessionId: { type: "string" },
@@ -108,6 +110,9 @@ app.post("/tools/ecm", async (req: Request, res: Response) => {
         break;
       case "summarize_session":
         response = await summarizeSession({ sessionId, keepNewest: rest.keepNewest });
+        break;
+      case "auto_compact_now":
+        response = await autoCompactNow({ sessionId, keepNewest: rest.keepNewest });
         break;
       default:
         return res

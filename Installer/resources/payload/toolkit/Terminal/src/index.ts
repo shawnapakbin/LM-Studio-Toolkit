@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { platform } from "os";
 import {
   ErrorCode,
@@ -11,7 +11,7 @@ import {
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
-import { getRegistry } from "../../Observability/src/metrics";
+import { getRegistry } from "llm-toolkit-observability";
 import {
   DEFAULT_MAX_OUTPUT_CHARS,
   WORKSPACE_ROOT,
@@ -233,8 +233,14 @@ app.post(
         return;
       }
 
-      exec(
-        command,
+      const [shellBin, shellArgs] =
+        process.platform === "win32"
+          ? (["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command]] as const)
+          : (["/bin/sh", ["-c", command]] as const);
+
+      execFile(
+        shellBin,
+        shellArgs,
         {
           timeout: timeoutMs,
           cwd: safeCwd.cwd,

@@ -22,8 +22,7 @@ export function createPythonShellMcpServer(): McpServer {
   registerTool(
     "python_run_code",
     {
-      description:
-        "Run non-interactive Python 3 code with python -c and return stdout/stderr.",
+      description: "Run non-interactive Python 3 code with python -c and return stdout/stderr.",
       inputSchema: {
         code: z.string().min(1).describe("Python code string to execute with -c."),
         timeoutMs: z

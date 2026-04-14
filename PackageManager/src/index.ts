@@ -73,7 +73,7 @@ app.post("/tools/detect_package_manager", async (req, res) => {
     }
 
     const result = await detectPackageManager(WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -85,7 +85,7 @@ app.post("/tools/detect_package_manager", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -149,7 +149,7 @@ app.post("/tools/install_packages", async (req, res) => {
     }
 
     const result = await installPackages(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -161,7 +161,7 @@ app.post("/tools/install_packages", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -226,7 +226,7 @@ app.post("/tools/update_packages", async (req, res) => {
     }
 
     const result = await updatePackages(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -238,7 +238,7 @@ app.post("/tools/update_packages", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -289,7 +289,7 @@ app.post("/tools/audit_vulnerabilities", async (req, res) => {
     }
 
     const result = await auditVulnerabilities(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -301,7 +301,7 @@ app.post("/tools/audit_vulnerabilities", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -345,7 +345,7 @@ app.post("/tools/list_outdated", async (req, res) => {
     }
 
     const result = await listOutdated(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -357,7 +357,7 @@ app.post("/tools/list_outdated", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -420,7 +420,7 @@ app.post("/tools/remove_dependencies", async (req, res) => {
     }
 
     const result = await removeDependencies(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -432,7 +432,7 @@ app.post("/tools/remove_dependencies", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -464,7 +464,7 @@ app.post("/tools/view_dependencies", async (req, res) => {
     }
 
     const result = await viewDependencies(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -476,7 +476,7 @@ app.post("/tools/view_dependencies", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -508,7 +508,7 @@ app.post("/tools/lock_dependencies", async (req, res) => {
     }
 
     const result = await lockDependencies(input, detection.detected.manager, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -520,7 +520,7 @@ app.post("/tools/lock_dependencies", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),

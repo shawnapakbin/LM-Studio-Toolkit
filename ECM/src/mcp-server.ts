@@ -4,6 +4,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
 import {
+  autoCompactNow,
   clearSession,
   deleteSegment,
   listSegments,
@@ -23,6 +24,7 @@ const ecmInputShape = {
       "delete_segment",
       "clear_session",
       "summarize_session",
+      "auto_compact_now",
     ])
     .describe("The operation to perform."),
   // shared
@@ -73,7 +75,8 @@ type EcmInput = {
     | "list_segments"
     | "delete_segment"
     | "clear_session"
-    | "summarize_session";
+    | "summarize_session"
+    | "auto_compact_now";
   sessionId?: string;
   type?: "conversation_turn" | "tool_output" | "document" | "reasoning" | "summary";
   content?: string;
@@ -97,7 +100,7 @@ export function createECMMcpServer(): McpServer {
     "ecm",
     {
       description:
-        "Extended Context Memory tool. Enables effective 1M token context by storing and retrieving memory segments via vector search. Actions: store_segment, retrieve_context, list_segments, delete_segment, clear_session, summarize_session.",
+        "Extended Context Memory tool. Enables effective 1M token context by storing and retrieving memory segments via vector search. Actions: store_segment, retrieve_context, list_segments, delete_segment, clear_session, summarize_session, auto_compact_now.",
       inputSchema: ecmInputShape,
     },
     async (input: EcmInput): Promise<CallToolResult> => {
@@ -134,6 +137,9 @@ export function createECMMcpServer(): McpServer {
           break;
         case "summarize_session":
           result = await summarizeSession({ sessionId, keepNewest: rest.keepNewest });
+          break;
+        case "auto_compact_now":
+          result = await autoCompactNow({ sessionId, keepNewest: rest.keepNewest });
           break;
         default: {
           const _e: never = action;

@@ -95,6 +95,18 @@ export class ECMStore {
     return row.cnt;
   }
 
+  getSessionTokenCount(sessionId: string, includeSummaries = true): number {
+    const whereClause = includeSummaries
+      ? "session_id = ?"
+      : "session_id = ? AND type != 'summary'";
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(token_count), 0) as total FROM ecm_segments WHERE ${whereClause}`,
+      )
+      .get(sessionId) as { total: number };
+    return row.total;
+  }
+
   deleteSegment(id: string): { deleted: boolean } {
     const result = this.db.prepare("DELETE FROM ecm_segments WHERE id = ?").run(id);
     return { deleted: result.changes > 0 };

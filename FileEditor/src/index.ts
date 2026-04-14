@@ -85,7 +85,7 @@ app.post("/tools/read_file", async (req, res) => {
     }
 
     const result = await readFile(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -97,7 +97,7 @@ app.post("/tools/read_file", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -166,7 +166,7 @@ app.post("/tools/write_file", async (req, res) => {
     }
 
     const result = await writeFile(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -178,7 +178,7 @@ app.post("/tools/write_file", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -197,7 +197,7 @@ app.post("/tools/search_files", async (req, res) => {
   try {
     const input = SearchFilesSchema.parse(req.body);
     const result = await searchFiles(input, WORKSPACE_ROOT);
-    res.json(
+    return res.json(
       createSuccessResponse({ results: result, count: result.length }, Date.now() - start, traceId),
     );
   } catch (error: unknown) {
@@ -242,7 +242,7 @@ app.post("/tools/list_directory", async (req, res) => {
     }
 
     const result = await listDirectory(input, WORKSPACE_ROOT);
-    res.json(
+    return res.json(
       createSuccessResponse({ files: result, count: result.length }, Date.now() - start, traceId),
     );
   } catch (error: unknown) {
@@ -300,7 +300,7 @@ app.post("/tools/delete_file", async (req, res) => {
     }
 
     const result = await deleteFile(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -356,7 +356,7 @@ app.post("/tools/move_file", async (req, res) => {
     }
 
     const result = await moveFile(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -368,7 +368,7 @@ app.post("/tools/move_file", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),

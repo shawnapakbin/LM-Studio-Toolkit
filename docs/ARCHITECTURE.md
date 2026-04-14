@@ -93,19 +93,20 @@ SQLite tables capture agent intelligence:
 | Tool | Purpose | Port | Status |
 |------|---------|------|--------|
 | **Terminal** | Execute shell commands (OS-aware) | 3333 | ✅ Working |
-| **WebBrowser** | Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output (v2.1.0) | 3334 | ✅ Working |
+| **WebBrowser** | Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output | 3334 | ✅ Working |
 | **Calculator** | Math expressions (engineering notation) | 3335 | ✅ Working |
 | **DocumentScraper** | Read documents with structured extraction + encrypted PDF detection | 3336 | ✅ Working |
 | **AskUser** | Interactive interview and clarification workflows | 3338 | ✅ Working |
 | **Clock** | Current date/time + timezone | 3337 | ✅ Working |
 | **Browserless** | Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) | 3003 | ✅ Working |
 | **RAG** | Persistent retrieval augmented generation with source lifecycle + approval-gated writes | 3339 | ✅ Working |
-| **Skills** | Persistent skill/playbook system — define parameterized step templates, execute by name (v2.1.0) | 3341 | ✅ Working |
-| **ECM** | Extended Context Memory — 1M token context via vector retrieval, session isolation, extractive summarization (v2.1.0) | 3342 | ✅ Working |
+| **PythonShell** | Python execution + REPL/IDLE launch with startup detection guidance | 3343 | ✅ Working |
+| **Skills** | Persistent skill/playbook system — define parameterized step templates, execute by name | 3341 | ✅ Working |
+| **ECM** | Extended Context Memory — 1M token context via vector retrieval, session isolation, and auto-compaction | 3342 | ✅ Working |
 | **CSVExporter** | Export parsed table data to CSV files | 3340 | ✅ Working |
 | **Git** | Safe git operations with branch protection | 3011 | ✅ Working |
-| **FileEditor** | Safe file read/write/search with workspace sandboxing | TBD | ✅ Working |
-| **PackageManager** | Multi-ecosystem package management (npm/pip/cargo/maven/go) | TBD | ✅ Working |
+| **FileEditor** | Safe file read/write/search with workspace sandboxing | 3010 | ✅ Working |
+| **PackageManager** | Multi-ecosystem package management (npm/pip/cargo/maven/go) | 3012 | ✅ Working |
 | **Observability** | Structured logging, metrics, tracing library | N/A | ✅ Working |
 | **BuildRunner** (Phase 2) | Compile, test, lint | TBD | 🔄 Planned |
 | **AIModel** (Phase 2) | In-agent Claude/OpenAI calls | TBD | 🔄 Planned |
@@ -328,11 +329,27 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 | `testing/responses.ts` | Standard response envelope |
 | `docs/CODE-QUALITY.md` | Detailed quality standards |
 | `docs/MEMORY-PATTERNS.md` | Memory query patterns |
-| `docs/SLASH-COMMANDS.md` | Slash command reference (v2.1.0) |
-| `CLI/README.md` | CLI command reference (v2.1.0) |
+| `docs/SLASH-COMMANDS.md` | Slash command reference |
+| `CLI/README.md` | CLI command reference |
 | `CONTRIBUTING.md` | PR workflow + checklist |
 
 ---
 
+## ECM Auto-Compaction
+
+ECM now supports automatic context compaction to reduce long-thread drift.
+
+Behavior summary:
+- Trigger condition: estimated usage ratio `used_tokens / model_context_limit` reaches configured threshold (default `0.70`).
+- Trigger location: ECM server policy (not dependent on slash command usage).
+- Primary strategy: extractive summary of older non-summary segments.
+- Hybrid fallback: if extractive compression is insufficient, request LLM highlights summary.
+- Quality gate: LLM fallback is accepted only when confidence/highlights/decisions thresholds are met.
+- Retention policy: keep newest `N` segments plus summary; purge compacted historical segments.
+- Manual override: `auto_compact_now` forces compaction for the session.
+- Telemetry: `retrieve_context` returns auto-compaction status metadata for observability.
+
+---
+
 **Last Updated**: April 2026  
-**Version**: 2.1.0
+**Version**: 2.2.0

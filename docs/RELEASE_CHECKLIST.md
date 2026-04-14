@@ -217,6 +217,13 @@ git tag -a v0.9.1 -m "Hotfix: Critical bug"
 git push origin v0.9.1
 ```
 
+## Commit Strategy
+
+- [ ] Split commits by concern (feature code, installer mirror, docs/changelog)
+- [ ] Keep unrelated workspace changes out of release commits
+- [ ] Keep generated/runtime artifacts (for example local SQLite files) out of commits
+- [ ] Verify installer payload mirrors canonical source before tagging release
+
 ## Notes
 
 - **Pre-releases**: Use `-alpha`, `-beta`, `-rc` suffixes (e.g., `v1.0.0-beta.1`)

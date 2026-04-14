@@ -35,22 +35,35 @@ function main() {
   }
 
   let updated = 0;
-  let skipped = 0;
 
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
     const pluginDir = path.join(pluginRoot, serverName);
     const targetFile = path.join(pluginDir, "mcp-bridge-config.json");
 
+    let provisioned = false;
     if (!fs.existsSync(pluginDir)) {
-      skipped += 1;
-      console.warn(`- skipped ${serverName} (plugin not installed)`);
-      continue;
+      fs.mkdirSync(pluginDir, { recursive: true });
+      provisioned = true;
+    }
+
+    const manifestFile = path.join(pluginDir, "manifest.json");
+    if (!fs.existsSync(manifestFile)) {
+      const manifest = { type: "plugin", runner: "mcpBridge", owner: "mcp", name: serverName };
+      writeUtf8NoBom(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    }
+
+    const installStateFile = path.join(pluginDir, "install-state.json");
+    if (!fs.existsSync(installStateFile)) {
+      writeUtf8NoBom(
+        installStateFile,
+        `${JSON.stringify({ by: "mcp-bridge-v1", at: Date.now() })}\n`,
+      );
     }
 
     const json = `${JSON.stringify(serverConfig, null, 2)}\n`;
     writeUtf8NoBom(targetFile, json);
     updated += 1;
-    console.log(`+ wrote ${targetFile}`);
+    console.log(`${provisioned ? "✓ provisioned" : "+"} wrote ${targetFile}`);
   }
 
   if (missingBuilds.length > 0) {
@@ -60,7 +73,7 @@ function main() {
     }
   }
 
-  console.log(`\nLM Studio bridge sync complete: ${updated} updated, ${skipped} skipped.`);
+  console.log(`\nLM Studio bridge sync complete: ${updated} updated.`);
 }
 
 main();

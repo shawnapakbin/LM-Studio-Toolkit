@@ -4,8 +4,10 @@ import {
   createErrorResponse,
   createSuccessResponse,
 } from "@shared/types";
+import { createCompactorLLM, getCompactorPromptVersion } from "./compactor";
 import { type EmbeddingProvider, createEmbeddingProvider } from "./embeddings";
 import {
+  validateAutoCompactNow,
   validateClearSession,
   validateDeleteSegment,
   validateListSegments,
@@ -15,6 +17,9 @@ import {
 } from "./policy";
 import { DB_PATH, ECMStore } from "./store";
 import type {
+  AutoCompactNowInput,
+  AutoCompactNowResult,
+  AutoCompactionTelemetry,
   ClearSessionInput,
   ClearSessionResult,
   DeleteSegmentInput,
@@ -34,11 +39,67 @@ import type {
 
 const store = new ECMStore(DB_PATH);
 const embeddings: EmbeddingProvider = createEmbeddingProvider();
+const compactor = createCompactorLLM();
+
+const AUTO_COMPACT_ENABLED = readBoolEnv("ECM_AUTO_COMPACT_ENABLED", true);
+const AUTO_COMPACT_THRESHOLD = readNumberEnv("ECM_AUTO_COMPACT_THRESHOLD", 0.7);
+const AUTO_COMPACT_MODEL_CONTEXT_LIMIT = Math.max(
+  1,
+  Math.floor(readNumberEnv("ECM_MODEL_CONTEXT_LIMIT", 8192)),
+);
+const AUTO_COMPACT_KEEP_NEWEST = Math.max(
+  0,
+  Math.floor(readNumberEnv("ECM_AUTO_COMPACT_KEEP_NEWEST", 10)),
+);
+const AUTO_COMPACT_COOLDOWN_MS = Math.max(
+  0,
+  Math.floor(readNumberEnv("ECM_AUTO_COMPACT_COOLDOWN_MS", 120_000)),
+);
+const AUTO_COMPACT_SUMMARY_MAX_TOKENS = Math.max(
+  32,
+  Math.floor(readNumberEnv("ECM_AUTO_COMPACT_SUMMARY_MAX_TOKENS", 600)),
+);
+const AUTO_COMPACT_MAX_COMPRESSION_RATIO = Math.max(
+  0.05,
+  readNumberEnv("ECM_AUTO_COMPACT_MAX_COMPRESSION_RATIO", 0.6),
+);
+const AUTO_COMPACT_FORCE_LLM = readBoolEnv("ECM_AUTO_COMPACT_FORCE_LLM", false);
+const COMPACTOR_MIN_CONFIDENCE = Math.max(
+  0,
+  Math.min(1, readNumberEnv("ECM_COMPACTOR_MIN_CONFIDENCE", 0.5)),
+);
+const COMPACTOR_MIN_HIGHLIGHTS = Math.max(
+  1,
+  Math.floor(readNumberEnv("ECM_COMPACTOR_MIN_HIGHLIGHTS", 2)),
+);
+const COMPACTOR_MIN_DECISIONS = Math.max(
+  1,
+  Math.floor(readNumberEnv("ECM_COMPACTOR_MIN_DECISIONS", 1)),
+);
+
+const compactingSessions = new Set<string>();
+const lastAutoCompactAt = new Map<string, number>();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function readBoolEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
+function readNumberEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -137,6 +198,247 @@ export function extractiveSummarize(segments: SegmentRecord[]): string {
   return selected.map((s) => s.text).join(" ");
 }
 
+function shouldUseLLMFallback(summaryTokens: number, sourceTokens: number): boolean {
+  if (AUTO_COMPACT_FORCE_LLM) return true;
+  if (summaryTokens > AUTO_COMPACT_SUMMARY_MAX_TOKENS) return true;
+  const compressionRatio = sourceTokens > 0 ? summaryTokens / sourceTokens : 1;
+  return compressionRatio > AUTO_COMPACT_MAX_COMPRESSION_RATIO;
+}
+
+function selectSegmentsForLLMCompaction(segments: SegmentRecord[]): SegmentRecord[] {
+  // Filter low-signal tool noise, but keep all content if filtering becomes too aggressive.
+  const filtered = segments.filter((s) => s.type !== "tool_output" || s.importance >= 0.75);
+  return filtered.length >= 2 ? filtered : segments;
+}
+
+function isCompactorQualityAcceptable(metrics: {
+  highlightsCount?: number;
+  decisionsCount?: number;
+  confidence?: number;
+}): { accepted: boolean; reason?: string } {
+  if ((metrics.confidence ?? -1) < COMPACTOR_MIN_CONFIDENCE) {
+    return {
+      accepted: false,
+      reason: `Compactor confidence ${metrics.confidence ?? "n/a"} below minimum ${COMPACTOR_MIN_CONFIDENCE}.`,
+    };
+  }
+  if ((metrics.highlightsCount ?? 0) < COMPACTOR_MIN_HIGHLIGHTS) {
+    return {
+      accepted: false,
+      reason: `Compactor highlights count ${metrics.highlightsCount ?? 0} below minimum ${COMPACTOR_MIN_HIGHLIGHTS}.`,
+    };
+  }
+  if ((metrics.decisionsCount ?? 0) < COMPACTOR_MIN_DECISIONS) {
+    return {
+      accepted: false,
+      reason: `Compactor decisions count ${metrics.decisionsCount ?? 0} below minimum ${COMPACTOR_MIN_DECISIONS}.`,
+    };
+  }
+  return { accepted: true };
+}
+
+async function createCompactionSummary(
+  sessionId: string,
+  toSummarize: SegmentRecord[],
+  sourceAction: "store_segment" | "retrieve_context" | "summarize_session" | "auto_compact_now",
+  triggeredByAutoPolicy: boolean,
+): Promise<{
+  strategy: "extractive" | "llm_highlights";
+  fallbackUsed: boolean;
+  summarySegmentId: string;
+  segmentsRemoved: number;
+  summaryTokenCount: number;
+}> {
+  const sourceTokens = toSummarize.reduce((sum, seg) => sum + seg.token_count, 0);
+  let strategy: "extractive" | "llm_highlights" = "extractive";
+  let fallbackUsed = false;
+
+  let summaryText = extractiveSummarize(toSummarize);
+  let summaryTokenCount = estimateTokens(summaryText);
+
+  const llmMetadata: Record<string, unknown> = {
+    promptVersion: getCompactorPromptVersion(),
+    attempted: false,
+    validationPassed: false,
+  };
+
+  if (shouldUseLLMFallback(summaryTokenCount, sourceTokens)) {
+    llmMetadata.attempted = true;
+    fallbackUsed = true;
+    const llmSegments = selectSegmentsForLLMCompaction(toSummarize);
+    const llmResult = await compactor.summarize(llmSegments);
+    llmMetadata.modelId = llmResult.modelId ?? null;
+    llmMetadata.promptVersion = llmResult.promptVersion;
+    llmMetadata.validationPassed = llmResult.validationPassed;
+    llmMetadata.qualityGate = {
+      minConfidence: COMPACTOR_MIN_CONFIDENCE,
+      minHighlights: COMPACTOR_MIN_HIGHLIGHTS,
+      minDecisions: COMPACTOR_MIN_DECISIONS,
+      confidence: llmResult.confidence ?? null,
+      highlightsCount: llmResult.highlightsCount ?? null,
+      decisionsCount: llmResult.decisionsCount ?? null,
+    };
+    if (llmResult.ok && llmResult.summaryText) {
+      const qualityGate = isCompactorQualityAcceptable({
+        confidence: llmResult.confidence,
+        highlightsCount: llmResult.highlightsCount,
+        decisionsCount: llmResult.decisionsCount,
+      });
+      llmMetadata.qualityGatePassed = qualityGate.accepted;
+      if (qualityGate.accepted) {
+        summaryText = llmResult.summaryText;
+        summaryTokenCount = estimateTokens(summaryText);
+        strategy = "llm_highlights";
+      } else {
+        llmMetadata.error = qualityGate.reason;
+      }
+    } else {
+      llmMetadata.error = llmResult.error ?? "Compactor fallback failed.";
+    }
+  }
+
+  const [embedding] = await embeddings.embedBatch([summaryText]);
+  const summaryRecord = store.insertSegment({
+    sessionId,
+    type: "summary",
+    content: summaryText,
+    embeddingJson: JSON.stringify(embedding),
+    tokenCount: summaryTokenCount,
+    metadataJson: JSON.stringify({
+      summarizedCount: toSummarize.length,
+      sourceAction,
+      triggeredByAutoPolicy,
+      strategy,
+      fallbackUsed,
+      compactor: llmMetadata,
+    }),
+    importance: 0.8,
+  });
+
+  const ids = toSummarize.map((s) => s.id);
+  const { deletedCount } = store.deleteSegmentsByIds(ids);
+
+  return {
+    strategy,
+    fallbackUsed,
+    summarySegmentId: summaryRecord.id,
+    segmentsRemoved: deletedCount,
+    summaryTokenCount,
+  };
+}
+
+export async function autoCompactNow(
+  input: AutoCompactNowInput,
+): Promise<ToolResponse<AutoCompactNowResult>> {
+  try {
+    const validated = validateAutoCompactNow(input);
+    const keepNewest = validated.keepNewest ?? AUTO_COMPACT_KEEP_NEWEST;
+    const estimatedUsedTokens = store.getSessionTokenCount(validated.sessionId, true);
+    const triggerRatio = estimatedUsedTokens / AUTO_COMPACT_MODEL_CONTEXT_LIMIT;
+    const toSummarize = store.getOldestNonSummarySegments(validated.sessionId, keepNewest);
+
+    if (toSummarize.length < 2) {
+      return createSuccessResponse({
+        executed: false,
+        reason: "not_enough_segments",
+        triggerRatio,
+        estimatedUsedTokens,
+        modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
+        threshold: AUTO_COMPACT_THRESHOLD,
+      });
+    }
+
+    const result = await createCompactionSummary(
+      validated.sessionId,
+      toSummarize,
+      "auto_compact_now",
+      false,
+    );
+
+    return createSuccessResponse({
+      executed: true,
+      reason: "executed",
+      triggerRatio,
+      estimatedUsedTokens,
+      modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
+      threshold: AUTO_COMPACT_THRESHOLD,
+      summarySegmentId: result.summarySegmentId,
+      originalSegmentsRemoved: result.segmentsRemoved,
+      summaryTokenCount: result.summaryTokenCount,
+      strategy: result.strategy,
+      fallbackUsed: result.fallbackUsed,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return createErrorResponse(
+      ErrorCode.EXECUTION_FAILED,
+      msg,
+    ) as ToolResponse<AutoCompactNowResult>;
+  }
+}
+
+async function maybeAutoCompact(
+  sessionId: string,
+  sourceAction: "store_segment" | "retrieve_context",
+): Promise<AutoCompactionTelemetry> {
+  const estimatedUsedTokens = store.getSessionTokenCount(sessionId, true);
+  const triggerRatio = estimatedUsedTokens / AUTO_COMPACT_MODEL_CONTEXT_LIMIT;
+  const base: AutoCompactionTelemetry = {
+    checked: true,
+    enabled: AUTO_COMPACT_ENABLED,
+    executed: false,
+    triggerRatio,
+    estimatedUsedTokens,
+    modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
+    threshold: AUTO_COMPACT_THRESHOLD,
+    keepNewest: AUTO_COMPACT_KEEP_NEWEST,
+    sourceAction,
+    reason: "below_threshold",
+  };
+
+  if (!AUTO_COMPACT_ENABLED) {
+    return { ...base, reason: "disabled" };
+  }
+
+  if (triggerRatio < AUTO_COMPACT_THRESHOLD) {
+    return base;
+  }
+
+  if (compactingSessions.has(sessionId)) {
+    return { ...base, reason: "in_progress" };
+  }
+
+  const lastCompaction = lastAutoCompactAt.get(sessionId);
+  if (lastCompaction !== undefined && Date.now() - lastCompaction < AUTO_COMPACT_COOLDOWN_MS) {
+    return { ...base, reason: "cooldown" };
+  }
+
+  const toSummarize = store.getOldestNonSummarySegments(sessionId, AUTO_COMPACT_KEEP_NEWEST);
+  if (toSummarize.length < 2) {
+    return { ...base, reason: "not_enough_segments" };
+  }
+
+  compactingSessions.add(sessionId);
+  try {
+    const result = await createCompactionSummary(sessionId, toSummarize, sourceAction, true);
+    lastAutoCompactAt.set(sessionId, Date.now());
+    return {
+      ...base,
+      executed: true,
+      reason: "executed",
+      strategy: result.strategy,
+      fallbackUsed: result.fallbackUsed,
+      summarySegmentId: result.summarySegmentId,
+      segmentsRemoved: result.segmentsRemoved,
+      summaryTokenCount: result.summaryTokenCount,
+    };
+  } catch {
+    return { ...base, reason: "execution_failed" };
+  } finally {
+    compactingSessions.delete(sessionId);
+  }
+}
+
 // ─── Operations ───────────────────────────────────────────────────────────────
 
 export async function storeSegment(input: StoreSegmentInput): Promise<ToolResponse<SegmentRecord>> {
@@ -153,6 +455,9 @@ export async function storeSegment(input: StoreSegmentInput): Promise<ToolRespon
       metadataJson: validated.metadata ? JSON.stringify(validated.metadata) : null,
       importance: validated.importance ?? 0.5,
     });
+
+    await maybeAutoCompact(validated.sessionId, "store_segment");
+
     return createSuccessResponse(record);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -169,6 +474,7 @@ export async function retrieveContext(
 ): Promise<ToolResponse<RetrieveResult>> {
   try {
     const validated = validateRetrieveContext(input);
+    const autoCompaction = await maybeAutoCompact(validated.sessionId, "retrieve_context");
     const [queryEmbedding] = await embeddings.embedBatch([validated.query]);
     const segments = store.getSegmentsBySession(validated.sessionId);
     const now = new Date();
@@ -193,7 +499,7 @@ export async function retrieveContext(
       totalTokens += seg.token_count;
     }
 
-    return createSuccessResponse({ segments: result, totalTokens, truncated });
+    return createSuccessResponse({ segments: result, totalTokens, truncated, autoCompaction });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<RetrieveResult>;
@@ -271,27 +577,17 @@ export async function summarizeSession(
       ) as ToolResponse<SummarizeResult>;
     }
 
-    const summaryText = extractiveSummarize(toSummarize);
-    const tokenCount = estimateTokens(summaryText);
-    const [embedding] = await embeddings.embedBatch([summaryText]);
-
-    const summaryRecord = store.insertSegment({
-      sessionId: validated.sessionId,
-      type: "summary",
-      content: summaryText,
-      embeddingJson: JSON.stringify(embedding),
-      tokenCount,
-      metadataJson: JSON.stringify({ summarizedCount: toSummarize.length }),
-      importance: 0.8,
-    });
-
-    const ids = toSummarize.map((s) => s.id);
-    store.deleteSegmentsByIds(ids);
+    const result = await createCompactionSummary(
+      validated.sessionId,
+      toSummarize,
+      "summarize_session",
+      false,
+    );
 
     return createSuccessResponse({
-      summarySegmentId: summaryRecord.id,
-      originalSegmentsRemoved: ids.length,
-      summaryTokenCount: tokenCount,
+      summarySegmentId: result.summarySegmentId,
+      originalSegmentsRemoved: result.segmentsRemoved,
+      summaryTokenCount: result.summaryTokenCount,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

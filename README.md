@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.1.0  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.1.0 enhancements ✅ + CLI & Slash Commands ✅
+**Version**: 2.2.0  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -17,10 +17,14 @@ Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-
 
 ### Installation
 
+Preferred: GUI installer artifacts from Releases (Windows portable EXE, macOS DMG, Linux AppImage).
+
+Fallback: script setup from a repo clone.
+
 ```bash
 git clone https://github.com/shawnapakbin/llm-toolkit-by-shawna.git llm-toolkit
 cd llm-toolkit
-node scripts/setup/setup.js --gui   # Browser GUI (recommended)
+node scripts/setup/setup.js --gui   # Browser GUI (fallback when installer artifact is unavailable)
 # or
 node scripts/setup/setup.js         # CLI
 ```

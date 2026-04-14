@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-by-shawna",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Enterprise-grade LLM agent toolkit with multi-tool orchestration",
   "private": true,
   "main": "dist/index.js",
@@ -45,8 +45,7 @@
     "build:slash": "npm run -w SlashCommands build",
     "dev": "npm run dev -w Terminal",
     "clean": "rm -rf dist coverage .biome-cache && npm run clean:tools",
-    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w Browserless clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w PythonShell clean && npm run -w Skills clean && npm run -w ECM clean && npm run -w CSVExporter clean && npm run -w Git clean && npm run -w FileEditor clean && npm run -w PackageManager clean",
-    "prepare": "husky"
+    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w Browserless clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w PythonShell clean && npm run -w Skills clean && npm run -w ECM clean && npm run -w CSVExporter clean && npm run -w Git clean && npm run -w FileEditor clean && npm run -w PackageManager clean"
   },
   "keywords": [
     "llm",

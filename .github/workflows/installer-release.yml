@@ -6,6 +6,9 @@ on:
     tags:
       - "installer-v*"
 
+permissions:
+  contents: write
+
 jobs:
   build-installer:
     strategy:
@@ -48,5 +51,43 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: installer-${{ runner.os }}
-          path: Installer/release/**/*
+          path: |
+            Installer/release/install*.exe
+            Installer/release/install*.dmg
+            Installer/release/install*.AppImage
           if-no-files-found: error
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd Installer/release
+          if compgen -G "install*.exe" > /dev/null || compgen -G "install*.dmg" > /dev/null || compgen -G "install*.AppImage" > /dev/null; then
+            shasum -a 256 install*.exe install*.dmg install*.AppImage 2>/dev/null > checksums-${{ runner.os }}.txt || true
+          fi
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums-${{ runner.os }}
+          path: Installer/release/checksums-${{ runner.os }}.txt
+          if-no-files-found: ignore
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/installer-v')
+    needs: build-installer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/install*.exe
+            artifacts/**/install*.dmg
+            artifacts/**/install*.AppImage
+            artifacts/**/checksums-*.txt

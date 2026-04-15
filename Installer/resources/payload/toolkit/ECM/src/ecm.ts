@@ -10,8 +10,10 @@ import {
   validateAutoCompactNow,
   validateClearSession,
   validateDeleteSegment,
+  validateGetSessionPolicy,
   validateListSegments,
   validateRetrieveContext,
+  validateSetContinuousCompact,
   validateStoreSegment,
   validateSummarizeSession,
 } from "./policy";
@@ -24,12 +26,15 @@ import type {
   ClearSessionResult,
   DeleteSegmentInput,
   DeleteSegmentResult,
+  GetSessionPolicyInput,
   ListSegmentsInput,
   ListSegmentsResult,
   RetrieveContextInput,
   RetrieveResult,
   ScoredSegment,
   SegmentRecord,
+  SessionPolicyResult,
+  SetContinuousCompactInput,
   StoreSegmentInput,
   SummarizeResult,
   SummarizeSessionInput,
@@ -79,6 +84,19 @@ const COMPACTOR_MIN_DECISIONS = Math.max(
 
 const compactingSessions = new Set<string>();
 const lastAutoCompactAt = new Map<string, number>();
+const lastContinuousCompactAt = new Map<string, number>();
+
+// ─── Continuous compact env config ───────────────────────────────────────────
+
+const CONTINUOUS_COMPACT_ENABLED = readBoolEnv("ECM_CONTINUOUS_COMPACT_ENABLED", false);
+const CONTINUOUS_COMPACT_KEEP_NEWEST = Math.max(
+  1,
+  Math.floor(readNumberEnv("ECM_CONTINUOUS_COMPACT_KEEP_NEWEST", 1)),
+);
+const CONTINUOUS_COMPACT_MIN_INTERVAL_MS = Math.max(
+  0,
+  Math.floor(readNumberEnv("ECM_CONTINUOUS_COMPACT_MIN_INTERVAL_MS", 0)),
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -132,6 +150,28 @@ function parseMetadata(json: string | null): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+// ─── Effective policy resolution ─────────────────────────────────────────────
+
+function getEffectivePolicy(sessionId: string): {
+  continuousEnabled: boolean;
+  continuousKeepNewest: number;
+  policySource: "env" | "session";
+} {
+  const row = store.getSessionPolicy(sessionId);
+  if (row !== undefined) {
+    return {
+      continuousEnabled: row.continuous_compact_enabled === 1,
+      continuousKeepNewest: row.continuous_keep_newest,
+      policySource: "session",
+    };
+  }
+  return {
+    continuousEnabled: CONTINUOUS_COMPACT_ENABLED,
+    continuousKeepNewest: CONTINUOUS_COMPACT_KEEP_NEWEST,
+    policySource: "env",
+  };
 }
 
 function toScoredSegment(seg: SegmentRecord, score: number): ScoredSegment {
@@ -242,6 +282,7 @@ async function createCompactionSummary(
   toSummarize: SegmentRecord[],
   sourceAction: "store_segment" | "retrieve_context" | "summarize_session" | "auto_compact_now",
   triggeredByAutoPolicy: boolean,
+  triggeredByContinuousCompact = false,
 ): Promise<{
   strategy: "extractive" | "llm_highlights";
   fallbackUsed: boolean;
@@ -308,6 +349,7 @@ async function createCompactionSummary(
       summarizedCount: toSummarize.length,
       sourceAction,
       triggeredByAutoPolicy,
+      triggeredByContinuousCompact,
       strategy,
       fallbackUsed,
       compactor: llmMetadata,
@@ -383,6 +425,67 @@ async function maybeAutoCompact(
 ): Promise<AutoCompactionTelemetry> {
   const estimatedUsedTokens = store.getSessionTokenCount(sessionId, true);
   const triggerRatio = estimatedUsedTokens / AUTO_COMPACT_MODEL_CONTEXT_LIMIT;
+  const policy = getEffectivePolicy(sessionId);
+
+  // ── Continuous mode ────────────────────────────────────────────────────────
+  // Fires only from store_segment, not retrieve_context, to avoid double-fire.
+  if (policy.continuousEnabled && sourceAction === "store_segment") {
+    const base: AutoCompactionTelemetry = {
+      checked: true,
+      enabled: true,
+      executed: false,
+      triggerRatio,
+      estimatedUsedTokens,
+      modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
+      threshold: AUTO_COMPACT_THRESHOLD,
+      keepNewest: policy.continuousKeepNewest,
+      mode: "continuous",
+      policySource: policy.policySource,
+      sourceAction,
+      reason: "below_threshold",
+    };
+
+    if (compactingSessions.has(sessionId)) {
+      return { ...base, reason: "in_progress" };
+    }
+
+    if (CONTINUOUS_COMPACT_MIN_INTERVAL_MS > 0) {
+      const last = lastContinuousCompactAt.get(sessionId);
+      if (last !== undefined && Date.now() - last < CONTINUOUS_COMPACT_MIN_INTERVAL_MS) {
+        return { ...base, reason: "cooldown" };
+      }
+    }
+
+    const toSummarize = store.getOldestNonSummarySegments(
+      sessionId,
+      policy.continuousKeepNewest,
+    );
+      if (toSummarize.length === 0) {
+      return { ...base, reason: "not_enough_segments" };
+    }
+
+    compactingSessions.add(sessionId);
+    try {
+      const result = await createCompactionSummary(sessionId, toSummarize, sourceAction, true, true);
+      lastContinuousCompactAt.set(sessionId, Date.now());
+      return {
+        ...base,
+        executed: true,
+        reason: "executed",
+        strategy: result.strategy,
+        fallbackUsed: result.fallbackUsed,
+        summarySegmentId: result.summarySegmentId,
+        segmentsRemoved: result.segmentsRemoved,
+        summaryTokenCount: result.summaryTokenCount,
+      };
+    } catch {
+      return { ...base, reason: "execution_failed" };
+    } finally {
+      compactingSessions.delete(sessionId);
+    }
+  }
+
+  // ── Threshold mode ─────────────────────────────────────────────────────────
   const base: AutoCompactionTelemetry = {
     checked: true,
     enabled: AUTO_COMPACT_ENABLED,
@@ -392,6 +495,8 @@ async function maybeAutoCompact(
     modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
     threshold: AUTO_COMPACT_THRESHOLD,
     keepNewest: AUTO_COMPACT_KEEP_NEWEST,
+    mode: "threshold",
+    policySource: policy.policySource,
     sourceAction,
     reason: "below_threshold",
   };
@@ -592,5 +697,67 @@ export async function summarizeSession(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<SummarizeResult>;
+  }
+}
+
+export async function setContinuousCompact(
+  input: SetContinuousCompactInput,
+): Promise<ToolResponse<SessionPolicyResult>> {
+  try {
+    const validated = validateSetContinuousCompact(input);
+    const keepNewest = validated.keepNewest ?? CONTINUOUS_COMPACT_KEEP_NEWEST;
+    const row = store.setSessionPolicy(validated.sessionId, validated.enabled, keepNewest);
+    return createSuccessResponse({
+      sessionId: validated.sessionId,
+      continuousCompactEnabled: row.continuous_compact_enabled === 1,
+      continuousKeepNewest: row.continuous_keep_newest,
+      policySource: "session",
+      effectiveEnabled: row.continuous_compact_enabled === 1,
+      effectiveKeepNewest: row.continuous_keep_newest,
+      updatedAt: row.updated_at,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const code =
+      msg.startsWith("'") || msg.includes("must be")
+        ? ErrorCode.INVALID_INPUT
+        : ErrorCode.EXECUTION_FAILED;
+    return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
+  }
+}
+
+export async function getSessionPolicy(
+  input: GetSessionPolicyInput,
+): Promise<ToolResponse<SessionPolicyResult>> {
+  try {
+    const validated = validateGetSessionPolicy(input);
+    const row = store.getSessionPolicy(validated.sessionId);
+    if (row) {
+      return createSuccessResponse({
+        sessionId: validated.sessionId,
+        continuousCompactEnabled: row.continuous_compact_enabled === 1,
+        continuousKeepNewest: row.continuous_keep_newest,
+        policySource: "session",
+        effectiveEnabled: row.continuous_compact_enabled === 1,
+        effectiveKeepNewest: row.continuous_keep_newest,
+        updatedAt: row.updated_at,
+      });
+    }
+    // No session override — return env defaults
+    return createSuccessResponse({
+      sessionId: validated.sessionId,
+      continuousCompactEnabled: CONTINUOUS_COMPACT_ENABLED,
+      continuousKeepNewest: CONTINUOUS_COMPACT_KEEP_NEWEST,
+      policySource: "env_default",
+      effectiveEnabled: CONTINUOUS_COMPACT_ENABLED,
+      effectiveKeepNewest: CONTINUOUS_COMPACT_KEEP_NEWEST,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+      const code =
+        msg.startsWith("'") || msg.includes("must be")
+          ? ErrorCode.INVALID_INPUT
+          : ErrorCode.EXECUTION_FAILED;
+      return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
   }
 }

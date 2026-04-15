@@ -101,6 +101,34 @@ describe("route — ecm (non-compact)", () => {
       sessionId: "mySession",
     });
   });
+
+  it("posts set_continuous_compact action", async () => {
+    const desc: DispatchDescriptor = {
+      tool: "ecm",
+      action: "set_continuous_compact",
+      params: { sessionId: "s1", enabled: true, keepNewest: 2 },
+    };
+    await route(desc);
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
+      action: "set_continuous_compact",
+      sessionId: "s1",
+      enabled: true,
+      keepNewest: 2,
+    });
+  });
+
+  it("posts get_session_policy action", async () => {
+    const desc: DispatchDescriptor = {
+      tool: "ecm",
+      action: "get_session_policy",
+      params: { sessionId: "s1" },
+    };
+    await route(desc);
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
+      action: "get_session_policy",
+      sessionId: "s1",
+    });
+  });
 });
 
 describe("route — ecm compact (two-step)", () => {

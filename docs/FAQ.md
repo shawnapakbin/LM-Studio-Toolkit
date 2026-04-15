@@ -134,12 +134,41 @@ estimated_used_tokens / ECM_MODEL_CONTEXT_LIMIT >= ECM_AUTO_COMPACT_THRESHOLD
 By default, the threshold is `0.70`. ECM then summarizes older segments, keeps the newest `N` segments, and purges compacted history.
 
 Controls:
-1. Disable auto-compaction globally:
-  - Set `ECM_AUTO_COMPACT_ENABLED=false`
+1. Disable threshold auto-compaction globally:
+   - Set `ECM_AUTO_COMPACT_ENABLED=false`
 2. Tune when it triggers:
-  - `ECM_AUTO_COMPACT_THRESHOLD`
-  - `ECM_MODEL_CONTEXT_LIMIT`
+   - `ECM_AUTO_COMPACT_THRESHOLD`
+   - `ECM_MODEL_CONTEXT_LIMIT`
 3. Force compaction manually for a session:
-  - Call ECM action `auto_compact_now` with `sessionId` and optional `keepNewest`
+   - Call ECM action `auto_compact_now` with `sessionId` and optional `keepNewest`
 
 You can also inspect `retrieve_context` response telemetry (`autoCompaction`) to confirm whether compaction ran and which strategy was used.
+
+### Q: My hardware is slow and prompts keep getting longer. How do I keep context small?
+
+Enable **continuous compact** mode. When active, ECM compacts after every stored response — keeping only the highlights of everything before the most recent turn(s).
+
+Enable per-session (recommended):
+```json
+{ "action": "set_continuous_compact", "sessionId": "my-session", "enabled": true, "keepNewest": 1 }
+```
+
+Enable globally via environment variable:
+```
+ECM_CONTINUOUS_COMPACT_ENABLED=true
+ECM_CONTINUOUS_COMPACT_KEEP_NEWEST=1
+```
+
+`keepNewest: 1` means only the very latest turn is kept in full; everything older becomes a rolling summary. This minimises active context size and keeps generation time consistent even across long conversations. Increase `keepNewest` if you need more recent context preserved verbatim.
+
+### Q: What is the difference between threshold auto-compaction and continuous compact?
+
+| | Threshold mode | Continuous compact mode |
+|---|---|---|
+| When it fires | When token pressure reaches a ratio threshold | After every single stored response |
+| Best for | Normal hardware, balanced context size | Slow/older hardware with limited VRAM |
+| Trigger | `used_tokens / model_context_limit >= threshold` | Always (after `store_segment`) |
+| Configure | `ECM_AUTO_COMPACT_ENABLED` / `ECM_AUTO_COMPACT_THRESHOLD` | `ECM_CONTINUOUS_COMPACT_ENABLED` or `set_continuous_compact` |
+| Scope | Global (all sessions) | Global env default **or** per-session override |
+
+Both modes use the same hybrid extractive + LLM highlights compaction pipeline.

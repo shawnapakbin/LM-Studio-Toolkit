@@ -40,6 +40,9 @@ Run `npm run mcp:print-config` to get the full generated config with correct pat
 | `/ecm list` | List all segments in the current session |
 | `/ecm summarize` | Summarize the session without clearing it |
 | `/ecm clear` | Clear all segments in the current session |
+| `/ecm continuous on` | Enable continuous compaction for the current session (compact after every response) |
+| `/ecm continuous off` | Disable continuous compaction for the current session |
+| `/ecm policy` | Show the active compaction policy for the current session |
 
 ### Calculator
 

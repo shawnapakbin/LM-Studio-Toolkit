@@ -72,6 +72,26 @@ export interface AutoCompactNowInput {
   keepNewest?: number;
 }
 
+export interface SetContinuousCompactInput {
+  sessionId: string;
+  enabled: boolean;
+  keepNewest?: number;
+}
+
+export interface GetSessionPolicyInput {
+  sessionId: string;
+}
+
+export interface SessionPolicyResult {
+  sessionId: string;
+  continuousCompactEnabled: boolean;
+  continuousKeepNewest: number;
+  policySource: "session" | "env_default";
+  effectiveEnabled: boolean;
+  effectiveKeepNewest: number;
+  updatedAt?: string;
+}
+
 // ─── Result types ─────────────────────────────────────────────────────────────
 
 export interface RetrieveResult {
@@ -90,6 +110,8 @@ export interface AutoCompactionTelemetry {
   modelContextLimit: number;
   threshold: number;
   keepNewest: number;
+  mode: "threshold" | "continuous";
+  policySource: "env" | "session";
   sourceAction: "store_segment" | "retrieve_context";
   reason:
     | "disabled"

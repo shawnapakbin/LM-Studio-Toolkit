@@ -25,6 +25,10 @@ const filePairs = [
     "ECM/tests/auto-compact-quality-gate.test.ts",
     "Installer/resources/payload/toolkit/ECM/tests/auto-compact-quality-gate.test.ts",
   ],
+    [
+      "ECM/tests/continuous-compact.test.ts",
+      "Installer/resources/payload/toolkit/ECM/tests/continuous-compact.test.ts",
+    ],
 ];
 
 function readFileOrNull(relativePath) {

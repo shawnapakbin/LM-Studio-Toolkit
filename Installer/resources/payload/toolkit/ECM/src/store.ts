@@ -27,7 +27,21 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_ecm_session_id ON ecm_segments(session_id);
     CREATE INDEX IF NOT EXISTS idx_ecm_session_type ON ecm_segments(session_id, type);
     CREATE INDEX IF NOT EXISTS idx_ecm_created_at ON ecm_segments(created_at);
+
+    CREATE TABLE IF NOT EXISTS ecm_session_policy (
+      session_id                   TEXT PRIMARY KEY,
+      continuous_compact_enabled   INTEGER NOT NULL DEFAULT 0,
+      continuous_keep_newest       INTEGER NOT NULL DEFAULT 1,
+      updated_at                   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+}
+
+export interface SessionPolicyRow {
+  session_id: string;
+  continuous_compact_enabled: number;
+  continuous_keep_newest: number;
+  updated_at: string;
 }
 
 export class ECMStore {
@@ -110,6 +124,30 @@ export class ECMStore {
   deleteSegment(id: string): { deleted: boolean } {
     const result = this.db.prepare("DELETE FROM ecm_segments WHERE id = ?").run(id);
     return { deleted: result.changes > 0 };
+  }
+
+  getSessionPolicy(sessionId: string): SessionPolicyRow | undefined {
+    return this.db
+      .prepare("SELECT * FROM ecm_session_policy WHERE session_id = ?")
+      .get(sessionId) as SessionPolicyRow | undefined;
+  }
+
+  setSessionPolicy(
+    sessionId: string,
+    continuousCompactEnabled: boolean,
+    continuousKeepNewest: number,
+  ): SessionPolicyRow {
+    this.db
+      .prepare(
+        `INSERT INTO ecm_session_policy (session_id, continuous_compact_enabled, continuous_keep_newest, updated_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(session_id) DO UPDATE SET
+           continuous_compact_enabled = excluded.continuous_compact_enabled,
+           continuous_keep_newest     = excluded.continuous_keep_newest,
+           updated_at                 = CURRENT_TIMESTAMP`,
+      )
+      .run(sessionId, continuousCompactEnabled ? 1 : 0, Math.max(1, continuousKeepNewest));
+    return this.getSessionPolicy(sessionId) as SessionPolicyRow;
   }
 
   deleteSegmentsByIds(ids: string[]): { deletedCount: number } {

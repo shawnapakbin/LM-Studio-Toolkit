@@ -192,6 +192,38 @@ describe("/ecm compact", () => {
   });
 });
 
+describe("/ecm continuous", () => {
+  it("parses on toggle to set_continuous_compact enabled=true", () => {
+    expect(parse("/ecm continuous on --session s1 --keep-newest 2")).toMatchObject({
+      tool: "ecm",
+      action: "set_continuous_compact",
+      params: { sessionId: "s1", enabled: true, keepNewest: 2 },
+    });
+  });
+
+  it("parses off toggle to set_continuous_compact enabled=false", () => {
+    expect(parse("/ecm continuous off --session s1")).toMatchObject({
+      tool: "ecm",
+      action: "set_continuous_compact",
+      params: { sessionId: "s1", enabled: false },
+    });
+  });
+
+  it("returns unknown for invalid toggle state", () => {
+    expect(parse("/ecm continuous maybe")).toMatchObject({ tool: "unknown" });
+  });
+});
+
+describe("/ecm policy", () => {
+  it("parses to get_session_policy action", () => {
+    expect(parse("/ecm policy --session s1")).toMatchObject({
+      tool: "ecm",
+      action: "get_session_policy",
+      params: { sessionId: "s1" },
+    });
+  });
+});
+
 describe("/ecm unknown sub-command", () => {
   it("returns unknown", () => {
     expect(parse("/ecm bogus")).toMatchObject({ tool: "unknown" });

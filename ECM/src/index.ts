@@ -6,8 +6,10 @@ import {
   autoCompactNow,
   clearSession,
   deleteSegment,
+  getSessionPolicy,
   listSegments,
   retrieveContext,
+  setContinuousCompact,
   storeSegment,
   summarizeSession,
 } from "./ecm";
@@ -42,6 +44,8 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
             "clear_session",
             "summarize_session",
             "auto_compact_now",
+            "set_continuous_compact",
+            "get_session_policy",
           ],
         },
         sessionId: { type: "string" },
@@ -60,6 +64,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
         offset: { type: "number" },
         segmentId: { type: "string" },
         keepNewest: { type: "number" },
+        enabled: { type: "boolean" },
       },
       required: ["action"],
     },
@@ -113,6 +118,16 @@ app.post("/tools/ecm", async (req: Request, res: Response) => {
         break;
       case "auto_compact_now":
         response = await autoCompactNow({ sessionId, keepNewest: rest.keepNewest });
+        break;
+      case "set_continuous_compact":
+        response = await setContinuousCompact({
+          sessionId,
+          enabled: rest.enabled,
+          keepNewest: rest.keepNewest,
+        });
+        break;
+      case "get_session_policy":
+        response = await getSessionPolicy({ sessionId });
         break;
       default:
         return res

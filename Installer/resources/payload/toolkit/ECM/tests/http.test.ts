@@ -257,4 +257,35 @@ describe("ECM HTTP Endpoints", () => {
     });
     expect(res.body.data.total).toBe(0);
   });
+
+  test("set_continuous_compact returns session policy", async () => {
+    const res = await request(app).post("/tools/ecm").send({
+      action: "set_continuous_compact",
+      sessionId: SESSION,
+      enabled: true,
+      keepNewest: 1,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.continuousCompactEnabled).toBe(true);
+    expect(res.body.data.policySource).toBe("session");
+  });
+
+  test("get_session_policy returns env_default when no policy set", async () => {
+    const res = await request(app).post("/tools/ecm").send({
+      action: "get_session_policy",
+      sessionId: "no-policy-yet",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.policySource).toBe("env_default");
+  });
+
+  test("tool-schema includes set_continuous_compact and get_session_policy", async () => {
+    const res = await request(app).get("/tool-schema");
+    expect(res.status).toBe(200);
+    const actions = res.body.parameters.properties.action.enum as string[];
+    expect(actions).toContain("set_continuous_compact");
+    expect(actions).toContain("get_session_policy");
+  });
 });

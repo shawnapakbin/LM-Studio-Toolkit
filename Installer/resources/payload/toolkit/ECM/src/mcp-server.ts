@@ -7,8 +7,10 @@ import {
   autoCompactNow,
   clearSession,
   deleteSegment,
+  getSessionPolicy,
   listSegments,
   retrieveContext,
+  setContinuousCompact,
   storeSegment,
   summarizeSession,
 } from "./ecm";
@@ -25,6 +27,8 @@ const ecmInputShape = {
       "clear_session",
       "summarize_session",
       "auto_compact_now",
+      "set_continuous_compact",
+      "get_session_policy",
     ])
     .describe("The operation to perform."),
   // shared
@@ -65,7 +69,11 @@ const ecmInputShape = {
   keepNewest: z
     .number()
     .optional()
-    .describe("(summarize_session) Number of newest segments to keep untouched (default 10)."),
+    .describe("(summarize_session / auto_compact_now / set_continuous_compact) Number of newest segments to keep untouched (default 10 / 10 / 1)."),
+  enabled: z
+    .boolean()
+    .optional()
+    .describe("(set_continuous_compact) Enable or disable continuous compaction for this session."),
 } as const;
 
 type EcmInput = {
@@ -76,7 +84,9 @@ type EcmInput = {
     | "delete_segment"
     | "clear_session"
     | "summarize_session"
-    | "auto_compact_now";
+    | "auto_compact_now"
+    | "set_continuous_compact"
+    | "get_session_policy";
   sessionId?: string;
   type?: "conversation_turn" | "tool_output" | "document" | "reasoning" | "summary";
   content?: string;
@@ -90,17 +100,27 @@ type EcmInput = {
   offset?: number;
   segmentId?: string;
   keepNewest?: number;
+  enabled?: boolean;
 };
 
 export function createECMMcpServer(): McpServer {
   const server = new McpServer({ name: "lm-studio-ecm-tool", version: "2.1.0" });
+
+  const toCallToolResult = (result: unknown): CallToolResult => {
+    const res = result as { success: boolean };
+    return {
+      isError: !res.success,
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      structuredContent: result as Record<string, unknown>,
+    };
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server.registerTool as any)(
     "ecm",
     {
       description:
-        "Extended Context Memory tool. Enables effective 1M token context by storing and retrieving memory segments via vector search. Actions: store_segment, retrieve_context, list_segments, delete_segment, clear_session, summarize_session, auto_compact_now.",
+        "Extended Context Memory tool. Enables effective 1M token context by storing and retrieving memory segments via vector search. Actions: store_segment, retrieve_context, list_segments, delete_segment, clear_session, summarize_session, auto_compact_now, set_continuous_compact, get_session_policy.",
       inputSchema: ecmInputShape,
     },
     async (input: EcmInput): Promise<CallToolResult> => {
@@ -141,6 +161,16 @@ export function createECMMcpServer(): McpServer {
         case "auto_compact_now":
           result = await autoCompactNow({ sessionId, keepNewest: rest.keepNewest });
           break;
+        case "set_continuous_compact":
+          result = await setContinuousCompact({
+            sessionId,
+            enabled: rest.enabled!,
+            keepNewest: rest.keepNewest,
+          });
+          break;
+        case "get_session_policy":
+          result = await getSessionPolicy({ sessionId });
+          break;
         default: {
           const _e: never = action;
           result = {
@@ -151,12 +181,56 @@ export function createECMMcpServer(): McpServer {
         }
       }
 
-      const res = result as { success: boolean };
-      return {
-        isError: !res.success,
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        structuredContent: result as unknown as Record<string, unknown>,
-      };
+      return toCallToolResult(result);
+    },
+  );
+
+  // Alias tool: explicit manual toggle for continuous compact mode.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (server.registerTool as any)(
+    "ecm_set_continuous_compact",
+    {
+      description:
+        "Enable or disable continuous compaction for a session. Equivalent to ecm action=set_continuous_compact.",
+      inputSchema: {
+        sessionId: z.string().describe("Session namespace."),
+        enabled: z
+          .boolean()
+          .describe("True to enable continuous compact mode, false to disable it."),
+        keepNewest: z
+          .number()
+          .optional()
+          .describe("Optional keepNewest override when enabling continuous mode."),
+      },
+    },
+    async ({
+      sessionId,
+      enabled,
+      keepNewest,
+    }: {
+      sessionId: string;
+      enabled: boolean;
+      keepNewest?: number;
+    }): Promise<CallToolResult> => {
+      const result = await setContinuousCompact({ sessionId, enabled, keepNewest });
+      return toCallToolResult(result);
+    },
+  );
+
+  // Alias tool: explicit policy check endpoint for tool pickers.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (server.registerTool as any)(
+    "ecm_get_session_policy",
+    {
+      description:
+        "Get the effective compaction policy for a session. Equivalent to ecm action=get_session_policy.",
+      inputSchema: {
+        sessionId: z.string().describe("Session namespace."),
+      },
+    },
+    async ({ sessionId }: { sessionId: string }): Promise<CallToolResult> => {
+      const result = await getSessionPolicy({ sessionId });
+      return toCallToolResult(result);
     },
   );
 

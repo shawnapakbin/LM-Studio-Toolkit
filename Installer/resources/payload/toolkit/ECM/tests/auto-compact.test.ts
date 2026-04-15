@@ -62,5 +62,7 @@ describe("ECM auto-compaction", () => {
     expect(res.body.data.autoCompaction).toBeDefined();
     expect(res.body.data.autoCompaction.checked).toBe(true);
     expect(typeof res.body.data.autoCompaction.triggerRatio).toBe("number");
+    expect(res.body.data.autoCompaction.mode).toBe("threshold");
+    expect(["env", "session"]).toContain(res.body.data.autoCompaction.policySource);
   });
 });

@@ -337,17 +337,29 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 
 ## ECM Auto-Compaction
 
-ECM now supports automatic context compaction to reduce long-thread drift.
+ECM supports two automatic compaction modes that work together:
 
-Behavior summary:
-- Trigger condition: estimated usage ratio `used_tokens / model_context_limit` reaches configured threshold (default `0.70`).
-- Trigger location: ECM server policy (not dependent on slash command usage).
+### Threshold Mode (global default)
+
+Fires when estimated context pressure crosses a ratio threshold:
+- Trigger condition: `used_tokens / model_context_limit >= ECM_AUTO_COMPACT_THRESHOLD` (default `0.70`).
+- Trigger location: ECM server policy (fires from `store_segment` and `retrieve_context`).
 - Primary strategy: extractive summary of older non-summary segments.
 - Hybrid fallback: if extractive compression is insufficient, request LLM highlights summary.
-- Quality gate: LLM fallback is accepted only when confidence/highlights/decisions thresholds are met.
+- Quality gate: LLM fallback accepted only when confidence/highlights/decisions thresholds are met.
 - Retention policy: keep newest `N` segments plus summary; purge compacted historical segments.
 - Manual override: `auto_compact_now` forces compaction for the session.
 - Telemetry: `retrieve_context` returns auto-compaction status metadata for observability.
+
+### Continuous Compact Mode (per-session)
+
+Fires after every single `store_segment` regardless of token pressure. Designed for low-end hardware where prompt processing time grows linearly with context size — keeping context minimal at all times provides consistent response latency.
+
+- Activation: `ECM_CONTINUOUS_COMPACT_ENABLED=true` globally, or `set_continuous_compact` action per session.
+- When active for a session, threshold mode is bypassed for that session.
+- Storage: per-session policy stored in `ecm_session_policy` SQLite table; survives across `clear_session` calls.
+- Telemetry: `autoCompaction.mode = "continuous"`, `autoCompaction.policySource = "session" | "env"`.
+- Throttle: `ECM_CONTINUOUS_COMPACT_MIN_INTERVAL_MS` (default `0`) prevents double-fires in rapid-store scenarios.
 
 ---
 

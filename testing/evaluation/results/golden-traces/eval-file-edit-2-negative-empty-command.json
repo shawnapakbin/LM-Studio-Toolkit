@@ -1,19 +1,19 @@
 {
-  "traceId": "1776142958104-pmx9hf6r",
+  "traceId": "1776223348063-zj2gcnm2",
   "workflowId": "eval-file-edit-2-negative",
   "workflowName": "File Edit - Negative Test",
   "status": "error",
-  "durationMs": 1,
+  "durationMs": 0,
   "steps": [
     {
       "id": "invalid-command",
       "toolId": "terminal",
       "success": false,
       "retries": 0,
-      "durationMs": 1,
+      "durationMs": 0,
       "errorCode": "INVALID_INPUT",
       "errorMessage": "command required"
     }
   ],
-  "generatedAt": "2026-04-14T05:02:38.105Z"
+  "generatedAt": "2026-04-15T03:22:28.063Z"
 }

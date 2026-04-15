@@ -31,6 +31,9 @@ const HELP_TEXT = `Available slash commands:
   /ecm list [--session <id>]
   /ecm summarize [--session <id>] [--keep-newest <n>]
   /ecm clear [--session <id>]
+  /ecm continuous on [--session <id>] [--keep-newest <n>]
+  /ecm continuous off [--session <id>]
+  /ecm policy [--session <id>]
 
   Calculator
   /calc <expression> [--precision <n>]

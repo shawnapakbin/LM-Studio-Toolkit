@@ -2,9 +2,11 @@ import type {
   AutoCompactNowInput,
   ClearSessionInput,
   DeleteSegmentInput,
+  GetSessionPolicyInput,
   ListSegmentsInput,
   RetrieveContextInput,
   SegmentType,
+  SetContinuousCompactInput,
   StoreSegmentInput,
   SummarizeSessionInput,
 } from "./types";
@@ -108,4 +110,26 @@ export function validateAutoCompactNow(input: unknown): AutoCompactNowInput {
     sessionId: requireString(i.sessionId, "sessionId"),
     keepNewest: typeof i.keepNewest === "number" ? Math.max(0, Math.floor(i.keepNewest)) : 10,
   };
+}
+
+export function validateSetContinuousCompact(input: unknown): SetContinuousCompactInput {
+  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
+  const i = input as Record<string, unknown>;
+
+  if (typeof i.enabled !== "boolean") {
+    throw new Error("'enabled' is required and must be a boolean.");
+  }
+
+  return {
+    sessionId: requireString(i.sessionId, "sessionId"),
+    enabled: i.enabled,
+    keepNewest:
+      typeof i.keepNewest === "number" ? Math.max(1, Math.floor(i.keepNewest)) : undefined,
+  };
+}
+
+export function validateGetSessionPolicy(input: unknown): GetSessionPolicyInput {
+  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
+  const i = input as Record<string, unknown>;
+  return { sessionId: requireString(i.sessionId, "sessionId") };
 }

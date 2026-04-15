@@ -23,6 +23,8 @@ where `recency = 1 / (1 + age_in_hours)` — decays over time.
 | `clear_session` | Delete all segments for a session |
 | `summarize_session` | Compress oldest segments into a single summary (extractive, no LLM call) |
 | `auto_compact_now` | Force hybrid compaction now (extractive first, LLM highlights fallback) |
+| `set_continuous_compact` | Enable or disable continuous compaction for a session |
+| `get_session_policy` | Query the active compaction policy for a session |
 
 ## Endpoints
 
@@ -88,6 +90,17 @@ where `recency = 1 / (1 + age_in_hours)` — decays over time.
   sessionId: "my-session-uuid",
   keepNewest: 10   // optional — keep this many newest segments untouched
 }
+
+// set_continuous_compact
+{
+  action: "set_continuous_compact",
+  sessionId: "my-session-uuid",
+  enabled: true,          // required — true to activate continuous mode
+  keepNewest: 1           // optional — segments kept after each compaction (default: 1)
+}
+
+// get_session_policy
+{ action: "get_session_policy", sessionId: "my-session-uuid" }
 ```
 
 ## Typical Agent Loop
@@ -114,17 +127,43 @@ Token count is estimated as `Math.ceil(content.length / 4)`.
 
 ## Automatic Compaction Policy
 
-ECM can compact automatically when estimated context pressure crosses a threshold:
+ECM supports two independent compaction modes that can be active simultaneously:
+
+### Threshold Mode (global, enabled by default)
+
+Fires automatically when estimated context pressure crosses a threshold:
 - Trigger basis: `estimated_used_tokens / ECM_MODEL_CONTEXT_LIMIT`
 - Trigger default: `>= 0.70`
-- Policy location: ECM server (independent of slash command usage)
+- Fires from both `store_segment` and `retrieve_context`
 
 Compaction strategy:
 1. Build extractive summary from old non-summary segments.
 2. If summary quality/compression is insufficient, request LLM highlights summary.
 3. Persist summary and purge older segments while keeping newest `N` segments.
 
-`retrieve_context` includes `autoCompaction` telemetry with trigger ratio, execution status, and strategy details.
+`retrieve_context` includes `autoCompaction` telemetry with trigger ratio, execution status, strategy details, `mode`, and `policySource`.
+
+### Continuous Compact Mode (per-session, optimised for slow hardware)
+
+Fires after **every** `store_segment` call regardless of token pressure. Designed to keep the active context minimal at all times, which reduces prompt processing time on older or slower hardware where context length directly impacts generation speed.
+
+Enable globally with the `ECM_CONTINUOUS_COMPACT_ENABLED` env var, or per-session via `set_continuous_compact`:
+
+```typescript
+// Enable for this session — compact after every stored response
+await ecm({
+  action: "set_continuous_compact",
+  sessionId,
+  enabled: true,
+  keepNewest: 1,   // keep only the very latest turn; everything else becomes a summary
+});
+
+// Check current effective policy
+const policy = await ecm({ action: "get_session_policy", sessionId });
+// policy.data.policySource === "session" | "env_default"
+```
+
+When continuous mode is active for a session, threshold mode is bypassed for that session. The `autoCompaction` telemetry in `retrieve_context` will reflect `mode: "continuous"` and `policySource: "session"` or `"env"`.
 
 ## Session Isolation
 
@@ -150,6 +189,9 @@ All operations are scoped to `sessionId`. Segments from different sessions never
 | `ECM_AUTO_COMPACT_SUMMARY_MAX_TOKENS` | `600` | Extractive summary max token target before fallback |
 | `ECM_AUTO_COMPACT_MAX_COMPRESSION_RATIO` | `0.60` | Compression threshold that triggers fallback |
 | `ECM_AUTO_COMPACT_FORCE_LLM` | `false` | Force LLM fallback during compaction |
+| `ECM_CONTINUOUS_COMPACT_ENABLED` | `false` | Enable continuous compaction globally (compact after every store_segment) |
+| `ECM_CONTINUOUS_COMPACT_KEEP_NEWEST` | `1` | Segments kept after each continuous compaction (global default) |
+| `ECM_CONTINUOUS_COMPACT_MIN_INTERVAL_MS` | `0` | Minimum ms between consecutive continuous compactions (0 = no throttle) |
 | `PORT` | `3342` | HTTP server port |
 
 ### Recommended Production Defaults

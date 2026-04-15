@@ -176,6 +176,39 @@ export function parseSlashCommand(raw: string): DispatchDescriptor {
               keepNewest: flag(flags, "keep-newest") ? Number(flag(flags, "keep-newest")) : 5,
             },
           };
+        case "continuous": {
+          const mode = (rest[0] ?? flag(flags, "mode") ?? "").toLowerCase();
+          if (["on", "enable", "enabled", "true", "1"].includes(mode)) {
+            return {
+              tool: "ecm",
+              action: "set_continuous_compact",
+              params: {
+                sessionId,
+                enabled: true,
+                keepNewest: flag(flags, "keep-newest")
+                  ? Number(flag(flags, "keep-newest"))
+                  : undefined,
+              },
+            };
+          }
+          if (["off", "disable", "disabled", "false", "0"].includes(mode)) {
+            return {
+              tool: "ecm",
+              action: "set_continuous_compact",
+              params: {
+                sessionId,
+                enabled: false,
+              },
+            };
+          }
+          return { tool: "unknown", raw };
+        }
+        case "policy":
+          return {
+            tool: "ecm",
+            action: "get_session_policy",
+            params: { sessionId },
+          };
         default:
           return { tool: "unknown", raw };
       }

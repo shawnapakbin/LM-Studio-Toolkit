@@ -3,6 +3,7 @@
  */
 
 import path from "path";
+import fs from "fs";
 import Database from "better-sqlite3";
 import { DEFAULT_SESSION, ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
@@ -172,20 +173,77 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
       });
 
     // ── RAG ───────────────────────────────────────────────────────────────
-    case "rag":
-      return post(`${ENDPOINTS.rag}/tools/rag`, {
-        action: desc.action,
-        ...desc.params,
-      });
+    case "rag": {
+      if (desc.action === "query") {
+        const query = String(desc.params?.query ?? "").trim();
+        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+          action: "query_knowledge",
+          payload: {
+            query,
+            ...(desc.params?.topK !== undefined ? { topK: desc.params.topK } : {}),
+          },
+        });
+      }
+
+      if (desc.action === "ingest") {
+        const content = String(desc.params?.content ?? "").trim();
+        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+          action: "ingest_documents",
+          payload: {
+            documents: [
+              {
+                text: content,
+                ...(desc.params?.source ? { sourceKey: String(desc.params.source) } : {}),
+              },
+            ],
+          },
+        });
+      }
+
+      if (desc.action === "list_sources") {
+        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+          action: "list_sources",
+          payload: {},
+        });
+      }
+
+      if (desc.action === "delete_source") {
+        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+          action: "delete_source",
+          payload: {
+            sourceId: desc.params?.sourceId,
+          },
+        });
+      }
+
+      return { success: false, error: `Unsupported RAG action: ${String(desc.action)}` };
+    }
 
     // ── AskUser ───────────────────────────────────────────────────────────
-    case "askuser":
-      return post(`${ENDPOINTS.askuser}/tools/ask_user`, {
-        action: "create_interview",
-        prompt: desc.prompt,
-        ...(desc.title && { title: desc.title }),
-        ...(desc.expiresInSeconds !== undefined && { expiresInSeconds: desc.expiresInSeconds }),
+    case "askuser": {
+      const prompt = String(desc.prompt ?? "").trim();
+      if (!prompt) {
+        return { success: false, error: "Missing prompt. Usage: /ask <prompt> [--title <title>]" };
+      }
+
+      return post(`${ENDPOINTS.askuser}/tools/ask_user_interview`, {
+        action: "create",
+        payload: {
+          ...(desc.title && { title: desc.title }),
+          ...(desc.expiresInSeconds !== undefined
+            ? { expiresInSeconds: desc.expiresInSeconds }
+            : {}),
+          questions: [
+            {
+              id: "prompt",
+              type: "text",
+              prompt,
+              required: true,
+            },
+          ],
+        },
       });
+    }
 
     // ── Tools list ────────────────────────────────────────────────────────
     case "tools_list":
@@ -314,6 +372,15 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
 
 function queryMemory(fn: (db: Database.Database) => unknown): unknown {
   const dbPath = process.env.MEMORY_DB_PATH ?? path.join(process.cwd(), "data", "agent-memory.db");
+
+  if (!fs.existsSync(dbPath)) {
+    return {
+      success: true,
+      data: null,
+      message: `No memory database found at ${dbPath}. Run a workflow first to generate history.`,
+    };
+  }
+
   try {
     const db = new Database(dbPath, { readonly: true });
     const result = fn(db);

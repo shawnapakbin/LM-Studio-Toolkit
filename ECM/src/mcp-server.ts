@@ -46,6 +46,12 @@ const ecmInputShape = {
     .optional()
     .describe("(store_segment) Importance weight 0–1 (default 0.5)."),
   metadata: z.record(z.unknown()).optional().describe("(store_segment) Arbitrary metadata JSON."),
+  includeEmbeddings: z
+    .boolean()
+    .optional()
+    .describe(
+      "(store_segment/list_segments) Include raw embedding vectors in response. Defaults to false to keep payloads small.",
+    ),
   // retrieve_context
   query: z.string().optional().describe("(retrieve_context) Query text for semantic search."),
   topK: z
@@ -98,6 +104,7 @@ type EcmInput = {
   minScore?: number;
   limit?: number;
   offset?: number;
+  includeEmbeddings?: boolean;
   segmentId?: string;
   keepNewest?: number;
   enabled?: boolean;
@@ -135,6 +142,7 @@ export function createECMMcpServer(): McpServer {
             content: rest.content!,
             importance: rest.importance,
             metadata: rest.metadata,
+            includeEmbeddings: rest.includeEmbeddings,
           });
           break;
         case "retrieve_context":
@@ -147,7 +155,12 @@ export function createECMMcpServer(): McpServer {
           });
           break;
         case "list_segments":
-          result = await listSegments({ sessionId, limit: rest.limit, offset: rest.offset });
+          result = await listSegments({
+            sessionId,
+            limit: rest.limit,
+            offset: rest.offset,
+            includeEmbeddings: rest.includeEmbeddings,
+          });
           break;
         case "delete_segment":
           result = await deleteSegment({ sessionId, segmentId: rest.segmentId! });

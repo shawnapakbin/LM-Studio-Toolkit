@@ -7,6 +7,46 @@ import type { AskUserRequest } from "./types";
 
 dotenv.config();
 
+function normalizeAskUserRequest(input: unknown): AskUserRequest {
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const rawAction = String(raw.action ?? "").trim();
+  const legacyActionMap: Record<string, AskUserRequest["action"]> = {
+    create: "create",
+    create_interview: "create",
+    submit: "submit",
+    submit_responses: "submit",
+    get: "get",
+    get_interview: "get",
+  };
+  const action = legacyActionMap[rawAction] ?? (rawAction as AskUserRequest["action"]);
+
+  const payload =
+    raw.payload && typeof raw.payload === "object"
+      ? ({ ...(raw.payload as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+
+  if (action === "create") {
+    if (payload.expiresInSeconds === undefined && typeof payload.expires === "number") {
+      payload.expiresInSeconds = payload.expires;
+      delete payload.expires;
+    }
+
+    if (payload.questions === undefined && typeof payload.prompt === "string") {
+      payload.questions = [
+        {
+          id: "prompt",
+          type: "text",
+          prompt: payload.prompt,
+          required: true,
+        },
+      ];
+      delete payload.prompt;
+    }
+  }
+
+  return { action, payload } as AskUserRequest;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
@@ -46,7 +86,11 @@ app.post(
     const traceId = generateTraceId();
 
     try {
-      const response = handleAskUserRequest(req.body, timer.elapsed(), traceId);
+      const response = handleAskUserRequest(
+        normalizeAskUserRequest(req.body),
+        timer.elapsed(),
+        traceId,
+      );
       const responseData =
         response.data && typeof response.data === "object"
           ? (response.data as Record<string, unknown>)

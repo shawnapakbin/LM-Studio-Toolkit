@@ -46,9 +46,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
   });
 });
 
-app.post(
-  "/tools/rag_knowledge",
-  async (req: Request<unknown, unknown, RagRequest>, res: Response) => {
+async function handleRagHttpRequest(req: Request<unknown, unknown, RagRequest>, res: Response) {
     const timer = new OperationTimer();
     const traceId = generateTraceId();
 
@@ -83,8 +81,10 @@ app.post(
 
       res.status(500).json({ ...error, error: error.errorMessage });
     }
-  },
-);
+}
+
+app.post("/tools/rag_knowledge", handleRagHttpRequest);
+app.post("/tools/rag", handleRagHttpRequest);
 
 export { app };
 

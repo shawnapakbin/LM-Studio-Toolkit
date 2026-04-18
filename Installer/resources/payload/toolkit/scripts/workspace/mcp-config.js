@@ -47,7 +47,7 @@ const servers = {
   browserless: {
     relativeScript: "Browserless/dist/mcp-server.js",
     env: {
-      BROWSERLESS_API_KEY: "your-browserless-api-token-here",
+      BROWSERLESS_API_KEY: "",
       BROWSERLESS_DEFAULT_REGION: "production-sfo",
       BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000",
       BROWSERLESS_MAX_TIMEOUT_MS: "120000",

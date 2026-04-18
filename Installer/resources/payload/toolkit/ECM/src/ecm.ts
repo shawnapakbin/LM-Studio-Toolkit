@@ -28,7 +28,14 @@ import type {
   DeleteSegmentResult,
   GetSessionPolicyInput,
   ListSegmentsInput,
-  ListSegmentsResult,
+      const rawRecord = record;
+      const finalRecord = validated.includeEmbeddings
+        ? rawRecord
+        : {
+            ...rawRecord,
+            embedding_json: EMBEDDING_OMITTED_MARKER,
+          };
+      await maybeAutoCompact(validated.sessionId, "store_segment");
   RetrieveContextInput,
   RetrieveResult,
   ScoredSegment,
@@ -45,6 +52,7 @@ import type {
 const store = new ECMStore(DB_PATH);
 const embeddings: EmbeddingProvider = createEmbeddingProvider();
 const compactor = createCompactorLLM();
+const EMBEDDING_OMITTED_MARKER = "[omitted; set includeEmbeddings=true to include raw vector]";
 
 const AUTO_COMPACT_ENABLED = readBoolEnv("ECM_AUTO_COMPACT_ENABLED", true);
 const AUTO_COMPACT_THRESHOLD = readNumberEnv("ECM_AUTO_COMPACT_THRESHOLD", 0.7);
@@ -456,12 +464,19 @@ async function maybeAutoCompact(
       }
     }
 
+    // Early exit: skip compaction if total non-summary segments <= keepNewest threshold
+    // This prevents redundant loop attempts when insufficient segments exist
+    const totalNonSummarySegments = store.countNonSummarySegments(sessionId);
+    if (totalNonSummarySegments <= policy.continuousKeepNewest) {
+      return { ...base, reason: "below_minimum_segment_count", totalSegments: totalNonSummarySegments };
+    }
+
     const toSummarize = store.getOldestNonSummarySegments(
       sessionId,
       policy.continuousKeepNewest,
     );
-      if (toSummarize.length === 0) {
-      return { ...base, reason: "not_enough_segments" };
+    if (toSummarize.length === 0) {
+      return { ...base, reason: "insufficient_segments_to_compact" };
     }
 
     compactingSessions.add(sessionId);
@@ -601,7 +616,7 @@ export async function retrieveContext(
         continue;
       }
       result.push(toScoredSegment(seg, score));
-      totalTokens += seg.token_count;
+          const record = store.insertSegment({
     }
 
     return createSuccessResponse({ segments: result, totalTokens, truncated, autoCompaction });
@@ -610,17 +625,31 @@ export async function retrieveContext(
     return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<RetrieveResult>;
   }
 }
+          const rawRecord = record;
+
+          const finalRecord = validated.includeEmbeddings
+            ? rawRecord
+            : {
+                ...rawRecord,
+                embedding_json: EMBEDDING_OMITTED_MARKER,
+              };
 
 export async function listSegments(
   input: ListSegmentsInput,
-): Promise<ToolResponse<ListSegmentsResult>> {
+          return createSuccessResponse(finalRecord);
   try {
     const validated = validateListSegments(input);
-    const segments = store.listSegments(
+    const rawSegments = store.listSegments(
       validated.sessionId,
       validated.limit ?? 20,
       validated.offset ?? 0,
     );
+    const segments = validated.includeEmbeddings
+      ? rawSegments
+      : rawSegments.map((segment) => ({
+          ...segment,
+          embedding_json: EMBEDDING_OMITTED_MARKER,
+        }));
     const total = store.countSegments(validated.sessionId);
     return createSuccessResponse({ segments, total });
   } catch (err) {

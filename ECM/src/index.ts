@@ -56,6 +56,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
         content: { type: "string" },
         importance: { type: "number" },
         metadata: { type: "object" },
+        includeEmbeddings: { type: "boolean" },
         query: { type: "string" },
         topK: { type: "number" },
         maxTokens: { type: "number" },
@@ -93,6 +94,7 @@ app.post("/tools/ecm", async (req: Request, res: Response) => {
           content: rest.content,
           importance: rest.importance,
           metadata: rest.metadata,
+          includeEmbeddings: rest.includeEmbeddings,
         });
         break;
       case "retrieve_context":
@@ -105,7 +107,12 @@ app.post("/tools/ecm", async (req: Request, res: Response) => {
         });
         break;
       case "list_segments":
-        response = await listSegments({ sessionId, limit: rest.limit, offset: rest.offset });
+        response = await listSegments({
+          sessionId,
+          limit: rest.limit,
+          offset: rest.offset,
+          includeEmbeddings: rest.includeEmbeddings,
+        });
         break;
       case "delete_segment":
         response = await deleteSegment({ sessionId, segmentId: rest.segmentId });

@@ -37,6 +37,7 @@ export interface StoreSegmentInput {
   content: string;
   importance?: number;
   metadata?: Record<string, unknown>;
+  includeEmbeddings?: boolean;
 }
 
 export interface RetrieveContextInput {
@@ -51,6 +52,7 @@ export interface ListSegmentsInput {
   sessionId: string;
   limit?: number;
   offset?: number;
+  includeEmbeddings?: boolean;
 }
 
 export interface DeleteSegmentInput {
@@ -112,15 +114,18 @@ export interface AutoCompactionTelemetry {
   keepNewest: number;
   mode: "threshold" | "continuous";
   policySource: "env" | "session";
-  sourceAction: "store_segment" | "retrieve_context";
+  sourceAction: "store_segment" | "retrieve_context" | "summarize_session" | "auto_compact_now";
   reason:
     | "disabled"
     | "below_threshold"
     | "cooldown"
     | "in_progress"
     | "not_enough_segments"
+    | "below_minimum_segment_count"
+    | "insufficient_segments_to_compact"
     | "executed"
     | "execution_failed";
+  totalSegments?: number;
   strategy?: "extractive" | "llm_highlights";
   fallbackUsed?: boolean;
   summarySegmentId?: string;

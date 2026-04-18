@@ -49,6 +49,7 @@ export function validateStoreSegment(input: unknown): StoreSegmentInput {
     content,
     importance: typeof i.importance === "number" ? i.importance : 0.5,
     metadata: i.metadata as Record<string, unknown> | undefined,
+    includeEmbeddings: typeof i.includeEmbeddings === "boolean" ? i.includeEmbeddings : false,
   };
 }
 
@@ -73,6 +74,7 @@ export function validateListSegments(input: unknown): ListSegmentsInput {
     sessionId: requireString(i.sessionId, "sessionId"),
     limit: typeof i.limit === "number" ? Math.max(1, Math.floor(i.limit)) : 20,
     offset: typeof i.offset === "number" ? Math.max(0, Math.floor(i.offset)) : 0,
+    includeEmbeddings: typeof i.includeEmbeddings === "boolean" ? i.includeEmbeddings : false,
   };
 }
 

@@ -24,9 +24,73 @@ function writeUtf8NoBom(filePath, content) {
   fs.writeFileSync(filePath, content, { encoding: "utf8" });
 }
 
+function readJsonSafe(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function isPlaceholderEnvValue(key, value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  if (key === "BROWSERLESS_API_KEY" && normalized === "your-browserless-api-token-here") {
+    return true;
+  }
+
+  return false;
+}
+
+function mergeServerConfig(serverConfig, topLevelServerConfig, pluginServerConfig) {
+  const mergedEnv = { ...(serverConfig.env ?? {}) };
+  const candidates = [topLevelServerConfig, pluginServerConfig];
+
+  for (const candidate of candidates) {
+    const env = candidate && typeof candidate === "object" ? candidate.env : null;
+    if (!env || typeof env !== "object") {
+      continue;
+    }
+
+    for (const [key, value] of Object.entries(env)) {
+      if (typeof value !== "string") {
+        continue;
+      }
+
+      const trimmed = value.trim();
+      if (!trimmed || isPlaceholderEnvValue(key, trimmed)) {
+        continue;
+      }
+
+      mergedEnv[key] = value;
+    }
+  }
+
+  return {
+    ...serverConfig,
+    env: mergedEnv,
+  };
+}
+
 function main() {
   const pluginRoot = resolvePluginRoot();
   const { mcpServers, missingBuilds } = buildMcpServers();
+  const lmStudioMcpJson = readJsonSafe(path.join(os.homedir(), ".lmstudio", "mcp.json"));
+  const topLevelServers =
+    lmStudioMcpJson && typeof lmStudioMcpJson === "object" && lmStudioMcpJson.mcpServers
+      ? lmStudioMcpJson.mcpServers
+      : {};
 
   if (!fs.existsSync(pluginRoot)) {
     console.error(`LM Studio plugin root not found: ${pluginRoot}`);
@@ -60,7 +124,12 @@ function main() {
       );
     }
 
-    const json = `${JSON.stringify(serverConfig, null, 2)}\n`;
+    const existingPluginConfig = readJsonSafe(targetFile);
+    const topLevelServerConfig =
+      topLevelServers && typeof topLevelServers === "object" ? topLevelServers[serverName] : null;
+    const mergedConfig = mergeServerConfig(serverConfig, topLevelServerConfig, existingPluginConfig);
+
+    const json = `${JSON.stringify(mergedConfig, null, 2)}\n`;
     writeUtf8NoBom(targetFile, json);
     updated += 1;
     console.log(`${provisioned ? "✓ provisioned" : "+"} wrote ${targetFile}`);

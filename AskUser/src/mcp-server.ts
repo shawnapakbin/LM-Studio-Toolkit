@@ -10,6 +10,46 @@ import type { AskUserRequest } from "./types";
 
 dotenv.config();
 
+function normalizeAskUserRequest(input: unknown): AskUserRequest {
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const rawAction = String(raw.action ?? "").trim();
+  const legacyActionMap: Record<string, AskUserRequest["action"]> = {
+    create: "create",
+    create_interview: "create",
+    submit: "submit",
+    submit_responses: "submit",
+    get: "get",
+    get_interview: "get",
+  };
+  const action = legacyActionMap[rawAction] ?? (rawAction as AskUserRequest["action"]);
+
+  const payload =
+    raw.payload && typeof raw.payload === "object"
+      ? ({ ...(raw.payload as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+
+  if (action === "create") {
+    if (payload.expiresInSeconds === undefined && typeof payload.expires === "number") {
+      payload.expiresInSeconds = payload.expires;
+      delete payload.expires;
+    }
+
+    if (payload.questions === undefined && typeof payload.prompt === "string") {
+      payload.questions = [
+        {
+          id: "prompt",
+          type: "text",
+          prompt: payload.prompt,
+          required: true,
+        },
+      ];
+      delete payload.prompt;
+    }
+  }
+
+  return { action, payload } as AskUserRequest;
+}
+
 export function createAskUserMcpServer(): McpServer {
   const server = new McpServer({
     name: "lm-studio-ask-user-tool",
@@ -90,11 +130,7 @@ export function createAskUserMcpServer(): McpServer {
       } catch {
         // fallback: assume input is already AskUserRequest shape
       }
-      const { action, payload } = normalized as {
-        action: AskUserRequest["action"];
-        payload: AskUserRequest["payload"];
-      };
-      const request: AskUserRequest = { action, payload };
+      const request = normalizeAskUserRequest(normalized);
       const result = handleAskUserRequest(request, timer.elapsed(), traceId);
 
       return {

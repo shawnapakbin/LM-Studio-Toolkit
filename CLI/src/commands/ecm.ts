@@ -1,5 +1,8 @@
 /**
- * ecm — Extended Context Memory operations including /compact
+ * ecm — Enhanced Context Memory CLI commands.
+ *
+ * Surface mirrors the four ECM actions: on_user_turn, store_segment,
+ * clear_session, get_status.
  */
 
 import type { Command } from "commander";
@@ -11,7 +14,7 @@ async function ecmPost(body: unknown): Promise<unknown> {
 }
 
 export function registerEcmCommands(program: Command): void {
-  const ecm = program.command("ecm").description("Extended Context Memory operations");
+  const ecm = program.command("ecm").description("Enhanced Context Memory operations");
 
   ecm
     .command("store")
@@ -43,87 +46,12 @@ export function registerEcmCommands(program: Command): void {
     );
 
   ecm
-    .command("retrieve")
-    .description("Retrieve relevant memory segments by query")
-    .requiredOption("-q, --query <text>", "Search query")
+    .command("status")
+    .description("Show segment count and estimated token usage for a session")
     .option("-s, --session <id>", "Session ID", DEFAULT_ECM_SESSION)
-    .option("-k, --top-k <n>", "Max segments to return", parseInt)
-    .option("--max-tokens <n>", "Max tokens in result", parseInt)
-    .option("--min-score <n>", "Minimum relevance score 0–1", parseFloat)
-    .action(
-      async (opts: {
-        query: string;
-        session: string;
-        topK?: number;
-        maxTokens?: number;
-        minScore?: number;
-      }) => {
-        try {
-          printResult(
-            await ecmPost({
-              action: "retrieve_context",
-              sessionId: opts.session,
-              query: opts.query,
-              ...(opts.topK !== undefined && { topK: opts.topK }),
-              ...(opts.maxTokens !== undefined && { maxTokens: opts.maxTokens }),
-              ...(opts.minScore !== undefined && { minScore: opts.minScore }),
-            }),
-          );
-        } catch (err) {
-          handleError(err);
-        }
-      },
-    );
-
-  ecm
-    .command("list")
-    .description("List all segments in a session")
-    .option("-s, --session <id>", "Session ID", DEFAULT_ECM_SESSION)
-    .option("-n, --limit <n>", "Max segments to list", parseInt)
-    .option("--offset <n>", "Pagination offset", parseInt)
-    .action(async (opts: { session: string; limit?: number; offset?: number }) => {
+    .action(async (opts: { session: string }) => {
       try {
-        printResult(
-          await ecmPost({
-            action: "list_segments",
-            sessionId: opts.session,
-            ...(opts.limit !== undefined && { limit: opts.limit }),
-            ...(opts.offset !== undefined && { offset: opts.offset }),
-          }),
-        );
-      } catch (err) {
-        handleError(err);
-      }
-    });
-
-  ecm
-    .command("delete <segmentId>")
-    .description("Delete a specific memory segment by ID")
-    .option("-s, --session <id>", "Session ID", DEFAULT_ECM_SESSION)
-    .action(async (segmentId: string, opts: { session: string }) => {
-      try {
-        printResult(
-          await ecmPost({ action: "delete_segment", sessionId: opts.session, segmentId }),
-        );
-      } catch (err) {
-        handleError(err);
-      }
-    });
-
-  ecm
-    .command("summarize")
-    .description("Summarize a session and replace old segments with the summary")
-    .option("-s, --session <id>", "Session ID", DEFAULT_ECM_SESSION)
-    .option("--keep-newest <n>", "Number of newest segments to keep intact", parseInt)
-    .action(async (opts: { session: string; keepNewest?: number }) => {
-      try {
-        printResult(
-          await ecmPost({
-            action: "summarize_session",
-            sessionId: opts.session,
-            ...(opts.keepNewest !== undefined && { keepNewest: opts.keepNewest }),
-          }),
-        );
+        printResult(await ecmPost({ action: "get_status", sessionId: opts.session }));
       } catch (err) {
         handleError(err);
       }
@@ -141,39 +69,44 @@ export function registerEcmCommands(program: Command): void {
       }
     });
 
-  // /compact — summarize then clear old segments to free context memory
+  // /compact — manual compaction trigger.
   ecm
     .command("compact")
-    .description("/compact — summarize the session and drop old segments to free context memory")
+    .description(
+      "/compact — manually trigger compaction; pass --used and --limit to control the threshold check",
+    )
     .option("-s, --session <id>", "Session ID", DEFAULT_ECM_SESSION)
-    .option("--keep-newest <n>", "Newest segments to keep after compaction (default: 5)", parseInt)
-    .action(async (opts: { session: string; keepNewest?: number }) => {
-      const keepNewest = opts.keepNewest ?? 5;
-      console.log(
-        `Compacting session "${opts.session}" (keeping ${keepNewest} newest segments)...`,
-      );
-      try {
-        // Step 1: summarize — collapses old segments into a summary entry
-        const summary = await ecmPost({
-          action: "summarize_session",
-          sessionId: opts.session,
-          keepNewest,
-        });
-        console.log("\nSummary written:");
-        console.log(JSON.stringify(summary, null, 2));
-
-        // Step 2: report remaining segment count
-        const list = (await ecmPost({
-          action: "list_segments",
-          sessionId: opts.session,
-          limit: 1,
-        })) as Record<string, unknown>;
-
-        const data = list.data as Record<string, unknown> | undefined;
-        const total = data?.total ?? "unknown";
-        console.log(`\nContext compacted. Segments remaining: ${total}`);
-      } catch (err) {
-        handleError(err);
-      }
-    });
+    .option("--used <n>", "Current used tokens (forces compaction trigger)", parseInt)
+    .option("--limit <n>", "Model context limit", parseInt)
+    .option("--keep-newest <n>", "Newest segments to keep (default: 4)", parseInt)
+    .option("--threshold <n>", "Trigger ratio in (0, 1] (default: 0.5)", parseFloat)
+    .action(
+      async (opts: {
+        session: string;
+        used?: number;
+        limit?: number;
+        keepNewest?: number;
+        threshold?: number;
+      }) => {
+        try {
+          // For a manual /compact we want to fire even at low usage; default
+          // currentUsedTokens to a value that forces ratio >= threshold unless
+          // the caller supplied real values.
+          const limit = opts.limit ?? 8192;
+          const used = opts.used ?? limit;
+          printResult(
+            await ecmPost({
+              action: "on_user_turn",
+              sessionId: opts.session,
+              currentUsedTokens: used,
+              contextLimit: limit,
+              ...(opts.keepNewest !== undefined && { keepNewest: opts.keepNewest }),
+              ...(opts.threshold !== undefined && { threshold: opts.threshold }),
+            }),
+          );
+        } catch (err) {
+          handleError(err);
+        }
+      },
+    );
 }

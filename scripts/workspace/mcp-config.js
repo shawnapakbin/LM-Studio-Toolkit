@@ -20,11 +20,17 @@ const servers = {
       BROWSER_HEADLESS: "true",
     },
   },
-  calculator: {
-    relativeScript: "Calculator/dist/mcp-server.js",
+  basic: {
+    relativeScript: "Basic/dist/mcp-server.js",
     env: {
+      ASK_USER_DB_PATH: "./memory.db",
+      ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800",
+      ASK_USER_MAX_EXPIRES_SECONDS: "86400",
+      ASK_USER_MAX_QUESTIONS: "20",
       CALCULATOR_DEFAULT_PRECISION: "12",
       CALCULATOR_MAX_PRECISION: "20",
+      CLOCK_DEFAULT_TIMEZONE: "",
+      CLOCK_DEFAULT_LOCALE: "en-US",
     },
   },
   "document-scraper": {
@@ -37,13 +43,6 @@ const servers = {
       DOC_SCRAPER_WORKSPACE_ROOT: "",
     },
   },
-  clock: {
-    relativeScript: "Clock/dist/mcp-server.js",
-    env: {
-      CLOCK_DEFAULT_TIMEZONE: "",
-      CLOCK_DEFAULT_LOCALE: "en-US",
-    },
-  },
   browserless: {
     relativeScript: "Browserless/dist/mcp-server.js",
     env: {
@@ -54,15 +53,6 @@ const servers = {
       BROWSERLESS_CONCURRENCY_LIMIT: "5",
     },
   },
-  "ask-user": {
-    relativeScript: "AskUser/dist/mcp-server.js",
-    env: {
-      ASK_USER_DB_PATH: "./memory.db",
-      ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800",
-      ASK_USER_MAX_EXPIRES_SECONDS: "86400",
-      ASK_USER_MAX_QUESTIONS: "20",
-    },
-  },
   rag: {
     relativeScript: "RAG/dist/mcp-server.js",
     env: {
@@ -70,7 +60,7 @@ const servers = {
       RAG_EMBEDDINGS_MODE: "lmstudio",
       RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5",
       RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document",
-      RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview",
+      RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/interview_user",
       RAG_BYPASS_APPROVAL: "true",
       RAG_CHUNK_SIZE_TOKENS: "384",
       RAG_CHUNK_OVERLAP_TOKENS: "75",
@@ -104,6 +94,10 @@ const servers = {
     env: {
       SLASH_DEFAULT_SESSION: "default",
     },
+  },
+  "3d-tool": {
+    relativeScript: "3DTool/dist/mcp-server.js",
+    env: {},
   },
 };
 

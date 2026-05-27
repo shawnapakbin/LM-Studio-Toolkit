@@ -1,3 +1,5 @@
+process.env.TERMINAL_BYPASS_APPROVAL = "1";
+
 import request from "supertest";
 import { app } from "../src/index";
 import { clearPunchoutSession } from "../src/punchout";

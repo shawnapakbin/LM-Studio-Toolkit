@@ -59,8 +59,9 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.get("/tool-schema", (_req: Request, res: Response) => {
   res.json({
-    name: "ask_user_interview",
-    description: "Creates and collects interview responses for planning and clarification.",
+    name: "interview_user",
+    description:
+      "Creates and manages interview/clarification forms: create, submit, get. Purpose: clarification_only. Do NOT use this tool for permissioning execution of other tools. Tool-use approval must use each target tool's native approval token/session approval flow.",
     parameters: {
       type: "object",
       properties: {
@@ -79,8 +80,94 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
   });
 });
 
+app.get("/tools/approve/:interviewId", (req: Request, res: Response) => {
+  const interviewId = req.params.interviewId;
+  const timer = new OperationTimer();
+  const traceId = generateTraceId();
+
+  const successHtml = `<html><body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1e1e1e; color: #fff;">
+          <div style="text-align: center; background: #2d2d2d; padding: 2rem 4rem; border-radius: 8px; border: 1px solid #4ade80;">
+            <h1 style="color: #4ade80; margin-top: 0">✅ Approved</h1>
+            <p style="font-size: 1.1rem; color: #ccc;">The action was approved successfully.</p>
+            <p style="font-size: 1.1rem; margin-bottom: 0;">You may close this tab, return to LM Studio, and reply <strong>"proceed"</strong></p>
+          </div>
+        </body></html>`;
+
+  try {
+    // Check whether the interview already exists; if it was already answered, return success immediately.
+    // If it doesn't exist yet, auto-create it so the submit below can succeed.
+    const getResponse = handleAskUserRequest(
+      { action: "get", payload: { interviewId } },
+      timer.elapsed(),
+      traceId,
+    );
+
+    if (getResponse.success) {
+      const data = getResponse.data as { status?: string } | undefined;
+      if (data?.status === "answered") {
+        res.send(successHtml);
+        return;
+      }
+    } else {
+      // Interview doesn't exist yet — create it on-the-fly for this approval signature.
+      const createResponse = handleAskUserRequest(
+        {
+          action: "create",
+          payload: {
+            id: interviewId,
+            title: "Action Approval",
+            questions: [{ id: "approve", type: "confirm", prompt: "Confirm this action?" }],
+            expiresInSeconds: 900,
+          },
+        },
+        timer.elapsed(),
+        traceId,
+      );
+
+      if (!createResponse.success) {
+        res.status(400).send(
+          `<html><body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1e1e1e; color: #fff;">
+          <div style="text-align: center; background: #2d2d2d; padding: 2rem 4rem; border-radius: 8px; border: 1px solid #ef4444;">
+            <h1 style="color: #ef4444; margin-top: 0">❌ Approval Failed</h1>
+            <p style="font-size: 1.1rem; color: #ccc;">${createResponse.errorMessage}</p>
+          </div>
+        </body></html>`,
+        );
+        return;
+      }
+    }
+
+    const response = handleAskUserRequest(
+      {
+        action: "submit",
+        payload: {
+          interviewId,
+          responses: [{ questionId: "approve", value: true }],
+        },
+      },
+      timer.elapsed(),
+      traceId,
+    );
+
+    if (response.success || response.errorMessage?.includes("no longer accepts responses")) {
+      res.send(successHtml);
+    } else {
+      res.status(400).send(
+        `<html><body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1e1e1e; color: #fff;">
+          <div style="text-align: center; background: #2d2d2d; padding: 2rem 4rem; border-radius: 8px; border: 1px solid #ef4444;">
+            <h1 style="color: #ef4444; margin-top: 0">❌ Approval Failed</h1>
+            <p style="font-size: 1.1rem; color: #ccc;">${response.errorMessage}</p>
+          </div>
+        </body></html>`,
+      );
+    }
+  } catch {
+    res.status(500).send("Execution failed.");
+  }
+});
+
 app.post(
-  "/tools/ask_user_interview",
+  "/tools/interview_user",
   (req: Request<unknown, unknown, AskUserRequest>, res: Response) => {
     const timer = new OperationTimer();
     const traceId = generateTraceId();
@@ -99,16 +186,23 @@ app.post(
         ...response,
         ...responseData,
         error: response.errorMessage,
+        toolName: "interview_user",
+        purpose: "clarification_only",
       });
     } catch {
       const error = createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
-        "Unexpected ask-user execution error.",
+        "Unexpected interview-user execution error.",
         timer.elapsed(),
         traceId,
       );
 
-      res.status(500).json({ ...error, error: error.errorMessage });
+      res.status(500).json({
+        ...error,
+        error: error.errorMessage,
+        toolName: "interview_user",
+        purpose: "clarification_only",
+      });
     }
   },
 );

@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-agent-runner",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "description": "Agent orchestration and workflow execution for LLM Toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,6 +15,6 @@
   "license": "LicenseRef-Shawna-NonCommercial",
   "dependencies": {
     "better-sqlite3": "^12.6.2",
-    "llm-toolkit-observability": "^1.0.0"
+    "llm-toolkit-observability": "file:../Observability"
   }
 }

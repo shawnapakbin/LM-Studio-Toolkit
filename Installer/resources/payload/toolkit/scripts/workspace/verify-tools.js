@@ -12,22 +12,20 @@ const tools = [
     src: "WebBrowser/src/mcp-server.ts",
   },
   {
-    name: "Calculator",
-    dist: "Calculator/dist/mcp-server.js",
-    src: "Calculator/src/mcp-server.ts",
+    name: "Basic",
+    dist: "Basic/dist/mcp-server.js",
+    src: "Basic/src/mcp-server.ts",
   },
   {
     name: "DocumentScraper",
     dist: "DocumentScraper/dist/mcp-server.js",
     src: "DocumentScraper/src/mcp-server.ts",
   },
-  { name: "Clock", dist: "Clock/dist/mcp-server.js", src: "Clock/src/mcp-server.ts" },
   {
     name: "Browserless",
     dist: "Browserless/dist/mcp-server.js",
     src: "Browserless/src/mcp-server.ts",
   },
-  { name: "AskUser", dist: "AskUser/dist/mcp-server.js", src: "AskUser/src/mcp-server.ts" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js", src: "RAG/src/mcp-server.ts" },
   {
     name: "PythonShell",

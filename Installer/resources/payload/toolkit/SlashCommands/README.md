@@ -1,12 +1,12 @@
 # SlashCommands (v2.1.0)
 
-MCP server that exposes a single `slash_command` tool. When you type `/command` in LM Studio chat, the LLM calls this tool automatically and routes the request to the appropriate tool via HTTP — no system prompt injection required.
+MCP server that exposes the executable `slash_command` tool and discovery helpers. When you type `/command` in LM Studio chat, the LLM calls `slash_command` automatically and routes the request to the appropriate tool via HTTP.
 
 ## How It Works
 
 - `parser.ts` — tokenizes the raw input, extracts `--flag <value>` and `--flag` boolean flags, handles quoted strings
 - `router.ts` — maps the parsed `DispatchDescriptor` to tool HTTP endpoints; `/compact` runs a two-step ECM summarize + list; `/tools health` runs parallel health checks
-- `mcp-server.ts` — registers the `slash_command` tool with the full command reference embedded in its description
+- `mcp-server.ts` — registers `slash_command` (execution) plus discovery helpers: `slash_commands_help` (canonical) and `slash_commands_list` (compatibility alias with the same output)
 
 ## Setup
 
@@ -44,6 +44,7 @@ Run `npm run mcp:print-config` to get the full generated config with correct abs
 | `/browse <url>` | WebBrowser tool (port 3334) |
 | `/clock` | Clock tool (port 3337) |
 | `/run <cmd>` | Terminal tool (port 3333) |
+| `/python run\|repl\|idle` | PythonShell tool (port 3343) |
 | `/skills list\|run\|get` | Skills tool (port 3341) |
 | `/rag query\|ingest\|list` | RAG tool (port 3339) |
 | `/ask <prompt>` | AskUser tool (port 3338) |
@@ -53,6 +54,10 @@ Run `npm run mcp:print-config` to get the full generated config with correct abs
 | `/workflow run <file>` | AgentRunner (port 3330) |
 
 See [docs/SLASH-COMMANDS.md](../docs/SLASH-COMMANDS.md) for the full command reference with flags and examples.
+
+Python command behavior:
+- `/python repl` opens the plain terminal Python REPL.
+- `/python idle` launches the Python IDLE GUI shell/editor.
 
 ## Environment Variables
 

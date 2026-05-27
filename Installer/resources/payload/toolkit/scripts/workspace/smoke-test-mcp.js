@@ -17,11 +17,9 @@ const STABLE_MS = 600;
 const tools = [
   { name: "Terminal", dist: "Terminal/dist/mcp-server.js" },
   { name: "WebBrowser", dist: "WebBrowser/dist/mcp-server.js" },
-  { name: "Calculator", dist: "Calculator/dist/mcp-server.js" },
+  { name: "Basic", dist: "Basic/dist/mcp-server.js" },
   { name: "DocumentScraper", dist: "DocumentScraper/dist/mcp-server.js" },
-  { name: "Clock", dist: "Clock/dist/mcp-server.js" },
   { name: "Browserless", dist: "Browserless/dist/mcp-server.js" },
-  { name: "AskUser", dist: "AskUser/dist/mcp-server.js" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js" },
   { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js" },
   { name: "Skills", dist: "Skills/dist/mcp-server.js" },

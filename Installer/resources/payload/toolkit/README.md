@@ -52,10 +52,13 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 18 Toolkit Modules (16 Tool Servers + CLI + SlashCommands)
+The `basic` MCP plugin is always allowed. Calls to `get_current_datetime`, `calculate_engineering`, and `interview_user` via `basic` do not require permission prompts or approval tokens.
+
+### 19 Toolkit Modules (17 Tool Servers + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
+- **Basic** — Consolidated always-allowed MCP plugin exposing Clock + Calculator + AskUser tools ✅
 - **[Calculator](Calculator/README.md)** — Math expressions (engineering notation, symbol normalization) ✅
 - **[DocumentScraper](DocumentScraper/README.md)** — Read documents with structured extraction + encrypted PDF detection ✅
 - **[Clock](Clock/README.md)** — Date/time + timezones (IANA + locale formatting) ✅
@@ -87,7 +90,7 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (16 runtime servers) → memory
+npm run build   # shared → observability → tools (17 runtime servers) → memory
 ```
 
 ### Phases Complete ✅
@@ -236,12 +239,18 @@ npm run mcp:sync-lmstudio
 				"BROWSER_HEADLESS": "true"
 			}
 		},
-		"calculator": {
+		"basic": {
 			"command": "node",
-			"args": ["Calculator/dist/mcp-server.js"],
+			"args": ["Basic/dist/mcp-server.js"],
 			"env": {
+				"ASK_USER_DB_PATH": "./memory.db",
+				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
+				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
+				"ASK_USER_MAX_QUESTIONS": "20",
 				"CALCULATOR_DEFAULT_PRECISION": "12",
-				"CALCULATOR_MAX_PRECISION": "20"
+				"CALCULATOR_MAX_PRECISION": "20",
+				"CLOCK_DEFAULT_TIMEZONE": "",
+				"CLOCK_DEFAULT_LOCALE": "en-US"
 			}
 		},
 		"document-scraper": {
@@ -255,14 +264,6 @@ npm run mcp:sync-lmstudio
 				"DOC_SCRAPER_WORKSPACE_ROOT": ""
 			}
 		},
-		"clock": {
-			"command": "node",
-			"args": ["Clock/dist/mcp-server.js"],
-			"env": {
-				"CLOCK_DEFAULT_TIMEZONE": "",
-				"CLOCK_DEFAULT_LOCALE": "en-US"
-			}
-		},
 		"browserless": {
 			"command": "node",
 			"args": ["Browserless/dist/mcp-server.js"],
@@ -274,16 +275,6 @@ npm run mcp:sync-lmstudio
 				"BROWSERLESS_CONCURRENCY_LIMIT": "5"
 			}
 		},
-		"ask-user": {
-			"command": "node",
-			"args": ["AskUser/dist/mcp-server.js"],
-			"env": {
-				"ASK_USER_DB_PATH": "./memory.db",
-				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
-				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
-				"ASK_USER_MAX_QUESTIONS": "20"
-			}
-		},
 		"rag": {
 			"command": "node",
 			"args": ["RAG/dist/mcp-server.js"],
@@ -292,7 +283,7 @@ npm run mcp:sync-lmstudio
 				"RAG_EMBEDDINGS_MODE": "lmstudio",
 				"RAG_EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
 				"RAG_DOC_SCRAPER_ENDPOINT": "http://localhost:3336/tools/read_document",
-				"RAG_ASK_USER_ENDPOINT": "http://localhost:3338/tools/ask_user_interview",
+				"RAG_ASK_USER_ENDPOINT": "http://localhost:3338/tools/interview_user",
 				"RAG_BYPASS_APPROVAL": "true",
 				"RAG_CHUNK_SIZE_TOKENS": "384",
 				"RAG_CHUNK_OVERLAP_TOKENS": "75"
@@ -463,7 +454,7 @@ See [Memory/README.md](Memory/README.md) for details.
 |---------|--------|-------|
 | CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 16 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands |
+| 17 runtime tool servers | ✅ | Terminal, WebBrowser, Basic, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
 | ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |

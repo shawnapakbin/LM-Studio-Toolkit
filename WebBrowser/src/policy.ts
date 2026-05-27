@@ -1,5 +1,7 @@
 export const MAX_REDIRECTS = 10;
 
+export const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
+
 export const ALLOWED_CONTENT_TYPES = [
   "text/html",
   "text/plain",

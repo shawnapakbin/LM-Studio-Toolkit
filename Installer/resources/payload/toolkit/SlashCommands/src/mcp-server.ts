@@ -62,7 +62,7 @@ export function createSlashCommandsMcpServer(): McpServer {
     "slash_commands_help",
     {
       description:
-        "Lists all available slash commands with usage examples. Use this when the user asks to list available slash commands or asks what /commands are supported.",
+        "Lists all available slash commands with usage examples. This is the canonical slash command discovery tool.",
       inputSchema: {
         format: z
           .enum(["text", "json"])
@@ -114,7 +114,7 @@ export function createSlashCommandsMcpServer(): McpServer {
     "slash_commands_list",
     {
       description:
-        "Returns the list of all available slash commands. Alias for slash_commands_help. Use this when the user asks to list or show slash commands.",
+        "Compatibility alias for slash_commands_help. Returns the same command list and output format as slash_commands_help. Prefer slash_commands_help for primary discovery.",
       inputSchema: {
         format: z
           .enum(["text", "json"])

@@ -51,7 +51,7 @@ const ragInputShape = {
     .string()
     .optional()
     .describe(
-      "(ingest_documents / delete_source / reindex_source) One-time approval token from a prior approval_required response.",
+      "(ingest_documents / delete_source / reindex_source) Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
     ),
   approvalInterviewId: z
     .string()

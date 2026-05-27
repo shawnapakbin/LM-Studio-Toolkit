@@ -61,14 +61,14 @@ describe("AskUser MCP integration", () => {
     await Promise.all([clientTransport.close(), serverTransport.close()]);
   });
 
-  test("lists ask_user_interview tool", async () => {
+  test("lists interview_user tool", async () => {
     const tools = await client.listTools();
-    expect(tools.tools.some((tool) => tool.name === "ask_user_interview")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "interview_user")).toBe(true);
   });
 
   test("create, submit, and get interview flow", async () => {
     const createResultRaw = await client.callTool({
-      name: "ask_user_interview",
+      name: "interview_user",
       arguments: {
         action: "create",
         payload: {
@@ -97,7 +97,7 @@ describe("AskUser MCP integration", () => {
     const interviewId = createResult.interviewId as string;
 
     const submitResultRaw = await client.callTool({
-      name: "ask_user_interview",
+      name: "interview_user",
       arguments: {
         action: "submit",
         payload: {
@@ -112,7 +112,7 @@ describe("AskUser MCP integration", () => {
     expect(submitResult.status).toBe("answered");
 
     const getResultRaw = await client.callTool({
-      name: "ask_user_interview",
+      name: "interview_user",
       arguments: {
         action: "get",
         payload: { interviewId },
@@ -127,7 +127,7 @@ describe("AskUser MCP integration", () => {
 
   test("returns INVALID_INPUT for empty questions", async () => {
     const responseRaw = await client.callTool({
-      name: "ask_user_interview",
+      name: "interview_user",
       arguments: {
         action: "create",
         payload: {

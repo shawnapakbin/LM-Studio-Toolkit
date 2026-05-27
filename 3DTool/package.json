@@ -1,0 +1,37 @@
+{
+  "name": "llm-toolkit-3d-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive 3D Model Editor MCP Server",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "dev:mcp": "tsx src/mcp-server.ts",
+    "copy:viewer": "node -e \"const fs=require('fs'),path=require('path');const src=path.join('src','viewer'),dst=path.join('dist','viewer');fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>fs.copyFileSync(path.join(src,f),path.join(dst,f)));\"",
+    "build": "tsc -p tsconfig.json && npm run copy:viewer",
+    "start": "node dist/index.js",
+    "start:mcp": "node dist/mcp-server.js",
+    "test": "jest",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@shared/types": "file:../shared",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "llm-toolkit-observability": "file:../Observability",
+    "three": "^0.160.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
+    "@types/three": "^0.160.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.9",
+    "tsx": "^4.7.0"
+  }
+}

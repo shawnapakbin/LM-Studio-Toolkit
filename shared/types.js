@@ -77,4 +77,3 @@ function createErrorResponse(errorCode, errorMessage, timingMs, traceId) {
     traceId,
   };
 }
-//# sourceMappingURL=types.js.map

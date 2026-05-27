@@ -2,10 +2,10 @@
  * Router — takes a DispatchDescriptor and executes the appropriate tool call
  */
 
-import path from "path";
 import fs from "fs";
+import path from "path";
 import Database from "better-sqlite3";
-import { DEFAULT_SESSION, ENDPOINTS } from "./config";
+import { ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
 import type { DispatchDescriptor } from "./parser";
 
@@ -26,15 +26,11 @@ const HELP_TEXT = `Available slash commands:
   /help                                  Show this help message
 
   Context Memory (ECM)
-  /compact [--session <id>] [--keep-newest <n>]
+  /compact [--session <id>] [--used <n>] [--limit <n>] [--keep-newest <n>] [--threshold <n>]
   /ecm store <text> [--session <id>] [--type <type>] [--importance <0-1>]
-  /ecm retrieve <query> [--session <id>] [--top-k <n>]
-  /ecm list [--session <id>]
-  /ecm summarize [--session <id>] [--keep-newest <n>]
+  /ecm status [--session <id>]
   /ecm clear [--session <id>]
-  /ecm continuous on [--session <id>] [--keep-newest <n>]
-  /ecm continuous off [--session <id>]
-  /ecm policy [--session <id>]
+  /ecm compact [--session <id>] [--used <n>] [--limit <n>] [--keep-newest <n>] [--threshold <n>]
 
   Calculator
   /calc <expression> [--precision <n>]
@@ -85,30 +81,6 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
   switch (desc.tool) {
     // ── ECM ───────────────────────────────────────────────────────────────
     case "ecm": {
-      if (desc.action === "compact") {
-        // Two-step: summarize then report remaining count
-        const { sessionId = DEFAULT_SESSION, keepNewest = 5 } = desc.params;
-        const summary = await post(`${ENDPOINTS.ecm}/tools/ecm`, {
-          action: "summarize_session",
-          sessionId,
-          keepNewest,
-        });
-        const list = (await post(`${ENDPOINTS.ecm}/tools/ecm`, {
-          action: "list_segments",
-          sessionId,
-          limit: 1,
-        })) as Record<string, unknown>;
-        const data = list.data as Record<string, unknown> | undefined;
-        return {
-          success: true,
-          action: "compact",
-          sessionId,
-          keepNewest,
-          summary,
-          segmentsRemaining: data?.total ?? "unknown",
-          message: `Context compacted. Session "${sessionId}" summarized, ${data?.total ?? "?"} segments remaining.`,
-        };
-      }
       return post(`${ENDPOINTS.ecm}/tools/ecm`, {
         action: desc.action,
         ...desc.params,
@@ -226,7 +198,7 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         return { success: false, error: "Missing prompt. Usage: /ask <prompt> [--title <title>]" };
       }
 
-      return post(`${ENDPOINTS.askuser}/tools/ask_user_interview`, {
+      return post(`${ENDPOINTS.askuser}/tools/interview_user`, {
         action: "create",
         payload: {
           ...(desc.title && { title: desc.title }),

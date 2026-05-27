@@ -26,11 +26,9 @@ const MIN_NPM_MAJOR = 8;
 const TOOLS = [
   "Terminal",
   "WebBrowser",
-  "Calculator",
+  "Basic",
   "DocumentScraper",
-  "Clock",
   "Browserless",
-  "AskUser",
   "RAG",
 ];
 
@@ -70,7 +68,8 @@ if (IS_GUI) {
     process.exit(1);
   }
   const http = require("http");
-  const html = fs.readFileSync(guiPath, "utf8");
+  const pkgVersion = require(path.join(REPO_ROOT, "package.json")).version;
+  const html = fs.readFileSync(guiPath, "utf8").replace("{{VERSION}}", `v${pkgVersion}`);
   const server = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -283,18 +282,31 @@ async function runSetup({ send, repair }) {
 function resolvePluginRoot() {
   const custom = process.env.LMSTUDIO_MCP_PLUGIN_ROOT;
   if (typeof custom === "string" && custom.trim()) return path.resolve(custom.trim());
-  return path.join(os.homedir(), ".lmstudio", "extensions", "plugins", "mcp");
+
+  const candidates = [
+    path.join(os.homedir(), ".lmstudio", "extensions", "plugins", "mcp"),
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "LM Studio", "extensions", "plugins", "mcp")
+      : null,
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "lmstudio", "extensions", "plugins", "mcp")
+      : null,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "LM Studio", "extensions", "plugins", "mcp")
+      : null,
+  ].filter((value) => typeof value === "string");
+
+  const existing = candidates.find((candidate) => fs.existsSync(candidate));
+  return existing || candidates[0];
 }
 
 function toolToServerName(tool) {
   const map = {
     Terminal: "terminal",
     WebBrowser: "web-browser",
-    Calculator: "calculator",
+    Basic: "basic",
     DocumentScraper: "document-scraper",
-    Clock: "clock",
     Browserless: "browserless",
-    AskUser: "ask-user",
     RAG: "rag",
   };
   return map[tool] || tool.toLowerCase();
@@ -304,12 +316,10 @@ function buildBridgeConfig(tool, distScript) {
   const envMap = {
     Terminal: { TERMINAL_DEFAULT_TIMEOUT_MS: "60000", TERMINAL_MAX_TIMEOUT_MS: "120000" },
     WebBrowser: { BROWSER_DEFAULT_TIMEOUT_MS: "20000", BROWSER_MAX_TIMEOUT_MS: "60000", BROWSER_MAX_CONTENT_CHARS: "12000" },
-    Calculator: { CALCULATOR_DEFAULT_PRECISION: "12", CALCULATOR_MAX_PRECISION: "20" },
+    Basic: { CALCULATOR_DEFAULT_PRECISION: "12", CALCULATOR_MAX_PRECISION: "20", CLOCK_DEFAULT_TIMEZONE: "", CLOCK_DEFAULT_LOCALE: "en-US", ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
     DocumentScraper: { DOC_SCRAPER_DEFAULT_TIMEOUT_MS: "20000", DOC_SCRAPER_MAX_TIMEOUT_MS: "60000", DOC_SCRAPER_MAX_CONTENT_BYTES: "52428800", DOC_SCRAPER_MAX_CONTENT_CHARS: "50000", DOC_SCRAPER_WORKSPACE_ROOT: REPO_ROOT },
-    Clock: { CLOCK_DEFAULT_TIMEZONE: "", CLOCK_DEFAULT_LOCALE: "en-US" },
     Browserless: { BROWSERLESS_API_KEY: readEnvKey("BROWSERLESS_API_KEY"), BROWSERLESS_DEFAULT_REGION: "production-sfo", BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000", BROWSERLESS_MAX_TIMEOUT_MS: "120000", BROWSERLESS_CONCURRENCY_LIMIT: "5" },
-    AskUser: { ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
-    RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview" },
+    RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/interview_user" },
   };
 
   return {

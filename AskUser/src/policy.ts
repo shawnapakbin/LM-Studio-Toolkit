@@ -11,6 +11,9 @@ export const MAX_OPTIONS_PER_QUESTION = Number(process.env.ASK_USER_MAX_OPTIONS 
 export const MAX_TEXT_RESPONSE_LENGTH = Number(
   process.env.ASK_USER_MAX_TEXT_RESPONSE_LENGTH ?? 4000,
 );
+export const MAX_IDEMPOTENCY_KEY_LENGTH = Number(
+  process.env.ASK_USER_MAX_IDEMPOTENCY_KEY_LENGTH ?? 255,
+);
 export const DEFAULT_EXPIRES_SECONDS = Number(process.env.ASK_USER_DEFAULT_EXPIRES_SECONDS ?? 1800);
 export const MIN_EXPIRES_SECONDS = 30;
 export const MAX_EXPIRES_SECONDS = Number(process.env.ASK_USER_MAX_EXPIRES_SECONDS ?? 86400);
@@ -41,6 +44,11 @@ function validateQuestion(question: InterviewQuestion): string | undefined {
 
   if (question.prompt.length > MAX_PROMPT_LENGTH) {
     return `Question '${question.id}' prompt exceeds max length ${MAX_PROMPT_LENGTH}.`;
+  }
+
+  const validTypes = ["text", "single_choice", "multi_choice", "number", "confirm"];
+  if (!question.type || !validTypes.includes(question.type)) {
+    return `Question '${question.id}' requires a valid 'type' field: ${validTypes.join(", ")}.`;
   }
 
   if (question.type === "single_choice" || question.type === "multi_choice") {
@@ -89,6 +97,33 @@ function validateQuestion(question: InterviewQuestion): string | undefined {
   return undefined;
 }
 
+function isToolApprovalPrompt(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  const approvalPhrases = [
+    "do you approve",
+    "approve",
+    "approval token",
+    "approval_required",
+    "allow once",
+    "session approval",
+  ];
+  const toolExecutionPhrases = [
+    "run_terminal_command",
+    "run terminal command",
+    "execute command",
+    "local terminal",
+    "command '",
+    "will be executed",
+    "tool call",
+    "tool use",
+  ];
+
+  return (
+    approvalPhrases.some((phrase) => normalized.includes(phrase)) &&
+    toolExecutionPhrases.some((phrase) => normalized.includes(phrase))
+  );
+}
+
 export function validateCreateInput(input: CreateInterviewInput): string | undefined {
   if (!Array.isArray(input.questions) || input.questions.length === 0) {
     return "'questions' must be a non-empty array.";
@@ -107,6 +142,10 @@ export function validateCreateInput(input: CreateInterviewInput): string | undef
     if (questionError) {
       return questionError;
     }
+
+    if (isToolApprovalPrompt(question.prompt)) {
+      return "interview_user is for interview/clarification only. For tool execution approvals, use the target tool's native approval token/session approval flow.";
+    }
   }
 
   return undefined;
@@ -117,6 +156,12 @@ function validateResponseAgainstQuestion(
   response: InterviewResponse,
 ): string | undefined {
   const value = response.value;
+
+  // Validate question type is supported
+  const validTypes = ["text", "single_choice", "multi_choice", "number", "confirm"];
+  if (!question.type || !validTypes.includes(question.type)) {
+    return `Question '${question.id}' has unsupported or missing type. Expected one of: ${validTypes.join(", ")}.`;
+  }
 
   if (question.type === "text") {
     if (typeof value !== "string") {
@@ -198,7 +243,8 @@ function validateResponseAgainstQuestion(
     return undefined;
   }
 
-  return "Question has unsupported type.";
+  // This should never happen if validateQuestion() passed, but keep as safety net
+  return `Question has unsupported type.`;
 }
 
 export function validateSubmitInput(
@@ -209,12 +255,16 @@ export function validateSubmitInput(
     return "'interviewId' is required.";
   }
 
+  if (input.idempotencyKey && input.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    return `'idempotencyKey' exceeds max length ${MAX_IDEMPOTENCY_KEY_LENGTH}.`;
+  }
+
   if (!Array.isArray(input.responses) || input.responses.length === 0) {
-    return "'responses' must be a non-empty array.";
+    return "'responses' must be a non-empty array. Example: [{questionId: 'id1', value: 'answer1'}]";
   }
 
   if (hasDuplicateIds(input.responses.map((response) => response.questionId))) {
-    return "Response question IDs must be unique.";
+    return "Response question IDs must be unique. Each questionId should appear only once.";
   }
 
   const questionMap = new Map(questions.map((question) => [question.id, question]));
@@ -222,7 +272,7 @@ export function validateSubmitInput(
   for (const response of input.responses) {
     const question = questionMap.get(response.questionId);
     if (!question) {
-      return `Unknown questionId '${response.questionId}'.`;
+      return `Unknown questionId '${response.questionId}'. Valid IDs: ${Array.from(questionMap.keys()).join(", ")}`;
     }
 
     const responseError = validateResponseAgainstQuestion(question, response);
@@ -239,7 +289,7 @@ export function validateSubmitInput(
 
     const hasResponse = input.responses.some((response) => response.questionId === question.id);
     if (!hasResponse) {
-      return `Missing required response for question '${question.id}'.`;
+      return `Missing required response for question '${question.id}'. Check question.required field.`;
     }
   }
 

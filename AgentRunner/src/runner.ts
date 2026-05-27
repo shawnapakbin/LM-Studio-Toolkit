@@ -9,6 +9,15 @@ import { SpanStatus, type Tracer, getTracer } from "llm-toolkit-observability";
 import { normalizeToolCall } from "../../shared/toolCallNormalizer";
 import { type ToolRegistry, ToolStatus } from "./registry";
 
+/** Default per-step execution timeout in milliseconds. */
+const DEFAULT_STEP_TIMEOUT_MS = 30000;
+
+/** Default delay between retry attempts in milliseconds. */
+const DEFAULT_RETRY_DELAY_MS = 1000;
+
+/** Default timeout for interactive interview/approval steps in milliseconds. */
+const DEFAULT_INTERVIEW_TIMEOUT_MS = 10000;
+
 /**
  * Execution mode for workflow steps
  */
@@ -268,7 +277,7 @@ export class AgentRunner {
    * Build a one-step clarification interview workflow using the AskUser tool.
    */
   buildClarificationWorkflow(prompt: string, options?: ClarificationWorkflowOptions): Workflow {
-    const endpoint = options?.endpoint || "/tools/ask_user_interview";
+    const endpoint = options?.endpoint || "/tools/interview_user";
     const interviewTitle = options?.title || "Clarify task before execution";
 
     return {
@@ -278,10 +287,10 @@ export class AgentRunner {
       mode: ExecutionMode.SEQUENTIAL,
       steps: [
         {
-          id: "ask-user-create",
-          toolId: "ask-user",
+          id: "interview-create",
+          toolId: "interview_user",
           endpoint,
-          timeoutMs: options?.timeoutMs ?? 10000,
+          timeoutMs: options?.timeoutMs ?? DEFAULT_INTERVIEW_TIMEOUT_MS,
           input: {
             action: "create",
             payload: {
@@ -375,20 +384,20 @@ export class AgentRunner {
       timeoutMs?: number;
     },
   ): Workflow {
-    const endpoint = options?.endpoint || "/tools/ask_user_interview";
+    const endpoint = options?.endpoint || "/tools/interview_user";
 
     return {
       id: `approval-followup-${Date.now()}`,
       name: "Approval Follow-up",
       description:
-        "Checks AskUser approval interview status so execution can continue with approvalInterviewId.",
+        "Checks interview_user approval interview status so execution can continue with approvalInterviewId.",
       mode: ExecutionMode.SEQUENTIAL,
       steps: [
         {
-          id: "ask-user-get-approval",
-          toolId: "ask-user",
+          id: "interview-get-approval",
+          toolId: "interview_user",
           endpoint,
-          timeoutMs: options?.timeoutMs ?? 10000,
+          timeoutMs: options?.timeoutMs ?? DEFAULT_INTERVIEW_TIMEOUT_MS,
           input: {
             action: "get",
             payload: {
@@ -552,7 +561,7 @@ export class AgentRunner {
       };
     }
 
-    const policy = retryPolicy || step.retryPolicy || { maxRetries: 0, retryDelayMs: 1000 };
+    const policy = retryPolicy || step.retryPolicy || { maxRetries: 0, retryDelayMs: DEFAULT_RETRY_DELAY_MS };
     let lastError: Error | null = null;
     let lastErrorCode: ErrorCode = ErrorCode.EXECUTION_FAILED;
     let retries = 0;
@@ -578,7 +587,7 @@ export class AgentRunner {
 
       try {
         const url = `${tool.httpEndpoint}${step.endpoint}`;
-        const timeoutMs = step.timeoutMs || 30000;
+        const timeoutMs = step.timeoutMs || DEFAULT_STEP_TIMEOUT_MS;
 
         const response = await fetch(url, {
           method: "POST",
@@ -774,9 +783,9 @@ export class AgentRunner {
         if (autoApproveWrites && context.interviewId) {
           const approveStep: WorkflowStep = {
             id: `${step.id}__auto_approve`,
-            toolId: "ask-user",
-            endpoint: "/tools/ask_user_interview",
-            timeoutMs: 10000,
+            toolId: "interview_user",
+            endpoint: "/tools/interview_user",
+            timeoutMs: DEFAULT_INTERVIEW_TIMEOUT_MS,
             input: {
               action: "submit",
               payload: {

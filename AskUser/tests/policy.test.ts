@@ -51,6 +51,21 @@ describe("AskUser policy", () => {
     expect(error).toBeUndefined();
   });
 
+  test("rejects tool-approval prompt misuse", () => {
+    const error = validateCreateInput({
+      questions: [
+        {
+          id: "approval",
+          type: "text",
+          prompt:
+            "Do you approve 'terminal:run_terminal_command' in local terminal? Command 'dir C:/temp' will be executed.",
+        },
+      ],
+    });
+
+    expect(error).toContain("interview/clarification only");
+  });
+
   test("rejects duplicate question IDs", () => {
     const error = validateCreateInput({
       questions: [questions[0], { ...questions[0] }],

@@ -5,12 +5,12 @@ process.env.ECM_COMPACTOR_MODE = "mock";
 // Disable threshold auto-compact so it doesn't interfere with continuous-mode tests
 process.env.ECM_AUTO_COMPACT_ENABLED = "false";
 process.env.ECM_MODEL_CONTEXT_LIMIT = "8192";
+process.env.ECM_BYPASS_APPROVAL = "1";
 
 import request from "supertest";
 import { app } from "../src/index";
 
 const SESSION = "continuous-compact-session";
-const SESSION2 = "continuous-compact-session-2";
 
 // ─── set_continuous_compact ──────────────────────────────────────────────────
 

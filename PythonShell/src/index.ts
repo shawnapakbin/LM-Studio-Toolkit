@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import { openPythonIde, openPythonRepl, runPythonCode } from "./python-shell";
 
 dotenv.config();
@@ -10,15 +11,28 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 const PORT = Number(process.env.PORT ?? 3343);
+const approval = new SessionApprovalController({
+  toolName: "PythonShell",
+  askUserEndpoint: process.env.PYTHON_SHELL_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "PYTHON_SHELL_BYPASS_APPROVAL",
+});
 
 type PythonRunBody = {
   code?: string;
   cwd?: string;
   timeoutMs?: number;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 type PythonOpenBody = {
   cwd?: string;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 function statusCodeFromResult(result: Record<string, unknown>): number {
@@ -44,18 +58,33 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
   res.json({
     name: "python_shell",
     description:
-      "PythonShell endpoint exposing python_run_code, python_open_repl, and python_open_idle tool routes.",
+      "PythonShell endpoint exposing python_run_code, python_open_repl, and python_open_idle tool routes. python_open_repl launches the plain terminal Python REPL, while python_open_idle launches the IDLE GUI via python -m idlelib.",
     tools: [
       {
         name: "python_run_code",
         method: "POST",
         path: "/tools/python_run_code",
+        description: "Run non-interactive Python code with python -c and return stdout/stderr.",
         parameters: {
           type: "object",
           properties: {
             code: { type: "string", description: "Python code executed with python -c" },
             cwd: { type: "string", description: "Optional working directory" },
             timeoutMs: { type: "number", description: "Optional timeout in milliseconds" },
+            approvalToken: {
+              type: "string",
+              description:
+                "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+            },
+            approvalInterviewId: {
+              type: "string",
+              description: "AskUser interview ID used to verify explicit approval.",
+            },
+            sessionId: { type: "string", description: "Session ID for allow-in-session." },
+            taskRunId: {
+              type: "string",
+              description: "Alternate session identity when sessionId is unavailable.",
+            },
           },
           required: ["code"],
         },
@@ -64,10 +93,26 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
         name: "python_open_repl",
         method: "POST",
         path: "/tools/python_open_repl",
+        description:
+          "Launch the plain terminal Python REPL in a visible shell window (not IDLE GUI).",
         parameters: {
           type: "object",
           properties: {
             cwd: { type: "string", description: "Optional working directory" },
+            approvalToken: {
+              type: "string",
+              description:
+                "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+            },
+            approvalInterviewId: {
+              type: "string",
+              description: "AskUser interview ID used to verify explicit approval.",
+            },
+            sessionId: { type: "string", description: "Session ID for allow-in-session." },
+            taskRunId: {
+              type: "string",
+              description: "Alternate session identity when sessionId is unavailable.",
+            },
           },
           required: [],
         },
@@ -76,10 +121,26 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
         name: "python_open_idle",
         method: "POST",
         path: "/tools/python_open_idle",
+        description:
+          "Launch Python IDLE GUI shell/editor via python -m idlelib (not the plain terminal REPL).",
         parameters: {
           type: "object",
           properties: {
             cwd: { type: "string", description: "Optional working directory" },
+            approvalToken: {
+              type: "string",
+              description:
+                "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+            },
+            approvalInterviewId: {
+              type: "string",
+              description: "AskUser interview ID used to verify explicit approval.",
+            },
+            sessionId: { type: "string", description: "Session ID for allow-in-session." },
+            taskRunId: {
+              type: "string",
+              description: "Alternate session identity when sessionId is unavailable.",
+            },
           },
           required: [],
         },
@@ -90,7 +151,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
 
 app.post(
   "/tools/python_run_code",
-  (req: Request<unknown, unknown, PythonRunBody>, res: Response) => {
+  async (req: Request<unknown, unknown, PythonRunBody>, res: Response) => {
     const code = req.body.code?.trim();
     if (!code) {
       res.status(400).json({
@@ -98,6 +159,24 @@ app.post(
         errorCode: "INVALID_INPUT",
         errorMessage: "'code' is required.",
       });
+      return;
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "python_shell:python_run_code",
+      details: `Python code will be executed in cwd '${req.body.cwd || "workspace root"}'.`,
+      approvalToken: req.body.approvalToken,
+      approvalInterviewId: req.body.approvalInterviewId,
+      sessionId: req.body.sessionId,
+      taskRunId: req.body.taskRunId,
+    });
+    if (!gate.ok) {
+      const statusCode = gate.response.success
+        ? 200
+        : gate.response.errorCode === "POLICY_BLOCKED"
+          ? 403
+          : 400;
+      res.status(statusCode).json(gate.response);
       return;
     }
 
@@ -113,7 +192,25 @@ app.post(
 
 app.post(
   "/tools/python_open_repl",
-  (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
+  async (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
+    const gate = await approval.ensureApproved({
+      action: "python_shell:python_open_repl",
+      details: `A visible Python REPL will be launched in cwd '${req.body.cwd || "workspace root"}'.`,
+      approvalToken: req.body.approvalToken,
+      approvalInterviewId: req.body.approvalInterviewId,
+      sessionId: req.body.sessionId,
+      taskRunId: req.body.taskRunId,
+    });
+    if (!gate.ok) {
+      const statusCode = gate.response.success
+        ? 200
+        : gate.response.errorCode === "POLICY_BLOCKED"
+          ? 403
+          : 400;
+      res.status(statusCode).json(gate.response);
+      return;
+    }
+
     const result = openPythonRepl({ cwd: req.body.cwd });
     res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
   },
@@ -121,7 +218,25 @@ app.post(
 
 app.post(
   "/tools/python_open_idle",
-  (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
+  async (req: Request<unknown, unknown, PythonOpenBody>, res: Response) => {
+    const gate = await approval.ensureApproved({
+      action: "python_shell:python_open_idle",
+      details: `Python IDLE will be launched in cwd '${req.body.cwd || "workspace root"}'.`,
+      approvalToken: req.body.approvalToken,
+      approvalInterviewId: req.body.approvalInterviewId,
+      sessionId: req.body.sessionId,
+      taskRunId: req.body.taskRunId,
+    });
+    if (!gate.ok) {
+      const statusCode = gate.response.success
+        ? 200
+        : gate.response.errorCode === "POLICY_BLOCKED"
+          ? 403
+          : 400;
+      res.status(statusCode).json(gate.response);
+      return;
+    }
+
     const result = openPythonIde({ cwd: req.body.cwd });
     res.status(statusCodeFromResult(result as Record<string, unknown>)).json(result);
   },

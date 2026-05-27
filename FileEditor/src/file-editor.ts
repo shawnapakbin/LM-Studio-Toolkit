@@ -2,6 +2,7 @@ import fsSync from "fs";
 import path from "path";
 import fs from "fs/promises";
 import { z } from "zod";
+import { MAX_FILE_SIZE } from "./policy";
 
 export type ReadFileInput = z.infer<typeof ReadFileSchema>;
 export type WriteFileInput = z.infer<typeof WriteFileSchema>;
@@ -16,11 +17,27 @@ export const ReadFileSchema = z.object({
   endLine: z.number().int().positive().optional(),
 });
 
+const approvalDesc =
+  "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.";
+
 export const WriteFileSchema = z.object({
   path: z.string().min(1, "file path required"),
   content: z.string(),
   createBackup: z.boolean().optional().default(false),
   mode: z.enum(["overwrite", "append"]).optional().default("overwrite"),
+  approvalToken: z.string().optional().describe(approvalDesc),
+  approvalInterviewId: z
+    .string()
+    .optional()
+    .describe("AskUser interview ID used to verify explicit approval."),
+  sessionId: z
+    .string()
+    .optional()
+    .describe("Session identifier for session-scoped approval grants."),
+  taskRunId: z
+    .string()
+    .optional()
+    .describe("Task run identifier (alternative to sessionId) for session-scoped approval grants."),
 });
 
 export const SearchFilesSchema = z.object({
@@ -40,12 +57,38 @@ export const ListDirectorySchema = z.object({
 export const DeleteFileSchema = z.object({
   path: z.string().min(1, "file path required"),
   createBackup: z.boolean().optional().default(true),
+  approvalToken: z.string().optional().describe(approvalDesc),
+  approvalInterviewId: z
+    .string()
+    .optional()
+    .describe("AskUser interview ID used to verify explicit approval."),
+  sessionId: z
+    .string()
+    .optional()
+    .describe("Session identifier for session-scoped approval grants."),
+  taskRunId: z
+    .string()
+    .optional()
+    .describe("Task run identifier (alternative to sessionId) for session-scoped approval grants."),
 });
 
 export const MoveFileSchema = z.object({
   source: z.string().min(1, "source path required"),
   destination: z.string().min(1, "destination path required"),
   overwrite: z.boolean().optional().default(false),
+  approvalToken: z.string().optional().describe(approvalDesc),
+  approvalInterviewId: z
+    .string()
+    .optional()
+    .describe("AskUser interview ID used to verify explicit approval."),
+  sessionId: z
+    .string()
+    .optional()
+    .describe("Session identifier for session-scoped approval grants."),
+  taskRunId: z
+    .string()
+    .optional()
+    .describe("Task run identifier (alternative to sessionId) for session-scoped approval grants."),
 });
 
 export type FileInfo = {
@@ -70,7 +113,6 @@ export type SearchResult = {
   };
 };
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const BACKUP_DIR = ".file-editor-backups";
 
 /**

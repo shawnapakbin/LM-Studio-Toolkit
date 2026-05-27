@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import { type BrowseInput, browseWeb } from "./browser";
+import { MAX_CONTENT_CHARS } from "./policy";
 
 dotenv.config();
 
@@ -12,7 +13,6 @@ app.use(express.json({ limit: "1mb" }));
 const PORT = Number(process.env.PORT ?? 3334);
 const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_DEFAULT_TIMEOUT_MS ?? 20000);
 const MAX_TIMEOUT_MS = Number(process.env.BROWSER_MAX_TIMEOUT_MS ?? 60000);
-const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
 
 type BrowseRequest = Partial<BrowseInput>;
 

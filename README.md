@@ -52,10 +52,68 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 18 Toolkit Modules (16 Tool Servers + CLI + SlashCommands)
+### Approval Model For Mutating Operations
+
+Mutating tool operations require explicit user approval at the tool layer.
+
+The `basic` MCP plugin is always allowed. Calls to `get_current_datetime`, `calculate_engineering`, and `interview_user` via `basic` do not require permission prompts or approval tokens.
+
+- **Allow once**: Retry with the `approvalToken` value from the `approval_required` response in the `approvalToken` input field.
+- **Allow in this session**: Retry with the `sessionApprovalToken` value from the `approval_required` response placed in the `approvalToken` input field (same field), and also include `sessionId` (or `taskRunId`) so future calls for the same action in that session do not re-prompt.
+
+Approval tokens are returned by a prior `approval_required` response.
+
+Canonical flow:
+
+1. Call a mutating action without approval token.
+2. Receive `status: "approval_required"` plus `approvalToken` and optionally `sessionApprovalToken`.
+3. Retry the same call:
+	 - with `approvalToken` field set to the `approvalToken` value for one-time approval, or
+	 - with `approvalToken` field set to the `sessionApprovalToken` value, plus `sessionId`/`taskRunId`, for session-scoped approval.
+
+> **Key rule**: Both allow-once and allow-in-session use the **same `approvalToken` input field**. For session-scoped approval, you put the `sessionApprovalToken` value into `approvalToken` — do NOT create a separate `sessionApprovalToken` input field.
+
+Allow once example:
+
+```json
+{
+	"action": "run_command",
+	"payload": {
+		"command": "npm test",
+		"approvalToken": "<approvalToken-from-previous-response>"
+	}
+}
+```
+
+Allow in this session example:
+
+```json
+{
+	"action": "run_command",
+	"payload": {
+		"command": "npm test",
+		"sessionId": "session-123",
+		"approvalToken": "<sessionApprovalToken-value-from-previous-response>"
+	}
+}
+```
+
+Mutating tool families covered by this model:
+
+- **RAG**: `ingest`, `delete_source`
+- **Skills**: `define_skill`, `execute_skill`, `delete_skill`
+- **Terminal**: command execution actions
+- **PythonShell**: run code / launch REPL or IDLE actions
+- **PackageManager**: `install`, `update`, `remove`, `lock`, and `audit` when `fix=true`
+- **FileEditor**: `write_file`, `delete_file`, `move_file`
+- **3DTool**: `edit_3d_file` (automatic workspace snapshot)
+- **Git**: mutating branch/stash/reset and write operations such as `checkout`, `commit`, `push`, `pull`, `clone`
+
+### 17 Toolkit Modules (17 Tool Servers + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
+- **Basic** — Consolidated always-allowed MCP plugin exposing Clock + Calculator + AskUser tools ✅
 - **[Calculator](Calculator/README.md)** — Math expressions (engineering notation, symbol normalization) ✅
 - **[DocumentScraper](DocumentScraper/README.md)** — Read documents with structured extraction + encrypted PDF detection ✅
 - **[Clock](Clock/README.md)** — Date/time + timezones (IANA + locale formatting) ✅
@@ -64,12 +122,12 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
 - **[PythonShell](PythonShell/README.md)** — Python code execution + REPL/IDLE launch with startup detection guidance ✅
 - **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
-- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅
 - **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
 - **[Git](Git/README.md)** — Safe git operations with branch protection ✅
 - **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing ✅
 - **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
 - **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
+- **[3DTool](3DTool/README.md)** — Interactive 3D Model Editor and sandboxed viewer with real-time UI/LLM syncing ✅
 - **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
 - **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
@@ -87,7 +145,9 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (16 runtime servers) → memory
+npm run build   # shared → observability → tools (18 runtime servers) → memory
+
+`basic` is included in the runtime tool set and is always allowed — no permission prompts or approval tokens required.
 ```
 
 ### Phases Complete ✅
@@ -96,6 +156,7 @@ npm run build   # shared → observability → tools (16 runtime servers) → me
 - Phase 1: Tool hardening + safety ✅
 - Phase 2: Orchestration + workflow execution ✅
 - Phase 3: Extended tools (Git, FileEditor, PackageManager, CSVExporter, Observability) ✅
+- Phase 4: Media tools (3DTool) ✅
 
 See [AGENT_ROADMAP.md](AGENT_ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
@@ -162,7 +223,6 @@ git push origin feat/description
 You can control the toolkit directly from the LM Studio chat window by typing `/commands`. The `slash_command` MCP tool intercepts messages starting with `/` and routes them to the appropriate tool automatically — no system prompt required.
 
 ```
-/compact                  → Summarize + compact ECM context memory
 /calc sin(30°)            → Evaluate a math expression
 /browse https://...       → Fetch and render a URL
 /clock --timezone UTC     → Get current time
@@ -236,12 +296,18 @@ npm run mcp:sync-lmstudio
 				"BROWSER_HEADLESS": "true"
 			}
 		},
-		"calculator": {
+		"basic": {
 			"command": "node",
-			"args": ["Calculator/dist/mcp-server.js"],
+			"args": ["Basic/dist/mcp-server.js"],
 			"env": {
+				"ASK_USER_DB_PATH": "./memory.db",
+				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
+				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
+				"ASK_USER_MAX_QUESTIONS": "20",
 				"CALCULATOR_DEFAULT_PRECISION": "12",
-				"CALCULATOR_MAX_PRECISION": "20"
+				"CALCULATOR_MAX_PRECISION": "20",
+				"CLOCK_DEFAULT_TIMEZONE": "",
+				"CLOCK_DEFAULT_LOCALE": "en-US"
 			}
 		},
 		"document-scraper": {
@@ -255,14 +321,6 @@ npm run mcp:sync-lmstudio
 				"DOC_SCRAPER_WORKSPACE_ROOT": ""
 			}
 		},
-		"clock": {
-			"command": "node",
-			"args": ["Clock/dist/mcp-server.js"],
-			"env": {
-				"CLOCK_DEFAULT_TIMEZONE": "",
-				"CLOCK_DEFAULT_LOCALE": "en-US"
-			}
-		},
 		"browserless": {
 			"command": "node",
 			"args": ["Browserless/dist/mcp-server.js"],
@@ -274,16 +332,6 @@ npm run mcp:sync-lmstudio
 				"BROWSERLESS_CONCURRENCY_LIMIT": "5"
 			}
 		},
-		"ask-user": {
-			"command": "node",
-			"args": ["AskUser/dist/mcp-server.js"],
-			"env": {
-				"ASK_USER_DB_PATH": "./memory.db",
-				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
-				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
-				"ASK_USER_MAX_QUESTIONS": "20"
-			}
-		},
 		"rag": {
 			"command": "node",
 			"args": ["RAG/dist/mcp-server.js"],
@@ -292,7 +340,7 @@ npm run mcp:sync-lmstudio
 				"RAG_EMBEDDINGS_MODE": "lmstudio",
 				"RAG_EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
 				"RAG_DOC_SCRAPER_ENDPOINT": "http://localhost:3336/tools/read_document",
-				"RAG_ASK_USER_ENDPOINT": "http://localhost:3338/tools/ask_user_interview",
+				"RAG_ASK_USER_ENDPOINT": "http://localhost:3338/tools/interview_user",
 				"RAG_BYPASS_APPROVAL": "true",
 				"RAG_CHUNK_SIZE_TOKENS": "384",
 				"RAG_CHUNK_OVERLAP_TOKENS": "75"
@@ -315,21 +363,17 @@ npm run mcp:sync-lmstudio
 				"SKILLS_DB_PATH": "./skills.db"
 			}
 		},
-		"ecm": {
-			"command": "node",
-			"args": ["ECM/dist/mcp-server.js"],
-			"env": {
-				"ECM_DB_PATH": "./ecm.db",
-				"ECM_EMBEDDINGS_MODE": "lmstudio",
-				"ECM_EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
-			}
-		},
 		"slash-commands": {
 			"command": "node",
 			"args": ["SlashCommands/dist/mcp-server.js"],
 			"env": {
 				"SLASH_DEFAULT_SESSION": "default"
 			}
+		},
+		"3d-tool": {
+			"command": "node",
+			"args": ["3DTool/dist/mcp-server.js"],
+			"env": {}
 		}
 	}
 }
@@ -451,7 +495,6 @@ See [Memory/README.md](Memory/README.md) for details.
 | [Memory/README.md](Memory/README.md) | Memory persistence API |
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
-| [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
 | [CLI/README.md](CLI/README.md) | CLI command reference |
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
@@ -463,10 +506,9 @@ See [Memory/README.md](Memory/README.md) for details.
 |---------|--------|-------|
 | CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 16 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands |
+| 16 runtime tool servers | ✅ | Terminal, WebBrowser, Basic, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, CSVExporter, Git, FileEditor, PackageManager, SlashCommands |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
-| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |
 | Biome format + lint | ✅ | CI gate, auto-fix on save |
 | Jest test suite | ✅ | 80% coverage minimum |
 | SQLite memory | ✅ | Task history, patterns, rules |

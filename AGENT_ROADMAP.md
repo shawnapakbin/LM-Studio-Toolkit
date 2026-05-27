@@ -136,7 +136,11 @@ This plan is tailored to the current LLM Toolkit workspace:
 
 **Acceptance**: `npm run eval:run` writes evaluation results + golden traces and fails the gate if baseline thresholds are violated.
 
-### 11) Workspace Operations ✅
+### 11) Media Tools (Phase 4) ✅
+- [x] Integrate `3DTool` to allow reading, rendering and LLM editing of 3D models.
+- [x] Implement live-reloading (SSE), interactive pinpoint view annotations and isolated workspace boundary security.
+
+### 12) Workspace Operations ✅
 - [x] Add root task(s) to build/test all tools together
 - [x] Add startup script to verify MCP binaries + env before LM Studio use
 - [x] Keep top-level `mcp.json` block synchronized when tools are added

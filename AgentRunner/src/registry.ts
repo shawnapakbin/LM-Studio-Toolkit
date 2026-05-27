@@ -4,6 +4,14 @@
  * Provides tool discovery, health checking, and metadata management.
  */
 
+import { toolEndpoint } from "@shared/ports";
+
+/** Milliseconds before a health-check HTTP request is aborted. */
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
+
+/** Milliseconds between automatic health-check cycles. */
+const HEALTH_CHECK_INTERVAL_MS = 60000;
+
 /**
  * Tool capability categories
  */
@@ -134,7 +142,7 @@ export class ToolRegistry {
     try {
       const response = await fetch(tool.healthEndpoint, {
         method: "GET",
-        signal: AbortSignal.timeout(5000), // 5s timeout
+        signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS), // 5s timeout
       });
 
       const responseTime = Date.now() - startTime;
@@ -207,7 +215,7 @@ export class ToolRegistry {
     try {
       const response = await fetch(tool.schemaEndpoint, {
         method: "GET",
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -223,7 +231,7 @@ export class ToolRegistry {
   /**
    * Start periodic health checks
    */
-  startHealthCheckMonitor(intervalMs = 60000): void {
+  startHealthCheckMonitor(intervalMs = HEALTH_CHECK_INTERVAL_MS): void {
     if (this.healthCheckInterval) {
       this.stopHealthCheckMonitor();
     }
@@ -286,8 +294,6 @@ export const defaultRegistry = new ToolRegistry();
  * Register default tools from the workspace
  */
 export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): void {
-  const basePort = Number(process.env.BASE_PORT) || 3330;
-
   // Terminal Tool
   registry.register({
     id: "terminal",
@@ -295,9 +301,9 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     description: "Execute shell commands with safety policies",
     version: "1.0.0",
     capabilities: [ToolCapability.EXECUTE, ToolCapability.READ, ToolCapability.WRITE],
-    httpEndpoint: `http://localhost:${basePort}`,
-    healthEndpoint: `http://localhost:${basePort}/health`,
-    schemaEndpoint: `http://localhost:${basePort}/tool-schema`,
+    httpEndpoint: toolEndpoint("terminal"),
+    healthEndpoint: `${toolEndpoint("terminal")}/health`,
+    schemaEndpoint: `${toolEndpoint("terminal")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 
@@ -308,9 +314,9 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     description: "Browse web pages with SSRF protection",
     version: "1.0.0",
     capabilities: [ToolCapability.READ],
-    httpEndpoint: `http://localhost:${basePort + 4}`,
-    healthEndpoint: `http://localhost:${basePort + 4}/health`,
-    schemaEndpoint: `http://localhost:${basePort + 4}/tool-schema`,
+    httpEndpoint: toolEndpoint("webbrowser"),
+    healthEndpoint: `${toolEndpoint("webbrowser")}/health`,
+    schemaEndpoint: `${toolEndpoint("webbrowser")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 
@@ -321,9 +327,9 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     description: "Evaluate engineering and mathematical expressions",
     version: "1.0.0",
     capabilities: [ToolCapability.COMPUTE],
-    httpEndpoint: `http://localhost:${basePort + 5}`,
-    healthEndpoint: `http://localhost:${basePort + 5}/health`,
-    schemaEndpoint: `http://localhost:${basePort + 5}/tool-schema`,
+    httpEndpoint: toolEndpoint("calculator"),
+    healthEndpoint: `${toolEndpoint("calculator")}/health`,
+    schemaEndpoint: `${toolEndpoint("calculator")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 
@@ -334,9 +340,9 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     description: "Read and scrape local or remote documents with PDF encryption detection",
     version: "1.0.0",
     capabilities: [ToolCapability.READ],
-    httpEndpoint: `http://localhost:${basePort + 6}`,
-    healthEndpoint: `http://localhost:${basePort + 6}/health`,
-    schemaEndpoint: `http://localhost:${basePort + 6}/tool-schema`,
+    httpEndpoint: toolEndpoint("documentscraper"),
+    healthEndpoint: `${toolEndpoint("documentscraper")}/health`,
+    schemaEndpoint: `${toolEndpoint("documentscraper")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 
@@ -347,16 +353,17 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     description: "Get current date and time with timezone support",
     version: "1.0.0",
     capabilities: [ToolCapability.READ],
-    httpEndpoint: `http://localhost:${basePort + 7}`,
-    healthEndpoint: `http://localhost:${basePort + 7}/health`,
-    schemaEndpoint: `http://localhost:${basePort + 7}/tool-schema`,
+    httpEndpoint: toolEndpoint("clock"),
+    healthEndpoint: `${toolEndpoint("clock")}/health`,
+    schemaEndpoint: `${toolEndpoint("clock")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 
   // Browserless Tool (MCP Cloud)
   const browserlessToken =
     process.env.BROWSERLESS_API_TOKEN || process.env.BROWSERLESS_API_KEY || "";
-  const browserlessBaseUrl = "https://mcp.browserless.io/mcp";
+  const browserlessBaseUrl =
+    process.env.BROWSERLESS_MCP_ENDPOINT ?? "https://mcp.browserless.io/mcp";
   const browserlessEndpoint = browserlessToken
     ? `${browserlessBaseUrl}?token=${browserlessToken}`
     : browserlessBaseUrl;
@@ -372,16 +379,17 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     status: ToolStatus.UNKNOWN,
   });
 
-  // AskUser Tool
+  // AskUser Tool (interview_user)
   registry.register({
-    id: "ask-user",
-    name: "AskUser",
-    description: "Interactive user interview workflow for planning and clarification",
+    id: "interview_user",
+    name: "InterviewUser",
+    description:
+      "Interactive interview workflow for clarification and user feedback. Purpose: clarification_only. Not for tool-use approval.",
     version: "1.0.0",
     capabilities: [ToolCapability.READ, ToolCapability.EXECUTE],
-    httpEndpoint: `http://localhost:${basePort + 8}`,
-    healthEndpoint: `http://localhost:${basePort + 8}/health`,
-    schemaEndpoint: `http://localhost:${basePort + 8}/tool-schema`,
+    httpEndpoint: toolEndpoint("askuser"),
+    healthEndpoint: `${toolEndpoint("askuser")}/health`,
+    schemaEndpoint: `${toolEndpoint("askuser")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 
@@ -392,9 +400,9 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
     description: "Persistent knowledge ingestion and retrieval with approval-gated writes",
     version: "1.0.0",
     capabilities: [ToolCapability.READ, ToolCapability.WRITE, ToolCapability.EXECUTE],
-    httpEndpoint: `http://localhost:${basePort + 9}`,
-    healthEndpoint: `http://localhost:${basePort + 9}/health`,
-    schemaEndpoint: `http://localhost:${basePort + 9}/tool-schema`,
+    httpEndpoint: toolEndpoint("rag"),
+    healthEndpoint: `${toolEndpoint("rag")}/health`,
+    schemaEndpoint: `${toolEndpoint("rag")}/tool-schema`,
     status: ToolStatus.UNKNOWN,
   });
 }

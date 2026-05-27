@@ -8,6 +8,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   AuditVulnerabilitiesSchema,
   DetectPackageManagerSchema,
@@ -38,6 +39,11 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3012;
 const WORKSPACE_ROOT = getPackageManagerWorkspaceRoot();
+const approval = new SessionApprovalController({
+  toolName: "PackageManager",
+  askUserEndpoint: process.env.PACKAGE_MANAGER_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "PACKAGE_MANAGER_BYPASS_APPROVAL",
+});
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -102,6 +108,10 @@ app.post("/tools/install_packages", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = InstallPackagesSchema.parse(req.body);
 
     const pkgCheck = validatePackageNames(input.packages);
@@ -148,6 +158,25 @@ app.post("/tools/install_packages", async (req, res) => {
       );
     }
 
+    const gate = await approval.ensureApproved({
+      action: "package_manager:install_packages",
+      details: `Packages [${input.packages.join(", ")}] will be installed using ${detection.detected.manager}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
+    }
+
     const result = await installPackages(input, detection.detected.manager, WORKSPACE_ROOT);
     return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
@@ -178,6 +207,10 @@ app.post("/tools/update_packages", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = UpdatePackagesSchema.parse(req.body);
 
     if (input.packages) {
@@ -225,6 +258,26 @@ app.post("/tools/update_packages", async (req, res) => {
       );
     }
 
+    const target = input.all ? "all packages" : `packages [${(input.packages ?? []).join(", ")}]`;
+    const gate = await approval.ensureApproved({
+      action: "package_manager:update_packages",
+      details: `${target} will be updated using ${detection.detected.manager}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
+    }
+
     const result = await updatePackages(input, detection.detected.manager, WORKSPACE_ROOT);
     return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
@@ -255,6 +308,10 @@ app.post("/tools/audit_vulnerabilities", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = AuditVulnerabilitiesSchema.parse(req.body);
 
     const rateCheck = checkRateLimit("audit_vulnerabilities");
@@ -286,6 +343,27 @@ app.post("/tools/audit_vulnerabilities", async (req, res) => {
       return res.json(
         createErrorResponse(ErrorCode.POLICY_BLOCKED, opCheck.reason!, Date.now() - start, traceId),
       );
+    }
+
+    if (input.fix) {
+      const gate = await approval.ensureApproved({
+        action: "package_manager:audit_vulnerabilities_fix",
+        details: `Vulnerability fixes will be applied automatically using ${detection.detected.manager}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        const status = gate.response.success
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
+        return res.status(status).json(gate.response);
+      }
     }
 
     const result = await auditVulnerabilities(input, detection.detected.manager, WORKSPACE_ROOT);
@@ -374,6 +452,10 @@ app.post("/tools/remove_dependencies", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = RemoveDependenciesSchema.parse(req.body);
 
     const pkgCheck = validatePackageNames(input.packages);
@@ -417,6 +499,25 @@ app.post("/tools/remove_dependencies", async (req, res) => {
       return res.json(
         createErrorResponse(ErrorCode.POLICY_BLOCKED, opCheck.reason!, Date.now() - start, traceId),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "package_manager:remove_dependencies",
+      details: `Packages [${input.packages.join(", ")}] will be removed using ${detection.detected.manager}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await removeDependencies(input, detection.detected.manager, WORKSPACE_ROOT);
@@ -493,6 +594,10 @@ app.post("/tools/lock_dependencies", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = LockDependenciesSchema.parse(req.body);
 
     const detection = await detectPackageManager(WORKSPACE_ROOT);
@@ -505,6 +610,25 @@ app.post("/tools/lock_dependencies", async (req, res) => {
           traceId,
         ),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "package_manager:lock_dependencies",
+      details: `Dependency lock/frozen install operation will run using ${detection.detected.manager}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await lockDependencies(input, detection.detected.manager, WORKSPACE_ROOT);

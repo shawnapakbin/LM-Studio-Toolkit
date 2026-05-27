@@ -2,6 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createPythonShellMcpServer } from "../src/mcp-server";
 
+process.env.PYTHON_SHELL_BYPASS_APPROVAL = "1";
+
 type ToolResult = {
   success: boolean;
   errorCode?: string;

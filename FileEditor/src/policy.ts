@@ -116,11 +116,16 @@ export function isAllowedExtensionForWrite(filePath: string): {
 }
 
 /**
+ * Maximum allowed file size for read operations (10 MB).
+ */
+export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+/**
  * Validate maximum file size for read operations
  */
 export function validateFileSize(
   size: number,
-  maxSize: number = 10 * 1024 * 1024,
+  maxSize: number = MAX_FILE_SIZE,
 ): { valid: boolean; error?: string } {
   if (size > maxSize) {
     return {

@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   DEFAULT_MAX_OUTPUT_CHARS,
   WORKSPACE_ROOT,
@@ -19,12 +20,21 @@ dotenv.config();
 const DEFAULT_TIMEOUT_MS = Number(process.env.TERMINAL_DEFAULT_TIMEOUT_MS ?? 60000);
 const MAX_TIMEOUT_MS = Number(process.env.TERMINAL_MAX_TIMEOUT_MS ?? 120000);
 const MAX_OUTPUT_CHARS = DEFAULT_MAX_OUTPUT_CHARS;
+const approval = new SessionApprovalController({
+  toolName: "Terminal",
+  askUserEndpoint: process.env.TERMINAL_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "TERMINAL_BYPASS_APPROVAL",
+});
 
 type RunTerminalCommandInput = {
   command: string;
   timeoutMs?: number;
   cwd?: string;
   punchout?: boolean;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 // Auto-detect operating system
@@ -63,6 +73,21 @@ const runTerminalCommandInputSchema: Record<string, z.ZodTypeAny> = {
     .describe(
       "When true, opens a visible terminal window so the user can watch the command run. The terminal is reused if still open; otherwise a new window is launched. Output is NOT captured—it appears only in the terminal window.",
     ),
+  approvalToken: z
+    .string()
+    .optional()
+    .describe(
+      "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+    ),
+  approvalInterviewId: z
+    .string()
+    .optional()
+    .describe("AskUser interview ID used to verify explicit approval."),
+  sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+  taskRunId: z
+    .string()
+    .optional()
+    .describe("Alternate session identity when sessionId is unavailable."),
 };
 
 export function createTerminalMcpServer(): McpServer {
@@ -84,7 +109,16 @@ export function createTerminalMcpServer(): McpServer {
       inputSchema: runTerminalCommandInputSchema,
     },
     async (input): Promise<CallToolResult> => {
-      const { command, timeoutMs, cwd, punchout } = input as RunTerminalCommandInput;
+      const {
+        command,
+        timeoutMs,
+        cwd,
+        punchout,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      } = input as RunTerminalCommandInput;
       if (isCommandBlocked(command)) {
         const blockedResult = {
           success: false,
@@ -117,6 +151,24 @@ export function createTerminalMcpServer(): McpServer {
       const effectiveTimeoutMs = Number.isFinite(timeoutMs)
         ? Math.min(Math.max(Number(timeoutMs), 1), MAX_TIMEOUT_MS)
         : DEFAULT_TIMEOUT_MS;
+
+      const gate = await approval.ensureApproved({
+        action: "terminal:run_terminal_command",
+        details: `Command '${command}' will be executed in local terminal at '${safeCwd.cwd}'.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        const approvalResult = gate.response;
+        const gateRes = approvalResult as { success: boolean };
+        return {
+          isError: !gateRes.success,
+          content: [{ type: "text", text: JSON.stringify(approvalResult, null, 2) }],
+          structuredContent: approvalResult as unknown as Record<string, unknown>,
+        };
+      }
 
       // -------------------------------------------------------------------
       // Punchout mode: open a visible terminal and return immediately.

@@ -1,3 +1,5 @@
+process.env.TERMINAL_BYPASS_APPROVAL = "1";
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createTerminalMcpServer } from "../src/mcp-server";

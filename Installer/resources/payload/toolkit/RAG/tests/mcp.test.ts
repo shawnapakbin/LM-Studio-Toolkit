@@ -1,7 +1,5 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createRAGMcpServer } from "../src/mcp-server";
-import { closeService } from "../src/rag";
 
 type ToolResult = {
   success: boolean;
@@ -57,15 +55,17 @@ describe("RAG MCP integration", () => {
   let clientTransport: InMemoryTransport;
   let serverTransport: InMemoryTransport;
   let originalRagBypassApproval: string | undefined;
+  let closeServiceFn: () => void = () => undefined;
 
   beforeAll(async () => {
+    jest.resetModules();
     originalRagBypassApproval = process.env.RAG_BYPASS_APPROVAL;
     process.env.RAG_BYPASS_APPROVAL = "false";
     process.env.RAG_DB_PATH = ":memory:";
     process.env.RAG_EMBEDDINGS_MODE = "mock";
 
     const fetchMock = jest.fn(async (input: string) => {
-      if (input.includes("ask_user_interview")) {
+      if (input.includes("interview_user")) {
         return jsonResponse({
           success: true,
           status: "answered",
@@ -92,7 +92,10 @@ describe("RAG MCP integration", () => {
       value: fetchMock,
     });
 
-    const server = createRAGMcpServer();
+    const ragModule = await import("../src/rag");
+    const mcpModule = await import("../src/mcp-server");
+    closeServiceFn = ragModule.closeService;
+    const server = mcpModule.createRAGMcpServer();
     [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
     client = new Client({ name: "rag-mcp-test-client", version: "1.0.0" });
@@ -100,7 +103,7 @@ describe("RAG MCP integration", () => {
   });
 
   afterAll(async () => {
-    closeService();
+    closeServiceFn();
     if (originalRagBypassApproval === undefined) {
       delete process.env.RAG_BYPASS_APPROVAL;
     } else {

@@ -1,5 +1,6 @@
 // Must be set before any import that triggers the store singleton
 process.env.SKILLS_DB_PATH = ":memory:";
+process.env.SKILLS_BYPASS_APPROVAL = "1";
 
 describe("Skills MCP Server", () => {
   test("createSkillsMcpServer creates server without throwing", async () => {

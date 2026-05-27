@@ -24,12 +24,12 @@ describe("AskUser HTTP Endpoints", () => {
     const response = await request(app).get("/tool-schema");
 
     expect(response.status).toBe(200);
-    expect(response.body.name).toBe("ask_user_interview");
+    expect(response.body.name).toBe("interview_user");
   });
 
   test("create and submit interview successfully", async () => {
     const createResponse = await request(app)
-      .post("/tools/ask_user_interview")
+      .post("/tools/interview_user")
       .send({
         action: "create",
         payload: {
@@ -60,7 +60,7 @@ describe("AskUser HTTP Endpoints", () => {
     expect(createResponse.body.interviewId).toBeDefined();
 
     const submitResponse = await request(app)
-      .post("/tools/ask_user_interview")
+      .post("/tools/interview_user")
       .send({
         action: "submit",
         payload: {
@@ -79,7 +79,7 @@ describe("AskUser HTTP Endpoints", () => {
 
   test("rejects invalid create payload", async () => {
     const response = await request(app)
-      .post("/tools/ask_user_interview")
+      .post("/tools/interview_user")
       .send({
         action: "create",
         payload: {
@@ -94,7 +94,7 @@ describe("AskUser HTTP Endpoints", () => {
 
   test("returns not found for missing interview", async () => {
     const response = await request(app)
-      .post("/tools/ask_user_interview")
+      .post("/tools/interview_user")
       .send({
         action: "get",
         payload: {

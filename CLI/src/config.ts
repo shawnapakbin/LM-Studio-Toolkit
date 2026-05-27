@@ -2,21 +2,12 @@
  * CLI Configuration — tool endpoint base URLs and defaults
  */
 
-export const TOOL_PORTS: Record<string, number> = {
-  terminal: 3330,
-  webbrowser: 3334,
-  calculator: 3335,
-  documentscraper: 3336,
-  clock: 3337,
-  askuser: 3338,
-  rag: 3339,
-  pythonshell: 3343,
-  skills: 3341,
-  ecm: 3342,
-};
+import { TOOL_PORTS, toolEndpoint } from "@shared/ports";
+
+export { TOOL_PORTS };
 
 export const TOOL_ENDPOINTS: Record<string, string> = Object.fromEntries(
-  Object.entries(TOOL_PORTS).map(([name, port]) => [name, `http://localhost:${port}`]),
+  Object.keys(TOOL_PORTS).map((name) => [name, toolEndpoint(name)]),
 );
 
 export const DEFAULT_ECM_SESSION = "cli-session";

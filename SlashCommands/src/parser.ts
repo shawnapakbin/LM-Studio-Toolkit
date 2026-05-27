@@ -106,14 +106,32 @@ export function parseSlashCommand(raw: string): DispatchDescriptor {
   switch (cmd.toLowerCase()) {
     // ── /compact ──────────────────────────────────────────────────────────
     case "compact": {
-      const keepNewest = flag(flags, "keep-newest") ? Number(flag(flags, "keep-newest")) : 5;
       const sessionId = flag(flags, "session") ?? "default";
-      return { tool: "ecm", action: "compact", params: { sessionId, keepNewest } };
+      const limit = flag(flags, "limit") ? Number(flag(flags, "limit")) : 8192;
+      const used = flag(flags, "used") ? Number(flag(flags, "used")) : limit;
+      const keepNewest = flag(flags, "keep-newest")
+        ? Number(flag(flags, "keep-newest"))
+        : undefined;
+      const threshold = flag(flags, "threshold") ? Number(flag(flags, "threshold")) : undefined;
+      return {
+        tool: "ecm",
+        action: "on_user_turn",
+        params: {
+          sessionId,
+          currentUsedTokens: used,
+          contextLimit: limit,
+          ...(keepNewest !== undefined && { keepNewest }),
+          ...(threshold !== undefined && { threshold }),
+        },
+      };
     }
 
     // ── /ecm <action> ─────────────────────────────────────────────────────
     case "ecm": {
       const sessionId = flag(flags, "session") ?? "default";
+      // For ecm subcommands, `sub` is the action keyword — exclude it from
+      // positional/content tokens.
+      const ecmContentTokens = positional.slice(1);
       switch ((sub ?? "").toLowerCase()) {
         case "store":
           return {
@@ -121,94 +139,34 @@ export function parseSlashCommand(raw: string): DispatchDescriptor {
             action: "store_segment",
             params: {
               sessionId,
-              content: positional.join(" ") || flag(flags, "content") || "",
+              content: ecmContentTokens.join(" ") || flag(flags, "content") || "",
               type: flag(flags, "type") ?? "conversation_turn",
               importance: flag(flags, "importance") ? Number(flag(flags, "importance")) : undefined,
             },
           };
-        case "retrieve":
-          return {
-            tool: "ecm",
-            action: "retrieve_context",
-            params: {
-              sessionId,
-              query: positional.join(" ") || flag(flags, "query") || "",
-              topK: flag(flags, "top-k") ? Number(flag(flags, "top-k")) : undefined,
-              maxTokens: flag(flags, "max-tokens") ? Number(flag(flags, "max-tokens")) : undefined,
-              minScore: flag(flags, "min-score") ? Number(flag(flags, "min-score")) : undefined,
-            },
-          };
-        case "list":
-          return {
-            tool: "ecm",
-            action: "list_segments",
-            params: {
-              sessionId,
-              limit: flag(flags, "limit") ? Number(flag(flags, "limit")) : undefined,
-              offset: flag(flags, "offset") ? Number(flag(flags, "offset")) : undefined,
-            },
-          };
-        case "delete":
-          return {
-            tool: "ecm",
-            action: "delete_segment",
-            params: { sessionId, segmentId: positional[0] ?? flag(flags, "id") ?? "" },
-          };
-        case "summarize":
-          return {
-            tool: "ecm",
-            action: "summarize_session",
-            params: {
-              sessionId,
-              keepNewest: flag(flags, "keep-newest")
-                ? Number(flag(flags, "keep-newest"))
-                : undefined,
-            },
-          };
+        case "status":
+          return { tool: "ecm", action: "get_status", params: { sessionId } };
         case "clear":
           return { tool: "ecm", action: "clear_session", params: { sessionId } };
-        case "compact":
+        case "compact": {
+          const limit = flag(flags, "limit") ? Number(flag(flags, "limit")) : 8192;
+          const used = flag(flags, "used") ? Number(flag(flags, "used")) : limit;
+          const keepNewest = flag(flags, "keep-newest")
+            ? Number(flag(flags, "keep-newest"))
+            : undefined;
+          const threshold = flag(flags, "threshold") ? Number(flag(flags, "threshold")) : undefined;
           return {
             tool: "ecm",
-            action: "compact",
+            action: "on_user_turn",
             params: {
               sessionId,
-              keepNewest: flag(flags, "keep-newest") ? Number(flag(flags, "keep-newest")) : 5,
+              currentUsedTokens: used,
+              contextLimit: limit,
+              ...(keepNewest !== undefined && { keepNewest }),
+              ...(threshold !== undefined && { threshold }),
             },
           };
-        case "continuous": {
-          const mode = (rest[0] ?? flag(flags, "mode") ?? "").toLowerCase();
-          if (["on", "enable", "enabled", "true", "1"].includes(mode)) {
-            return {
-              tool: "ecm",
-              action: "set_continuous_compact",
-              params: {
-                sessionId,
-                enabled: true,
-                keepNewest: flag(flags, "keep-newest")
-                  ? Number(flag(flags, "keep-newest"))
-                  : undefined,
-              },
-            };
-          }
-          if (["off", "disable", "disabled", "false", "0"].includes(mode)) {
-            return {
-              tool: "ecm",
-              action: "set_continuous_compact",
-              params: {
-                sessionId,
-                enabled: false,
-              },
-            };
-          }
-          return { tool: "unknown", raw };
         }
-        case "policy":
-          return {
-            tool: "ecm",
-            action: "get_session_policy",
-            params: { sessionId },
-          };
         default:
           return { tool: "unknown", raw };
       }

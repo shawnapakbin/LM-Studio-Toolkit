@@ -739,7 +739,8 @@ const registerTool = server.registerTool.bind(server) as unknown as (
 registerTool(
   "browserless_smartscraper",
   {
-    description: "Extracts structured content from a web page using Browserless SmartScraper.",
+    description:
+      "Extracts structured content from a web page using Browserless SmartScraper on the Browserless cloud. Prefer this when you need Browserless-hosted extraction and cloud browser execution.",
     inputSchema: smartscraperInputSchema,
   },
   handleSmartscraper,
@@ -748,7 +749,8 @@ registerTool(
 registerTool(
   "browserless_function",
   {
-    description: "Executes custom Puppeteer JavaScript code on the Browserless cloud.",
+    description:
+      "Executes custom Puppeteer JavaScript code on the Browserless cloud for advanced remote browser automation.",
     inputSchema: functionInputSchema,
   },
   handleFunction,
@@ -795,7 +797,7 @@ registerTool(
   "browserless_bql",
   {
     description:
-      "Execute BrowserQL queries for robust content extraction from dynamic sites. This is the recommended method for scraping modern websites with JavaScript-heavy content, as it provides more reliable and structured data than traditional Puppeteer-based approaches.",
+      "Execute BrowserQL queries on the Browserless cloud for robust content extraction from dynamic sites. This is recommended for JavaScript-heavy targets and structured remote extraction workflows.",
     inputSchema: bqlInputSchema,
   },
   handleBQL,

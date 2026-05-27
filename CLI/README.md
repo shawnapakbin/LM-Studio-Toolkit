@@ -103,27 +103,27 @@ npx tsx CLI/src/index.ts <command>
 | `llm memory clear` | Wipe all run history (prompts for confirmation) |
 | `llm memory clear --confirm` | Skip confirmation |
 
-### ECM (Extended Context Memory)
+### ECM (Enhanced Context Memory)
 
 | Command | Description |
 |---|---|
 | `llm ecm store -c "<text>"` | Store a memory segment |
-| `llm ecm retrieve -q "<query>"` | Retrieve relevant segments by query |
-| `llm ecm list` | List all segments in a session |
-| `llm ecm delete <segmentId>` | Delete a segment by ID |
-| `llm ecm summarize` | Summarize session and collapse old segments |
+| `llm ecm status` | Show segment count and estimated token usage |
 | `llm ecm clear` | Clear all segments in a session |
-| `llm ecm compact` | **Compact context** — summarize + drop old segments |
+| `llm ecm compact` | **Compact context** — manually trigger `on_user_turn` compaction |
 
 ### /compact (top-level shortcut)
 
 ```bash
 llm compact
 llm compact --session my-session
-llm compact --keep-newest 10
+llm compact --used 5000 --limit 8000
+llm compact --keep-newest 4 --threshold 0.5
 ```
 
-Runs `summarize_session` on the ECM session, then reports remaining segment count. Use this to free up context memory when a session grows large.
+Manually triggers ECM `on_user_turn` for the session. By default forces the
+threshold check (`--used` defaults to `--limit`). Pass real token counts to
+respect the natural ratio gate.
 
 ### RAG
 

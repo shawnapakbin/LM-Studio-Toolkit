@@ -19,7 +19,7 @@ beforeAll(async () => {
   process.env.RAG_EMBEDDINGS_MODE = "mock";
 
   const fetchMock = jest.fn(async (input: string) => {
-    if (input.includes("ask_user_interview")) {
+    if (input.includes("interview_user")) {
       return jsonResponse({
         success: true,
         status: "answered",

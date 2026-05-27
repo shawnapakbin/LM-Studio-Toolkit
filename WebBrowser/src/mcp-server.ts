@@ -4,12 +4,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
 import { type BrowseInput, browseWeb } from "./browser";
+import { MAX_CONTENT_CHARS } from "./policy";
 
 dotenv.config();
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_DEFAULT_TIMEOUT_MS ?? 20000);
 const MAX_TIMEOUT_MS = Number(process.env.BROWSER_MAX_TIMEOUT_MS ?? 60000);
-const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
 
 const server = new McpServer({
   name: "lm-studio-web-browser-tool",
@@ -59,7 +59,7 @@ const browseWebInputSchema: Record<string, z.ZodTypeAny> = {
   "browse_web",
   {
     description:
-      "Fetches a web page using a full headless Chromium browser and returns title and extracted content. Supports JavaScript-rendered pages, SPAs, cookie injection, screenshots, and markdown output.",
+      "Fetches a web page using a local headless Chromium browser and returns title and extracted content. Supports JavaScript-rendered pages, SPAs, cookie injection, screenshots, and markdown output. Prefer this for general local browsing and extraction; use Browserless tools for Browserless cloud automation workflows.",
     inputSchema: browseWebInputSchema,
   },
   async (input: BrowseInput): Promise<CallToolResult> => {

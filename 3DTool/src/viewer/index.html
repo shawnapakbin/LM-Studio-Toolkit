@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3DTool Sandbox Viewer</title>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #1e1e1e; font-family: sans-serif; color: white; }
+    canvas { display: block; }
+    #ui { position: absolute; bottom: 20px; left: 20px; right: 20px; pointer-events: none; }
+    .panel { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 6px; pointer-events: auto; }
+    #status {
+      display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: rgba(0,0,0,0.7); padding: 12px 20px; border-radius: 6px; font-size: 14px;
+      pointer-events: none;
+    }
+    
+    #prompt-box {
+      position: absolute; display: none; background: rgba(30,30,30,0.95); border: 1px solid #555;
+      padding: 10px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 100;
+    }
+    #prompt-input { width: 250px; padding: 6px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; }
+    .prompt-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .btn-primary { background: #007acc; color: white; }
+    .btn-primary:hover { background: #0098ff; }
+    .btn-danger  { background: #c0392b; color: white; }
+    .btn-danger:hover  { background: #e74c3c; }
+    .btn-ghost   { background: transparent; color: #aaa; border: 1px solid #555; }
+    .btn-ghost:hover   { color: white; border-color: #888; }
+    #btn-clear-all { margin-left: 12px; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="ui">
+    <div class="panel">
+      Hold <b>Shift+Click</b> to annotate &nbsp;|&nbsp; Click a pin to reopen it
+      <button class="btn btn-ghost" id="btn-clear-all">Clear all pins</button>
+    </div>
+  </div>
+
+  <div id="status">Loading…</div>
+
+  <div id="prompt-box">
+    <div style="margin-bottom: 5px; font-size: 12px; color: #ccc;" id="prompt-coords"></div>
+    <input type="text" id="prompt-input" placeholder="Instruction for LLM..." />
+    <div class="prompt-actions">
+      <button class="btn btn-primary" id="prompt-submit">Submit</button>
+      <button class="btn btn-ghost"   id="prompt-cancel">Cancel</button>
+      <button class="btn btn-danger"  id="prompt-delete" style="display:none">Delete pin</button>
+    </div>
+  </div>
+
+  <script type="module">
+    // Surface any uncaught module errors into the status div
+    window.addEventListener('error', (e) => {
+      const el = document.getElementById('status');
+      if (el) { el.textContent = 'JS error: ' + e.message; el.style.display = 'block'; }
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const el = document.getElementById('status');
+      if (el) { el.textContent = 'Unhandled rejection: ' + e.reason; el.style.display = 'block'; }
+    });
+
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+    let scene, camera, renderer, controls;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // pins[i] = { mesh: THREE.Mesh, data: {x,y,z,meshId}, prompt: string|null }
+    const pins = [];
+    let currentEditingPinIdx = -1;
+    let currentModel = null;
+
+    // Status overlay
+    const statusEl = document.getElementById('status');
+
+    init();
+    animate();
+    setupSSE();
+    loadModel();
+
+    function init() {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 10000);
+      camera.position.set(0, 5, 20);
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1e1e1e);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      dirLight.position.set(10, 20, 10);
+      scene.add(dirLight);
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+      fillLight.position.set(-10, -10, -10);
+      scene.add(fillLight);
+
+      // Grid helper as visual reference
+      const grid = new THREE.GridHelper(100, 20, 0x444444, 0x333333);
+      scene.add(grid);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('click', onClick);
+      document.getElementById('prompt-submit').addEventListener('click', submitInteraction);
+      document.getElementById('prompt-cancel').addEventListener('click', cancelAnnotation);
+      document.getElementById('prompt-delete').addEventListener('click', deleteAnnotation);
+      document.getElementById('btn-clear-all').addEventListener('click', clearAllAnnotations);
+      document.getElementById('prompt-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitInteraction();
+        if (e.key === 'Escape') cancelAnnotation();
+      });
+    }
+
+    function setupSSE() {
+      const evtSource = new EventSource('/api/stream');
+      evtSource.onmessage = function(event) {
+        if (event.data === 'reload') loadModel();
+      };
+      evtSource.onerror = function() {
+        // SSE disconnect is non-fatal; viewer stays open
+      };
+    }
+
+    function loadModel() {
+      statusEl.textContent = 'Loading model…';
+      statusEl.style.display = 'block';
+
+      if (currentModel) {
+        scene.remove(currentModel);
+        currentModel = null;
+      }
+
+      const loader = new OBJLoader();
+      loader.load('/api/model?t=' + Date.now(), (object) => {
+        try {
+          // Always apply a MeshStandardMaterial so lighting works regardless of
+          // whether the OBJ ships with an MTL or a default MeshPhongMaterial.
+          const defaultMat = new THREE.MeshStandardMaterial({
+            color: 0x8899bb, roughness: 0.55, metalness: 0.08, side: THREE.DoubleSide
+          });
+          object.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.material = defaultMat;
+              if (child.geometry) child.geometry.computeVertexNormals();
+            }
+          });
+
+          // Center the object: compute bbox, then translate so centre lands at origin
+          const box = new THREE.Box3().setFromObject(object);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          object.position.sub(center);
+          scene.add(object);
+          currentModel = object;
+
+          // Fit camera to the (now-centred) bounding sphere
+          const box2 = new THREE.Box3().setFromObject(object);
+          const sphere = new THREE.Sphere();
+          box2.getBoundingSphere(sphere);
+          const r = sphere.radius || 1;
+          const fovRad = camera.fov * (Math.PI / 180);
+          const fitDist = (r / Math.sin(fovRad / 2)) * 1.6;
+          camera.position.set(r * 0.4, r * 0.6, fitDist);
+          camera.near = fitDist * 0.001;
+          camera.far  = fitDist * 200;
+          camera.updateProjectionMatrix();
+          controls.target.set(0, 0, 0);
+          controls.minDistance = r * 0.1;
+          controls.maxDistance = fitDist * 8;
+          controls.update();
+
+          statusEl.style.display = 'none';
+        } catch (err) {
+          statusEl.textContent = 'Error processing model: ' + err.message;
+          console.error('Model processing error:', err);
+        }
+      }, (xhr) => {
+        if (xhr.total) {
+          statusEl.textContent = `Loading… ${Math.round(xhr.loaded / xhr.total * 100)}%`;
+        }
+      }, (error) => {
+        statusEl.textContent = 'Failed to fetch model — check server logs';
+        console.error('OBJLoader fetch error:', error);
+      });
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function openPromptBox(screenX, screenY, data, existingPrompt, pinIdx) {
+      currentEditingPinIdx = pinIdx;
+      const isExisting = existingPrompt !== null;
+      // Position box, keeping it inside the viewport
+      const box = document.getElementById('prompt-box');
+      box.style.display = 'block';
+      const bw = 300, bh = 130;
+      box.style.left = Math.min(screenX, window.innerWidth  - bw - 10) + 'px';
+      box.style.top  = Math.min(screenY, window.innerHeight - bh - 10) + 'px';
+      document.getElementById('prompt-coords').innerText =
+        `${data.meshId}  (${data.x.toFixed(2)}, ${data.y.toFixed(2)}, ${data.z.toFixed(2)})`;
+      document.getElementById('prompt-input').value = existingPrompt || '';
+      document.getElementById('prompt-delete').style.display = isExisting ? 'inline-block' : 'none';
+      document.getElementById('prompt-input').focus();
+    }
+
+    function closePromptBox() {
+      document.getElementById('prompt-box').style.display = 'none';
+      document.getElementById('prompt-input').value = '';
+      currentEditingPinIdx = -1;
+    }
+
+    function cancelAnnotation() {
+      // Remove the pin if it was just placed and never submitted
+      if (currentEditingPinIdx !== -1 && pins[currentEditingPinIdx].prompt === null) {
+        scene.remove(pins[currentEditingPinIdx].mesh);
+        pins.splice(currentEditingPinIdx, 1);
+      }
+      closePromptBox();
+    }
+
+    function deleteAnnotation() {
+      if (currentEditingPinIdx === -1) return;
+      scene.remove(pins[currentEditingPinIdx].mesh);
+      pins.splice(currentEditingPinIdx, 1);
+      closePromptBox();
+    }
+
+    function clearAllAnnotations() {
+      for (const pin of pins) scene.remove(pin.mesh);
+      pins.length = 0;
+      closePromptBox();
+    }
+
+    function onClick(event) {
+      // Ignore clicks on UI elements
+      if (event.target !== renderer.domElement) return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      if (event.shiftKey) {
+        // New annotation: raycast against the model only
+        const modelTargets = currentModel ? [currentModel] : [];
+        const intersects = raycaster.intersectObjects(modelTargets, true);
+        if (intersects.length === 0) return;
+        const hit = intersects[0];
+
+        const pinGeom = new THREE.SphereGeometry(0.08, 12, 12);
+        const pinMat  = new THREE.MeshBasicMaterial({ color: 0xff3333 });
+        const pinMesh = new THREE.Mesh(pinGeom, pinMat);
+        pinMesh.position.copy(hit.point);
+        scene.add(pinMesh);
+
+        const data = { x: hit.point.x, y: hit.point.y, z: hit.point.z,
+                       meshId: hit.object.name || 'unnamed_mesh' };
+        pins.push({ mesh: pinMesh, data, prompt: null });
+        openPromptBox(event.clientX, event.clientY, data, null, pins.length - 1);
+
+      } else {
+        // Re-open existing pin
+        const pinMeshes = pins.map(p => p.mesh);
+        const intersects = raycaster.intersectObjects(pinMeshes, false);
+        if (intersects.length === 0) return;
+        const pinIdx = pins.findIndex(p => p.mesh === intersects[0].object);
+        if (pinIdx === -1) return;
+        const pin = pins[pinIdx];
+        openPromptBox(event.clientX, event.clientY, pin.data, pin.prompt, pinIdx);
+      }
+    }
+
+    function submitInteraction() {
+      const prompt = document.getElementById('prompt-input').value.trim();
+      if (!prompt || currentEditingPinIdx === -1) return;
+
+      const pin = pins[currentEditingPinIdx];
+      pin.prompt = prompt;
+      // Orange = submitted, red = pending
+      pin.mesh.material.color.setHex(0xff9900);
+
+      fetch('/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...pin.data, prompt })
+      }).catch(() => {/* non-fatal */});
+
+      closePromptBox();
+    }
+  </script>
+</body>
+</html>

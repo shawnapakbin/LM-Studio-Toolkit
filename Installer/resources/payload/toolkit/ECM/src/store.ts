@@ -111,7 +111,9 @@ export class ECMStore {
 
   countNonSummarySegments(sessionId: string): number {
     const row = this.db
-      .prepare("SELECT COUNT(*) as cnt FROM ecm_segments WHERE session_id = ? AND type != 'summary'")
+      .prepare(
+        "SELECT COUNT(*) as cnt FROM ecm_segments WHERE session_id = ? AND type != 'summary'",
+      )
       .get(sessionId) as { cnt: number };
     return row.cnt;
   }

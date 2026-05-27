@@ -1,9 +1,10 @@
-﻿// @ts-nocheck -- MCP SDK Zod type recursion causes OOM/TS2589 with many registerTool calls
+// @ts-nocheck -- MCP SDK Zod type recursion causes OOM/TS2589 with many registerTool calls
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   gitBranch,
   gitCheckout,
@@ -20,6 +21,12 @@ import {
 import { getGitWorkspaceRoot } from "./policy";
 
 dotenv.config();
+
+const approval = new SessionApprovalController({
+  toolName: "Git",
+  askUserEndpoint: process.env.GIT_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "GIT_BYPASS_APPROVAL",
+});
 
 const server = new McpServer({
   name: "git-tool",
@@ -150,11 +157,46 @@ server.registerTool(
         .boolean()
         .optional()
         .describe("Force delete unmerged branch (default: false, blocked for protected branches)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ action, name, force }): Promise<CallToolResult> => {
+  async ({
+    action,
+    name,
+    force,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      if (action !== "list") {
+        const gate = await approval.ensureApproved({
+          action: `git:git_branch:${action}`,
+          details: `Branch action '${action}' will be executed${name ? ` for '${name}'` : ""}.`,
+          approvalToken,
+          approvalInterviewId,
+          sessionId,
+          taskRunId,
+        });
+        if (!gate.ok) {
+          return {
+            isError: !gate.response.success,
+            content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+            structuredContent: gate.response,
+          };
+        }
+      }
+
       const result = await gitBranch({ action, name, force }, repoPath);
       return {
         isError: false,
@@ -181,11 +223,43 @@ server.registerTool(
         .boolean()
         .optional()
         .describe("Create new branch before checkout (default: false)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ target, createBranch }): Promise<CallToolResult> => {
+  async ({
+    target,
+    createBranch,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      const gate = await approval.ensureApproved({
+        action: "git:git_checkout",
+        details: `Git checkout will switch to '${target}'${createBranch ? " and create a branch" : ""}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
+        };
+      }
+
       const result = await gitCheckout({ target, createBranch }, repoPath);
       return {
         isError: false,
@@ -206,19 +280,52 @@ server.registerTool(
   "git_commit",
   {
     description:
-      "Create a Git commit with validation. Commit messages must be at least 3 characters and avoid placeholders (wip, todo, fixme). First line should be â‰¤100 chars.",
+      "Create a Git commit with validation. Commit messages must be at least 3 characters and avoid placeholders (wip, todo, fixme). First line should be ≤100 chars.",
     inputSchema: {
       message: z
         .string()
         .min(3)
-        .describe("Commit message (min 3 chars, first line â‰¤100 chars recommended)"),
+        .describe("Commit message (min 3 chars, first line ≤100 chars recommended)"),
       all: z.boolean().optional().describe("Stage all changes before commit (git commit -a)"),
       amend: z.boolean().optional().describe("Amend previous commit (default: false)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ message, all, amend }): Promise<CallToolResult> => {
+  async ({
+    message,
+    all,
+    amend,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      const gate = await approval.ensureApproved({
+        action: "git:git_commit",
+        details: `A commit will be created with message '${message}'.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
+        };
+      }
+
       const result = await gitCommit({ message, all, amend }, repoPath);
       return {
         isError: false,
@@ -251,11 +358,45 @@ server.registerTool(
         .boolean()
         .optional()
         .describe("Set upstream tracking for new branch (default: false)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ remote, branch, force, setUpstream }): Promise<CallToolResult> => {
+  async ({
+    remote,
+    branch,
+    force,
+    setUpstream,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      const gate = await approval.ensureApproved({
+        action: "git:git_push",
+        details: `Git push will run${branch ? ` for branch '${branch}'` : ""}${force ? " with force" : ""}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
+        };
+      }
+
       const result = await gitPush({ remote, branch, force, setUpstream }, repoPath);
       return {
         isError: false,
@@ -281,11 +422,44 @@ server.registerTool(
       remote: z.string().optional().describe("Remote name (default: 'origin')"),
       branch: z.string().optional().describe("Branch to pull (default: current)"),
       rebase: z.boolean().optional().describe("Use rebase instead of merge (default: false)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ remote, branch, rebase }): Promise<CallToolResult> => {
+  async ({
+    remote,
+    branch,
+    rebase,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      const gate = await approval.ensureApproved({
+        action: "git:git_pull",
+        details: `Git pull will run${branch ? ` for branch '${branch}'` : ""}${rebase ? " with rebase" : ""}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
+        };
+      }
+
       const result = await gitPull({ remote, branch, rebase }, repoPath);
       return {
         isError: false,
@@ -325,11 +499,45 @@ server.registerTool(
         .positive()
         .optional()
         .describe("Shallow clone depth (e.g., 1 for latest commit only)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ url, directory, branch, depth }): Promise<CallToolResult> => {
+  async ({
+    url,
+    directory,
+    branch,
+    depth,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      const gate = await approval.ensureApproved({
+        action: "git:git_clone",
+        details: `Repository '${url}' will be cloned into workspace.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
+        };
+      }
+
       const result = await gitClone({ url, directory, branch, depth }, repoPath);
       return {
         isError: false,
@@ -364,11 +572,46 @@ server.registerTool(
         .nonnegative()
         .optional()
         .describe("Stash index for 'pop'/'drop' actions (default: 0 = latest)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ action, message, index }): Promise<CallToolResult> => {
+  async ({
+    action,
+    message,
+    index,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      if (action !== "list") {
+        const gate = await approval.ensureApproved({
+          action: `git:git_stash:${action}`,
+          details: `Git stash action '${action}' will modify stash/worktree state.`,
+          approvalToken,
+          approvalInterviewId,
+          sessionId,
+          taskRunId,
+        });
+        if (!gate.ok) {
+          return {
+            isError: !gate.response.success,
+            content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+            structuredContent: gate.response,
+          };
+        }
+      }
+
       const result = await gitStash({ action, message, index }, repoPath);
       return {
         isError: false,
@@ -397,11 +640,43 @@ server.registerTool(
           "Reset mode: 'soft' (keep staged), 'mixed' (keep unstaged), 'hard' (DISCARD ALL)",
         ),
       target: z.string().optional().describe("Commit/branch to reset to (default: 'HEAD')"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ mode, target }): Promise<CallToolResult> => {
+  async ({
+    mode,
+    target,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }): Promise<CallToolResult> => {
     const repoPath = getGitWorkspaceRoot();
     try {
+      const gate = await approval.ensureApproved({
+        action: `git:git_reset:${mode}`,
+        details: `Git reset in '${mode}' mode will modify repository state${target ? ` to '${target}'` : ""}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
+        };
+      }
+
       const result = await gitReset({ mode, target }, repoPath);
       return {
         isError: false,

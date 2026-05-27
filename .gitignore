@@ -19,6 +19,10 @@ biome-results.json
 memory.db
 *.db
 
+# LLM-generated scratch files (3DTool tmp output, etc.)
+tmp/
+!tmp/.gitkeep
+
 # IDE / editor metadata
 .kiro/
 .vs/
@@ -60,6 +64,17 @@ yarn.lock
 *.tmp
 jest-ecm-output.txt
 test-output.json
+biome_output.txt
+biome_output_direct.txt
+biome_output_full.txt
+biome_results.txt
+ci_output.txt
+output.txt
+output2.txt
+verify_output.txt
+test_output.txt
+test_summary.txt
+errors.txt
 
 # Startup/runtime logs
 scripts/workspace/logs/
@@ -67,6 +82,7 @@ scripts/workspace/logs/
 # Private notes (local only)
 private.md
 **/private.md
+compact instructions.md
 
 # Manifesto folder
 Manifesto/

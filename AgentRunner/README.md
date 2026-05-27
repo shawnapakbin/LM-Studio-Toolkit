@@ -128,7 +128,7 @@ if (ambiguity.ambiguous) {
 
 `buildClarificationWorkflow()` generates a one-step workflow that calls AskUser:
 - tool: `ask-user`
-- endpoint: `/tools/ask_user_interview`
+- endpoint: `/tools/interview_user`
 - action: `create`
 - question set: goal, scope, constraints, timeline, approval
 

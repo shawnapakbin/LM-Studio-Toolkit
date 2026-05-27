@@ -8,6 +8,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   DeleteFileSchema,
   ListDirectorySchema,
@@ -36,6 +37,11 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3010;
 const WORKSPACE_ROOT = getWorkspaceRoot();
+const approval = new SessionApprovalController({
+  toolName: "FileEditor",
+  askUserEndpoint: process.env.FILE_EDITOR_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "FILE_EDITOR_BYPASS_APPROVAL",
+});
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -115,6 +121,7 @@ app.post("/tools/write_file", async (req, res) => {
 
   try {
     const input = WriteFileSchema.parse(req.body);
+    const { approvalToken, approvalInterviewId, sessionId, taskRunId } = input;
 
     // Validate path
     const pathCheck = validatePath(input.path, WORKSPACE_ROOT);
@@ -163,6 +170,25 @@ app.post("/tools/write_file", async (req, res) => {
           traceId,
         ),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "file_editor:write_file",
+      details: `File '${input.path}' will be written/overwritten in workspace storage.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await writeFile(input, WORKSPACE_ROOT);
@@ -274,6 +300,7 @@ app.post("/tools/delete_file", async (req, res) => {
 
   try {
     const input = DeleteFileSchema.parse(req.body);
+    const { approvalToken, approvalInterviewId, sessionId, taskRunId } = input;
 
     const pathCheck = validatePath(input.path, WORKSPACE_ROOT);
     if (!pathCheck.valid) {
@@ -297,6 +324,25 @@ app.post("/tools/delete_file", async (req, res) => {
           traceId,
         ),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "file_editor:delete_file",
+      details: `File '${input.path}' will be permanently deleted from workspace storage.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await deleteFile(input, WORKSPACE_ROOT);
@@ -330,6 +376,7 @@ app.post("/tools/move_file", async (req, res) => {
 
   try {
     const input = MoveFileSchema.parse(req.body);
+    const { approvalToken, approvalInterviewId, sessionId, taskRunId } = input;
 
     const sourceCheck = validatePath(input.source, WORKSPACE_ROOT);
     if (!sourceCheck.valid) {
@@ -353,6 +400,25 @@ app.post("/tools/move_file", async (req, res) => {
           traceId,
         ),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "file_editor:move_file",
+      details: `File '${input.source}' will be moved to '${input.destination}'.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await moveFile(input, WORKSPACE_ROOT);

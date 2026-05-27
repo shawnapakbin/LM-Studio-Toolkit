@@ -61,6 +61,12 @@ export interface ToolResponse<T = unknown> {
 
   /** Trace ID for request tracking and debugging */
   traceId?: string;
+
+  /** Tool name for response identification (e.g., "interview_user") */
+  toolName?: string;
+
+  /** Tool purpose for clarification (e.g., "clarification_only") */
+  purpose?: string;
 }
 
 /**
@@ -124,3 +130,9 @@ export function createErrorResponse(
     traceId,
   };
 }
+
+// Re-export runtime utilities so consumers can use the single @shared/types package
+// rather than relying on path aliases (@shared/ports, @shared/tools) that don't
+// resolve at runtime under plain Node.js CJS module loading.
+export * from "./ports";
+export * from "./tools";

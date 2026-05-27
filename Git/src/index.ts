@@ -8,6 +8,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   GitBranchSchema,
   GitCheckoutSchema,
@@ -52,6 +53,11 @@ function getErrorMessage(error: unknown): string {
 const app = express();
 const PORT = Number(process.env.PORT) || 3011;
 const WORKSPACE_ROOT = getGitWorkspaceRoot();
+const approval = new SessionApprovalController({
+  toolName: "Git",
+  askUserEndpoint: process.env.GIT_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "GIT_BYPASS_APPROVAL",
+});
 
 app.use(cors());
 app.use(express.json());
@@ -154,7 +160,7 @@ app.post("/tools/git_log", async (req, res) => {
     }
 
     const result = await gitLog(input, WORKSPACE_ROOT);
-    res.json(createSuccessResponse(result, Date.now() - start, traceId));
+    return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.json(
@@ -166,7 +172,7 @@ app.post("/tools/git_log", async (req, res) => {
         ),
       );
     }
-    res.json(
+    return res.json(
       createErrorResponse(
         ErrorCode.EXECUTION_FAILED,
         getErrorMessage(error),
@@ -183,6 +189,10 @@ app.post("/tools/git_branch", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitBranchSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
@@ -221,6 +231,27 @@ app.post("/tools/git_branch", async (req, res) => {
       }
     }
 
+    if (input.action !== "list") {
+      const gate = await approval.ensureApproved({
+        action: `git:git_branch:${input.action}`,
+        details: `Branch action '${input.action}' will be executed${input.name ? ` for '${input.name}'` : ""}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        const status = gate.response.success
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
+        return res.status(status).json(gate.response);
+      }
+    }
+
     const result = await gitBranch(input, WORKSPACE_ROOT);
     return res.json(createSuccessResponse(result, Date.now() - start, traceId));
   } catch (error: unknown) {
@@ -251,6 +282,10 @@ app.post("/tools/git_checkout", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitCheckoutSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
@@ -271,6 +306,25 @@ app.post("/tools/git_checkout", async (req, res) => {
           ),
         );
       }
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "git:git_checkout",
+      details: `Git checkout will switch to '${input.target}'${input.createBranch ? " and create a new branch" : ""}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await gitCheckout(input, WORKSPACE_ROOT);
@@ -303,6 +357,10 @@ app.post("/tools/git_commit", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitCommitSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
@@ -321,6 +379,25 @@ app.post("/tools/git_commit", async (req, res) => {
           traceId,
         ),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "git:git_commit",
+      details: `A git commit will be created with message '${input.message}'.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await gitCommit(input, WORKSPACE_ROOT);
@@ -353,6 +430,10 @@ app.post("/tools/git_push", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitPushSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
@@ -373,6 +454,25 @@ app.post("/tools/git_push", async (req, res) => {
           ),
         );
       }
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "git:git_push",
+      details: `Git push will run${input.branch ? ` for branch '${input.branch}'` : ""}${input.force ? " with force" : ""}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await gitPush(input, WORKSPACE_ROOT);
@@ -405,12 +505,35 @@ app.post("/tools/git_pull", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitPullSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
       return res.json(
         createErrorResponse(ErrorCode.INVALID_INPUT, repoCheck.error!, Date.now() - start, traceId),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "git:git_pull",
+      details: `Git pull will run${input.branch ? ` for branch '${input.branch}'` : ""}${input.rebase ? " using rebase" : ""}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await gitPull(input, WORKSPACE_ROOT);
@@ -443,6 +566,10 @@ app.post("/tools/git_clone", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitCloneSchema.parse(req.body);
 
     const urlCheck = validateCloneUrl(input.url);
@@ -455,6 +582,25 @@ app.post("/tools/git_clone", async (req, res) => {
           traceId,
         ),
       );
+    }
+
+    const gate = await approval.ensureApproved({
+      action: "git:git_clone",
+      details: `Repository '${input.url}' will be cloned into workspace.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await gitClone(input, WORKSPACE_ROOT);
@@ -487,12 +633,37 @@ app.post("/tools/git_stash", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitStashSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
       return res.json(
         createErrorResponse(ErrorCode.INVALID_INPUT, repoCheck.error!, Date.now() - start, traceId),
       );
+    }
+
+    if (input.action !== "list") {
+      const gate = await approval.ensureApproved({
+        action: `git:git_stash:${input.action}`,
+        details: `Git stash action '${input.action}' will modify stash/worktree state.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        const status = gate.response.success
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
+        return res.status(status).json(gate.response);
+      }
     }
 
     const result = await gitStash(input, WORKSPACE_ROOT);
@@ -525,6 +696,10 @@ app.post("/tools/git_reset", async (req, res) => {
   const start = Date.now();
 
   try {
+    const approvalToken = req.body?.approvalToken as string | undefined;
+    const approvalInterviewId = req.body?.approvalInterviewId as string | undefined;
+    const sessionId = req.body?.sessionId as string | undefined;
+    const taskRunId = req.body?.taskRunId as string | undefined;
     const input = GitResetSchema.parse(req.body);
     const repoCheck = validateRepoPath(WORKSPACE_ROOT);
     if (!repoCheck.valid) {
@@ -545,6 +720,25 @@ app.post("/tools/git_reset", async (req, res) => {
           ),
         );
       }
+    }
+
+    const gate = await approval.ensureApproved({
+      action: `git:git_reset:${input.mode}`,
+      details: `Git reset in '${input.mode}' mode will modify repository state${input.target ? ` to '${input.target}'` : ""}.`,
+      approvalToken,
+      approvalInterviewId,
+      sessionId,
+      taskRunId,
+    });
+    if (!gate.ok) {
+      const status = gate.response.success
+        ? 200
+        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : gate.response.errorCode === ErrorCode.INVALID_INPUT
+            ? 400
+            : 500;
+      return res.status(status).json(gate.response);
     }
 
     const result = await gitReset(input, WORKSPACE_ROOT);

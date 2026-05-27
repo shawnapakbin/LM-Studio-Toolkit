@@ -59,7 +59,7 @@ const browseWebInputSchema: Record<string, z.ZodTypeAny> = {
   "browse_web",
   {
     description:
-      "Fetches a web page using a full headless Chromium browser and returns title and extracted content. Supports JavaScript-rendered pages, SPAs, cookie injection, screenshots, and markdown output.",
+      "Fetches a web page using a local headless Chromium browser and returns title and extracted content. Supports JavaScript-rendered pages, SPAs, cookie injection, screenshots, and markdown output. Prefer this for general local browsing and extraction; use Browserless tools for Browserless cloud automation workflows.",
     inputSchema: browseWebInputSchema,
   },
   async (input: BrowseInput): Promise<CallToolResult> => {

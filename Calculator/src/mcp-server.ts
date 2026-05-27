@@ -4,11 +4,15 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
 import { evaluateExpression } from "./calculator";
+import {
+  DEFAULT_PRECISION as POLICY_DEFAULT_PRECISION,
+  MAX_PRECISION as POLICY_MAX_PRECISION,
+} from "./policy";
 
 dotenv.config();
 
-const DEFAULT_PRECISION = Number(process.env.CALCULATOR_DEFAULT_PRECISION ?? 12);
-const MAX_PRECISION = Number(process.env.CALCULATOR_MAX_PRECISION ?? 20);
+const DEFAULT_PRECISION = Number(process.env.CALCULATOR_DEFAULT_PRECISION ?? POLICY_DEFAULT_PRECISION);
+const MAX_PRECISION = Number(process.env.CALCULATOR_MAX_PRECISION ?? POLICY_MAX_PRECISION);
 
 type CalculateEngineeringInput = {
   expression: string;

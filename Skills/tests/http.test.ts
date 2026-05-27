@@ -1,5 +1,6 @@
 // Must be set before any import that triggers the store singleton
 process.env.SKILLS_DB_PATH = ":memory:";
+process.env.SKILLS_BYPASS_APPROVAL = "1";
 
 import type { Express } from "express";
 import request from "supertest";

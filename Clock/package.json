@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-clock",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "private": true,
   "description": "Clock and calendar tool for LM Studio Tools",
   "main": "dist/index.js",
@@ -20,7 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "llm-toolkit-observability": "^1.0.0",
+    "llm-toolkit-observability": "file:../Observability",
     "zod": "^3.25.76"
   }
 }

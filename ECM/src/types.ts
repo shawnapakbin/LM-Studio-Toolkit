@@ -1,3 +1,11 @@
+/**
+ * ECM — Enhanced Context Memory.
+ *
+ * Single-purpose contract: when the chat client signals a user turn,
+ * compact older conversation segments into one LLM-generated highlights
+ * summary so the active context window stays small.
+ */
+
 export type SegmentType =
   | "conversation_turn"
   | "tool_output"
@@ -10,23 +18,10 @@ export interface SegmentRecord {
   session_id: string;
   type: SegmentType;
   content: string;
-  embedding_json: string;
   token_count: number;
   metadata_json: string | null;
   importance: number;
   created_at: string;
-}
-
-export interface ScoredSegment {
-  id: string;
-  sessionId: string;
-  type: SegmentType;
-  content: string;
-  tokenCount: number;
-  importance: number;
-  createdAt: string;
-  score: number;
-  metadata: Record<string, unknown>;
 }
 
 // ─── Input types ─────────────────────────────────────────────────────────────
@@ -37,142 +32,70 @@ export interface StoreSegmentInput {
   content: string;
   importance?: number;
   metadata?: Record<string, unknown>;
-  includeEmbeddings?: boolean;
 }
 
-export interface RetrieveContextInput {
+export interface OnUserTurnInput {
   sessionId: string;
-  query: string;
-  topK?: number;
-  maxTokens?: number;
-  minScore?: number;
-}
-
-export interface ListSegmentsInput {
-  sessionId: string;
-  limit?: number;
-  offset?: number;
-  includeEmbeddings?: boolean;
-}
-
-export interface DeleteSegmentInput {
-  sessionId: string;
-  segmentId: string;
+  /** Authoritative current usage from the chat client. Optional fallback to internal token count. */
+  currentUsedTokens?: number;
+  /** Authoritative model context limit from the chat client. Optional fallback to ECM_MODEL_CONTEXT_LIMIT env. */
+  contextLimit?: number;
+  /** Newest segments to preserve verbatim. Default 4. */
+  keepNewest?: number;
+  /** Trigger ratio (0–1). Compaction fires when ratio >= threshold. Default 0.5. */
+  threshold?: number;
 }
 
 export interface ClearSessionInput {
   sessionId: string;
 }
 
-export interface SummarizeSessionInput {
-  sessionId: string;
-  keepNewest?: number;
-}
-
-export interface AutoCompactNowInput {
-  sessionId: string;
-  keepNewest?: number;
-}
-
-export interface SetContinuousCompactInput {
-  sessionId: string;
-  enabled: boolean;
-  keepNewest?: number;
-}
-
-export interface GetSessionPolicyInput {
+export interface GetStatusInput {
   sessionId: string;
 }
 
-export interface SessionPolicyResult {
-  sessionId: string;
-  continuousCompactEnabled: boolean;
-  continuousKeepNewest: number;
-  policySource: "session" | "env_default";
-  effectiveEnabled: boolean;
-  effectiveKeepNewest: number;
-  updatedAt?: string;
-}
+// ─── Result types ────────────────────────────────────────────────────────────
 
-// ─── Result types ─────────────────────────────────────────────────────────────
-
-export interface RetrieveResult {
-  segments: ScoredSegment[];
-  totalTokens: number;
-  truncated: boolean;
-  autoCompaction?: AutoCompactionTelemetry;
-}
-
-export interface AutoCompactionTelemetry {
-  checked: boolean;
-  enabled: boolean;
-  executed: boolean;
-  triggerRatio: number;
+export interface OnUserTurnResult {
+  /** True iff a summary was created and old segments were purged. */
+  compacted: boolean;
+  /** Reason code for telemetry / logging. */
+  reason: "below_threshold" | "not_enough_segments" | "compacted" | "in_progress" | "llm_error";
+  /** currentUsedTokens / contextLimit. */
+  ratio: number;
   estimatedUsedTokens: number;
-  modelContextLimit: number;
+  contextLimit: number;
   threshold: number;
   keepNewest: number;
-  mode: "threshold" | "continuous";
-  policySource: "env" | "session";
-  sourceAction: "store_segment" | "retrieve_context" | "summarize_session" | "auto_compact_now";
-  reason:
-    | "disabled"
-    | "below_threshold"
-    | "cooldown"
-    | "in_progress"
-    | "not_enough_segments"
-    | "below_minimum_segment_count"
-    | "insufficient_segments_to_compact"
-    | "executed"
-    | "execution_failed";
-  totalSegments?: number;
-  strategy?: "extractive" | "llm_highlights";
-  fallbackUsed?: boolean;
+  /** Pre-flight or post-flight natural-language status for the user. */
+  message: string;
+  /** Rough ETA in seconds for the LLM call. Set on pre-flight; 0 once compaction is complete. */
+  etaSeconds: number;
+  /** Set when compacted=true. */
   summarySegmentId?: string;
   segmentsRemoved?: number;
   summaryTokenCount?: number;
-}
-
-export interface ListSegmentsResult {
-  segments: SegmentRecord[];
-  total: number;
-}
-
-export interface DeleteSegmentResult {
-  deleted: boolean;
+  /** Set when reason="llm_error". */
+  error?: string;
 }
 
 export interface ClearSessionResult {
   deletedCount: number;
 }
 
-export interface SummarizeResult {
-  summarySegmentId: string;
-  originalSegmentsRemoved: number;
-  summaryTokenCount: number;
-}
-
-export interface AutoCompactNowResult {
-  executed: boolean;
-  reason: "not_enough_segments" | "executed";
-  triggerRatio: number;
+export interface GetStatusResult {
+  sessionId: string;
+  segmentCount: number;
+  nonSummarySegmentCount: number;
   estimatedUsedTokens: number;
-  modelContextLimit: number;
-  threshold: number;
-  summarySegmentId?: string;
-  originalSegmentsRemoved?: number;
-  summaryTokenCount?: number;
-  strategy?: "extractive" | "llm_highlights";
-  fallbackUsed?: boolean;
 }
 
-// ─── Store input ──────────────────────────────────────────────────────────────
+// ─── Store input ─────────────────────────────────────────────────────────────
 
 export interface SegmentInsertInput {
   sessionId: string;
   type: SegmentType;
   content: string;
-  embeddingJson: string;
   tokenCount: number;
   metadataJson: string | null;
   importance: number;

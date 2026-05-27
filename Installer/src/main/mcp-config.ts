@@ -84,7 +84,7 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
       RAG_EMBEDDINGS_MODE: "lmstudio",
       RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5",
       RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document",
-      RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview",
+      RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/interview_user",
       RAG_BYPASS_APPROVAL: "true",
       RAG_CHUNK_SIZE_TOKENS: "384",
       RAG_CHUNK_OVERLAP_TOKENS: "75",

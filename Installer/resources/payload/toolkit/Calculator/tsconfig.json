@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "declaration": true,
     "baseUrl": "../",
     "paths": {
       "@shared/*": ["shared/*"]

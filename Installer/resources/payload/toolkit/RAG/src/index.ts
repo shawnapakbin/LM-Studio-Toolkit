@@ -47,40 +47,40 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
 });
 
 async function handleRagHttpRequest(req: Request<unknown, unknown, RagRequest>, res: Response) {
-    const timer = new OperationTimer();
-    const traceId = generateTraceId();
+  const timer = new OperationTimer();
+  const traceId = generateTraceId();
 
-    try {
-      const response = await handleRAGRequest(req.body);
-      const statusCode = response.success
-        ? 200
-        : response.errorCode === ErrorCode.NOT_FOUND
-          ? 404
-          : response.errorCode === ErrorCode.POLICY_BLOCKED
-            ? 403
-            : 400;
-      const responseData =
-        response.data && typeof response.data === "object"
-          ? (response.data as Record<string, unknown>)
-          : {};
+  try {
+    const response = await handleRAGRequest(req.body);
+    const statusCode = response.success
+      ? 200
+      : response.errorCode === ErrorCode.NOT_FOUND
+        ? 404
+        : response.errorCode === ErrorCode.POLICY_BLOCKED
+          ? 403
+          : 400;
+    const responseData =
+      response.data && typeof response.data === "object"
+        ? (response.data as Record<string, unknown>)
+        : {};
 
-      res.status(statusCode).json({
-        ...response,
-        ...responseData,
-        timingMs: response.timingMs ?? timer.elapsed(),
-        traceId: response.traceId ?? traceId,
-        error: response.errorMessage,
-      });
-    } catch {
-      const error = createErrorResponse(
-        ErrorCode.EXECUTION_FAILED,
-        "Unexpected RAG tool execution error.",
-        timer.elapsed(),
-        traceId,
-      );
+    res.status(statusCode).json({
+      ...response,
+      ...responseData,
+      timingMs: response.timingMs ?? timer.elapsed(),
+      traceId: response.traceId ?? traceId,
+      error: response.errorMessage,
+    });
+  } catch {
+    const error = createErrorResponse(
+      ErrorCode.EXECUTION_FAILED,
+      "Unexpected RAG tool execution error.",
+      timer.elapsed(),
+      traceId,
+    );
 
-      res.status(500).json({ ...error, error: error.errorMessage });
-    }
+    res.status(500).json({ ...error, error: error.errorMessage });
+  }
 }
 
 app.post("/tools/rag_knowledge", handleRagHttpRequest);

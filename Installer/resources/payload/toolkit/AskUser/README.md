@@ -11,7 +11,7 @@ Interactive interview tool for collecting clarifications before implementation.
 ## HTTP Endpoints
 - `GET /health`
 - `GET /tool-schema`
-- `POST /tools/ask_user_interview`
+- `POST /tools/interview_user`
 
 ## Example request
 

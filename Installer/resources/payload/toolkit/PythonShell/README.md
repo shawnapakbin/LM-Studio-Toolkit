@@ -5,8 +5,13 @@ MCP tool that gives LLMs access to Python 3 execution, Python REPL launch, and P
 ## Tools
 
 - `python_run_code`: run non-interactive Python code using `-c`.
-- `python_open_repl`: open Python REPL in a visible terminal window.
-- `python_open_idle`: launch Python IDLE (`python -m idlelib`).
+- `python_open_repl`: open the plain Python terminal REPL in a visible shell window.
+- `python_open_idle`: launch Python IDLE GUI shell/editor (`python -m idlelib`).
+
+## REPL vs IDLE
+
+- Use `python_open_repl` for terminal-based stdin/stdout interactive Python.
+- Use `python_open_idle` when you want the IDLE GUI shell/editor instead of the terminal REPL.
 
 If Python 3 is missing, all tools return install guidance with the official download URL:
 https://www.python.org/downloads/

@@ -22,6 +22,7 @@ export type IngestDocumentsInput = {
   overlapTokens?: number;
   approvalInterviewId?: string;
   approvalToken?: string;
+  sessionId?: string;
 };
 
 export type QueryKnowledgeInput = {
@@ -41,6 +42,7 @@ export type DeleteSourceInput = {
   sourceId: string;
   approvalInterviewId?: string;
   approvalToken?: string;
+  sessionId?: string;
 };
 
 export type ReindexSourceInput = {
@@ -49,6 +51,7 @@ export type ReindexSourceInput = {
   overlapTokens?: number;
   approvalInterviewId?: string;
   approvalToken?: string;
+  sessionId?: string;
 };
 
 export type RagRequest = {

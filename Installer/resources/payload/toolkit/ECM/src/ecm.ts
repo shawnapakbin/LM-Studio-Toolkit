@@ -28,14 +28,7 @@ import type {
   DeleteSegmentResult,
   GetSessionPolicyInput,
   ListSegmentsInput,
-      const rawRecord = record;
-      const finalRecord = validated.includeEmbeddings
-        ? rawRecord
-        : {
-            ...rawRecord,
-            embedding_json: EMBEDDING_OMITTED_MARKER,
-          };
-      await maybeAutoCompact(validated.sessionId, "store_segment");
+  ListSegmentsResult,
   RetrieveContextInput,
   RetrieveResult,
   ScoredSegment,
@@ -468,20 +461,27 @@ async function maybeAutoCompact(
     // This prevents redundant loop attempts when insufficient segments exist
     const totalNonSummarySegments = store.countNonSummarySegments(sessionId);
     if (totalNonSummarySegments <= policy.continuousKeepNewest) {
-      return { ...base, reason: "below_minimum_segment_count", totalSegments: totalNonSummarySegments };
+      return {
+        ...base,
+        reason: "below_minimum_segment_count",
+        totalSegments: totalNonSummarySegments,
+      };
     }
 
-    const toSummarize = store.getOldestNonSummarySegments(
-      sessionId,
-      policy.continuousKeepNewest,
-    );
+    const toSummarize = store.getOldestNonSummarySegments(sessionId, policy.continuousKeepNewest);
     if (toSummarize.length === 0) {
       return { ...base, reason: "insufficient_segments_to_compact" };
     }
 
     compactingSessions.add(sessionId);
     try {
-      const result = await createCompactionSummary(sessionId, toSummarize, sourceAction, true, true);
+      const result = await createCompactionSummary(
+        sessionId,
+        toSummarize,
+        sourceAction,
+        true,
+        true,
+      );
       lastContinuousCompactAt.set(sessionId, Date.now());
       return {
         ...base,
@@ -575,10 +575,18 @@ export async function storeSegment(input: StoreSegmentInput): Promise<ToolRespon
       metadataJson: validated.metadata ? JSON.stringify(validated.metadata) : null,
       importance: validated.importance ?? 0.5,
     });
+    const rawRecord = record;
+
+    const finalRecord = validated.includeEmbeddings
+      ? rawRecord
+      : {
+          ...rawRecord,
+          embedding_json: EMBEDDING_OMITTED_MARKER,
+        };
 
     await maybeAutoCompact(validated.sessionId, "store_segment");
 
-    return createSuccessResponse(record);
+    return createSuccessResponse(finalRecord);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const code =
@@ -616,7 +624,7 @@ export async function retrieveContext(
         continue;
       }
       result.push(toScoredSegment(seg, score));
-          const record = store.insertSegment({
+      totalTokens += seg.token_count;
     }
 
     return createSuccessResponse({ segments: result, totalTokens, truncated, autoCompaction });
@@ -625,18 +633,10 @@ export async function retrieveContext(
     return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<RetrieveResult>;
   }
 }
-          const rawRecord = record;
-
-          const finalRecord = validated.includeEmbeddings
-            ? rawRecord
-            : {
-                ...rawRecord,
-                embedding_json: EMBEDDING_OMITTED_MARKER,
-              };
 
 export async function listSegments(
   input: ListSegmentsInput,
-          return createSuccessResponse(finalRecord);
+): Promise<ToolResponse<ListSegmentsResult>> {
   try {
     const validated = validateListSegments(input);
     const rawSegments = store.listSegments(
@@ -783,10 +783,10 @@ export async function getSessionPolicy(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-      const code =
-        msg.startsWith("'") || msg.includes("must be")
-          ? ErrorCode.INVALID_INPUT
-          : ErrorCode.EXECUTION_FAILED;
-      return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
+    const code =
+      msg.startsWith("'") || msg.includes("must be")
+        ? ErrorCode.INVALID_INPUT
+        : ErrorCode.EXECUTION_FAILED;
+    return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
   }
 }

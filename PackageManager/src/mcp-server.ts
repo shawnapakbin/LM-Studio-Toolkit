@@ -1,9 +1,10 @@
-﻿// @ts-nocheck -- MCP SDK Zod type recursion causes OOM/TS2589 with many registerTool calls
+// @ts-nocheck -- MCP SDK Zod type recursion causes OOM/TS2589 with many registerTool calls
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   auditVulnerabilities,
   detectPackageManager,
@@ -18,6 +19,12 @@ import { getPackageManagerWorkspaceRoot } from "./policy";
 
 dotenv.config();
 
+const approval = new SessionApprovalController({
+  toolName: "PackageManager",
+  askUserEndpoint: process.env.PACKAGE_MANAGER_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "PACKAGE_MANAGER_BYPASS_APPROVAL",
+});
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -26,17 +33,29 @@ type InstallPackagesToolInput = {
   packages: string[];
   dev?: boolean;
   global?: boolean;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 type UpdatePackagesToolInput = {
   packages?: string[];
   all?: boolean;
   check?: boolean;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 type AuditVulnerabilitiesToolInput = {
   fix?: boolean;
   severity?: "low" | "moderate" | "high" | "critical";
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 type ListOutdatedToolInput = {
@@ -45,6 +64,10 @@ type ListOutdatedToolInput = {
 
 type RemoveDependenciesToolInput = {
   packages: string[];
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 type ViewDependenciesToolInput = {
@@ -54,6 +77,10 @@ type ViewDependenciesToolInput = {
 
 type LockDependenciesToolInput = {
   frozen?: boolean;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 const server = new McpServer({
@@ -66,7 +93,7 @@ server.registerTool(
   "detect_package_manager",
   {
     description:
-      "Auto-detect the package manager used in the project (npm, pip, cargo, maven, gradle, go). Returns detected manager and list of available managers.",
+      "Detects available package managers and identifies the active project manager from manifest files. Detection coverage includes npm, pip, cargo, maven, gradle, and go; operation support varies by action tool.",
     inputSchema: {},
   },
   async (): Promise<CallToolResult> => {
@@ -94,7 +121,7 @@ server.registerTool(
   "install_packages",
   {
     description:
-      "Install packages in the project using the detected package manager. Supports npm, pip, cargo, maven, go.",
+      "Install packages in the project using the detected package manager. Supports action execution for npm, pip, cargo, maven, and go based on current implementation. Gradle may be detected but is not supported for this action in the current release.",
     inputSchema: {
       packages: z
         .array(z.string())
@@ -102,9 +129,26 @@ server.registerTool(
         .describe("Package names to install (e.g., ['express', 'lodash'])"),
       dev: z.boolean().optional().describe("Install as development dependency (default: false)"),
       global: z.boolean().optional().describe("Install globally (default: false)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ packages, dev, global }: InstallPackagesToolInput): Promise<CallToolResult> => {
+  async ({
+    packages,
+    dev,
+    global,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }: InstallPackagesToolInput): Promise<CallToolResult> => {
     const repoPath = getPackageManagerWorkspaceRoot();
     try {
       const detection = await detectPackageManager(repoPath);
@@ -112,6 +156,22 @@ server.registerTool(
         return {
           isError: true,
           content: [{ type: "text", text: "No package manager detected" }],
+        };
+      }
+
+      const gate = await approval.ensureApproved({
+        action: "package_manager:install_packages",
+        details: `Packages [${packages.join(", ")}] will be installed using ${detection.detected.manager}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
         };
       }
 
@@ -138,7 +198,8 @@ server.registerTool(
 server.registerTool(
   "update_packages",
   {
-    description: "Update packages to newer versions. Can update specific packages or all packages.",
+    description:
+      "Update packages to newer versions. Supports action execution for npm, pip, cargo, and go based on current implementation. Gradle may be detected but is not supported for this action in the current release.",
     inputSchema: {
       packages: z.array(z.string()).optional().describe("Specific packages to update"),
       all: z.boolean().optional().describe("Update all packages (default: false)"),
@@ -146,9 +207,26 @@ server.registerTool(
         .boolean()
         .optional()
         .describe("Only check for updates without installing (default: false)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ packages, all, check }: UpdatePackagesToolInput): Promise<CallToolResult> => {
+  async ({
+    packages,
+    all,
+    check,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }: UpdatePackagesToolInput): Promise<CallToolResult> => {
     const repoPath = getPackageManagerWorkspaceRoot();
     try {
       const detection = await detectPackageManager(repoPath);
@@ -156,6 +234,23 @@ server.registerTool(
         return {
           isError: true,
           content: [{ type: "text", text: "No package manager detected" }],
+        };
+      }
+
+      const target = all ? "all packages" : `packages [${(packages ?? []).join(", ")}]`;
+      const gate = await approval.ensureApproved({
+        action: "package_manager:update_packages",
+        details: `${target} will be updated using ${detection.detected.manager}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
         };
       }
 
@@ -190,9 +285,25 @@ server.registerTool(
         .enum(["low", "moderate", "high", "critical"])
         .optional()
         .describe("Filter by severity level"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ fix, severity }: AuditVulnerabilitiesToolInput): Promise<CallToolResult> => {
+  async ({
+    fix,
+    severity,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }: AuditVulnerabilitiesToolInput): Promise<CallToolResult> => {
     const repoPath = getPackageManagerWorkspaceRoot();
     try {
       const detection = await detectPackageManager(repoPath);
@@ -201,6 +312,24 @@ server.registerTool(
           isError: true,
           content: [{ type: "text", text: "No package manager detected" }],
         };
+      }
+
+      if (fix) {
+        const gate = await approval.ensureApproved({
+          action: "package_manager:audit_vulnerabilities_fix",
+          details: `Vulnerability fixes will be applied using ${detection.detected.manager}.`,
+          approvalToken,
+          approvalInterviewId,
+          sessionId,
+          taskRunId,
+        });
+        if (!gate.ok) {
+          return {
+            isError: !gate.response.success,
+            content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+            structuredContent: gate.response,
+          };
+        }
       }
 
       const result = await auditVulnerabilities(
@@ -264,12 +393,28 @@ server.registerTool(
 server.registerTool(
   "remove_dependencies",
   {
-    description: "Remove packages from the project.",
+    description:
+      "Remove packages from the project. Supports action execution for npm, pip, and cargo based on current implementation. Gradle may be detected but is not supported for this action in the current release.",
     inputSchema: {
       packages: z.array(z.string()).min(1).describe("Package names to remove"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ packages }: RemoveDependenciesToolInput): Promise<CallToolResult> => {
+  async ({
+    packages,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }: RemoveDependenciesToolInput): Promise<CallToolResult> => {
     const repoPath = getPackageManagerWorkspaceRoot();
     try {
       const detection = await detectPackageManager(repoPath);
@@ -277,6 +422,22 @@ server.registerTool(
         return {
           isError: true,
           content: [{ type: "text", text: "No package manager detected" }],
+        };
+      }
+
+      const gate = await approval.ensureApproved({
+        action: "package_manager:remove_dependencies",
+        details: `Packages [${packages.join(", ")}] will be removed using ${detection.detected.manager}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
         };
       }
 
@@ -352,9 +513,24 @@ server.registerTool(
         .boolean()
         .optional()
         .describe("Use frozen/ci mode for reproducible installs (default: true)"),
+      approvalToken: z
+        .string()
+        .optional()
+        .describe(
+          "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        ),
+      approvalInterviewId: z.string().optional().describe("AskUser interview ID for approval."),
+      sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+      taskRunId: z.string().optional().describe("Alternate session identity."),
     },
   },
-  async ({ frozen }: LockDependenciesToolInput): Promise<CallToolResult> => {
+  async ({
+    frozen,
+    approvalToken,
+    approvalInterviewId,
+    sessionId,
+    taskRunId,
+  }: LockDependenciesToolInput): Promise<CallToolResult> => {
     const repoPath = getPackageManagerWorkspaceRoot();
     try {
       const detection = await detectPackageManager(repoPath);
@@ -362,6 +538,22 @@ server.registerTool(
         return {
           isError: true,
           content: [{ type: "text", text: "No package manager detected" }],
+        };
+      }
+
+      const gate = await approval.ensureApproved({
+        action: "package_manager:lock_dependencies",
+        details: `Dependency lock/frozen operation will run using ${detection.detected.manager}.`,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response,
         };
       }
 

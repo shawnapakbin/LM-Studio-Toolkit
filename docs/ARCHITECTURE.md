@@ -63,7 +63,59 @@ Safety-first approach:
 - **Truncation** — Limit output size to prevent token overflow (Terminal: 50KB stdout limit)
 - **Error Codes** — Standardized error reporting (`INVALID_INPUT`, `TIMEOUT`, `POLICY_BLOCKED`, `EXECUTION_FAILED`)
 
-### 4. Agent Loop Pattern
+### 4. Approval + Session Grant Pattern (Mutating Actions)
+
+Mutating actions are guarded at each tool boundary. Read-only actions remain unblocked unless policy constraints apply.
+
+The `basic` plugin is explicitly always allowed. Calls routed through `basic` (`get_current_datetime`, `calculate_engineering`, `interview_user`) do not require permission prompts or approval tokens.
+
+- Initial mutating call without token returns `status: "approval_required"`.
+- Response includes:
+  - `approvalToken` for one-time execution
+  - `sessionApprovalToken` when `sessionId` or `taskRunId` is present
+- Retry with:
+  - `approvalToken` field set to the `approvalToken` value for allow-once, or
+  - `approvalToken` field set to the `sessionApprovalToken` value, plus `sessionId`/`taskRunId`, for allow-in-session.
+
+> **Key rule**: Both retry paths use the **same `approvalToken` input field**. For session-scoped approval, place the `sessionApprovalToken` value from the response into `approvalToken` — do NOT add a separate `sessionApprovalToken` input field.
+
+Common examples by tool family:
+
+```json
+{
+  "tool": "terminal",
+  "action": "run_command",
+  "payload": {
+    "command": "npm run build",
+    "approvalToken": "<approvalToken-from-response>"
+  }
+}
+```
+
+```json
+{
+  "tool": "terminal",
+  "action": "run_command",
+  "payload": {
+    "command": "npm run build",
+    "sessionId": "session-123",
+    "approvalToken": "<sessionApprovalToken-value-from-response>"
+  }
+}
+```
+
+Mutating actions currently approval-gated:
+
+- **RAG**: `ingest`, `delete_source`
+- **ECM**: `store_segment`, `clear_session` (write/clear actions)
+- **Skills**: `define_skill`, `execute_skill`, `delete_skill`
+- **Terminal**: command execution
+- **PythonShell**: code execution and shell launch operations
+- **PackageManager**: `install`, `update`, `remove`, `lock`, `audit` with fix mode
+- **FileEditor**: `write_file`, `delete_file`, `move_file`
+- **Git**: mutating operations (`checkout`, `commit`, `push`, `pull`, `clone`, non-list branch/stash actions, `reset`)
+
+### 5. Agent Loop Pattern
 
 Orchestrator drives multi-step tasks:
 
@@ -75,7 +127,7 @@ Orchestrator drives multi-step tasks:
 5. Learn: Update rules, record successful patterns
 ```
 
-### 5. Memory Persistence Pattern
+### 6. Memory Persistence Pattern
 
 SQLite tables capture agent intelligence:
 
@@ -94,6 +146,7 @@ SQLite tables capture agent intelligence:
 |------|---------|------|--------|
 | **Terminal** | Execute shell commands (OS-aware) | 3333 | ✅ Working |
 | **WebBrowser** | Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output | 3334 | ✅ Working |
+| **Basic** | Consolidated always-allowed MCP plugin (Clock + Calculator + AskUser tools) | stdio | ✅ Working |
 | **Calculator** | Math expressions (engineering notation) | 3335 | ✅ Working |
 | **DocumentScraper** | Read documents with structured extraction + encrypted PDF detection | 3336 | ✅ Working |
 | **AskUser** | Interactive interview and clarification workflows | 3338 | ✅ Working |
@@ -108,6 +161,7 @@ SQLite tables capture agent intelligence:
 | **FileEditor** | Safe file read/write/search with workspace sandboxing | 3010 | ✅ Working |
 | **PackageManager** | Multi-ecosystem package management (npm/pip/cargo/maven/go) | 3012 | ✅ Working |
 | **Observability** | Structured logging, metrics, tracing library | N/A | ✅ Working |
+| **3DTool** | Interactive 3D Model Editor and sandboxed viewer with UI/LLM syncing | 3344 | ✅ Working |
 | **BuildRunner** (Phase 2) | Compile, test, lint | TBD | 🔄 Planned |
 | **AIModel** (Phase 2) | In-agent Claude/OpenAI calls | TBD | 🔄 Planned |
 | **Orchestrator** (Phase 3) | Master agent runner | N/A | 🔄 Planned |
@@ -161,7 +215,7 @@ The `SlashCommands/` workspace is an MCP server that exposes a single `slash_com
 
 | Command | Routes to |
 |---|---|
-| `/compact` | ECM `summarize_session` → `list_segments` (reports remaining count) |
+| `/compact` | ECM `on_user_turn` (manual compaction trigger) |
 | `/ecm store\|retrieve\|list\|summarize\|clear` | ECM tool (port 3342) |
 | `/calc <expr>` | Calculator tool (port 3335) |
 | `/browse <url>` | WebBrowser tool (port 3334) |
@@ -335,33 +389,31 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 
 ---
 
-## ECM Auto-Compaction
+## ECM Compaction
 
-ECM supports two automatic compaction modes that work together:
+ECM v3 has a single, deterministic compaction trigger: `on_user_turn`.
 
-### Threshold Mode (global default)
+The chat client (or the model itself, via the MCP tool) is expected to call
+`ecm.on_user_turn` at the start of every user message, passing the current
+`currentUsedTokens` and `contextLimit`. ECM compares the ratio against a
+threshold (default `0.5`) and:
 
-Fires when estimated context pressure crosses a ratio threshold:
-- Trigger condition: `used_tokens / model_context_limit >= ECM_AUTO_COMPACT_THRESHOLD` (default `0.70`).
-- Trigger location: ECM server policy (fires from `store_segment` and `retrieve_context`).
-- Primary strategy: extractive summary of older non-summary segments.
-- Hybrid fallback: if extractive compression is insufficient, request LLM highlights summary.
-- Quality gate: LLM fallback accepted only when confidence/highlights/decisions thresholds are met.
-- Retention policy: keep newest `N` segments plus summary; purge compacted historical segments.
-- Manual override: `auto_compact_now` forces compaction for the session.
-- Telemetry: `retrieve_context` returns auto-compaction status metadata for observability.
+- Below threshold → no-op.
+- At or above threshold → compact the oldest non-summary segments past
+  `keepNewest` (default `4`) into a single LLM-generated highlights summary,
+  then delete the originals.
+- LLM call failure → conversation is left untouched, response carries
+  `compacted: false, reason: "llm_error"`.
 
-### Continuous Compact Mode (per-session)
+Manual override: `/compact` (or `ecm compact` via CLI) forwards to the same
+`on_user_turn` action with `currentUsedTokens` defaulted equal to
+`contextLimit` so the threshold always trips.
 
-Fires after every single `store_segment` regardless of token pressure. Designed for low-end hardware where prompt processing time grows linearly with context size — keeping context minimal at all times provides consistent response latency.
-
-- Activation: `ECM_CONTINUOUS_COMPACT_ENABLED=true` globally, or `set_continuous_compact` action per session.
-- When active for a session, threshold mode is bypassed for that session.
-- Storage: per-session policy stored in `ecm_session_policy` SQLite table; survives across `clear_session` calls.
-- Telemetry: `autoCompaction.mode = "continuous"`, `autoCompaction.policySource = "session" | "env"`.
-- Throttle: `ECM_CONTINUOUS_COMPACT_MIN_INTERVAL_MS` (default `0`) prevents double-fires in rapid-store scenarios.
+There is no continuous-compact mode, no policy table, no embedding-based
+retrieval, no auto-fire from `store_segment`. The single-trigger surface is
+intentional.
 
 ---
 
 **Last Updated**: April 2026  
-**Version**: 2.2.0
+**Version**: 3.0.0

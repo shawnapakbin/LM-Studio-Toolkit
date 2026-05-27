@@ -1,6 +1,7 @@
 // Must be set before any import that triggers the store/embeddings singletons
 process.env.ECM_DB_PATH = ":memory:";
 process.env.ECM_EMBEDDINGS_MODE = "mock";
+process.env.ECM_BYPASS_APPROVAL = "1";
 
 import request from "supertest";
 import { app } from "../src/index";

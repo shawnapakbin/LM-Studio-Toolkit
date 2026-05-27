@@ -23,17 +23,6 @@ const ENV_EXAMPLE = path.join(REPO_ROOT, ".env.example");
 const MIN_NODE_MAJOR = 18;
 const MIN_NPM_MAJOR = 8;
 
-const TOOLS = [
-  "Terminal",
-  "WebBrowser",
-  "Calculator",
-  "DocumentScraper",
-  "Clock",
-  "Browserless",
-  "AskUser",
-  "RAG",
-];
-
 // ─── Colour helpers (no deps) ─────────────────────────────────────────────────
 
 const NO_COLOR = process.env.NO_COLOR || process.env.CI;
@@ -70,7 +59,8 @@ if (IS_GUI) {
     process.exit(1);
   }
   const http = require("http");
-  const html = fs.readFileSync(guiPath, "utf8");
+  const pkgVersion = require(path.join(REPO_ROOT, "package.json")).version;
+  const html = fs.readFileSync(guiPath, "utf8").replace("{{VERSION}}", `v${pkgVersion}`);
   const server = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -228,15 +218,26 @@ async function runSetup({ send, repair }) {
 
   // ── Step 5: Verify binaries ──────────────────────────────────────────────────
   send("section", "Step 5/6 — Verifying tool binaries");
+
+  // TOOL_REGISTRY is compiled during the build step above — safe to require now.
+  let TOOL_REGISTRY;
+  try {
+    ({ TOOL_REGISTRY } = require(path.join(REPO_ROOT, "shared", "dist", "tools.js")));
+  } catch (err) {
+    const msg = "Could not load tool registry from shared/dist/tools.js. Ensure npm run build succeeded.";
+    send("error", msg);
+    throw new Error(msg);
+  }
+
   let allPresent = true;
-  for (const tool of TOOLS) {
-    const distPath = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
+  for (const entry of TOOL_REGISTRY) {
+    const distPath = path.join(REPO_ROOT, entry.distFile);
     if (fs.existsSync(distPath)) {
-      send("ok", `${tool} — dist/mcp-server.js`);
+      send("ok", `${entry.name} — ${entry.distFile}`);
     } else {
-      send("error", `${tool} — dist/mcp-server.js MISSING`);
+      send("error", `${entry.name} — ${entry.distFile} MISSING`);
       allPresent = false;
-      errors.push(`Missing binary: ${tool}/dist/mcp-server.js`);
+      errors.push(`Missing binary: ${entry.distFile}`);
     }
   }
   if (!allPresent) {
@@ -257,21 +258,20 @@ async function runSetup({ send, repair }) {
   let synced = 0;
   let skipped = 0;
 
-  for (const tool of TOOLS) {
-    const serverName = toolToServerName(tool);
-    const pluginDir = path.join(pluginRoot, serverName);
+  for (const entry of TOOL_REGISTRY) {
+    const pluginDir = path.join(pluginRoot, entry.serverName);
     const targetFile = path.join(pluginDir, "mcp-bridge-config.json");
 
     if (!fs.existsSync(pluginDir)) {
-      send("dim", `  skipped ${serverName} (plugin not installed in LM Studio)`);
+      send("dim", `  skipped ${entry.serverName} (plugin not installed in LM Studio)`);
       skipped++;
       continue;
     }
 
-    const distScript = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
-    const config = buildBridgeConfig(tool, distScript);
+    const distScript = path.join(REPO_ROOT, entry.distFile);
+    const config = buildBridgeConfig(entry.name, distScript);
     fs.writeFileSync(targetFile, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-    send("ok", `Synced ${serverName}`);
+    send("ok", `Synced ${entry.serverName}`);
     synced++;
   }
 
@@ -283,33 +283,38 @@ async function runSetup({ send, repair }) {
 function resolvePluginRoot() {
   const custom = process.env.LMSTUDIO_MCP_PLUGIN_ROOT;
   if (typeof custom === "string" && custom.trim()) return path.resolve(custom.trim());
-  return path.join(os.homedir(), ".lmstudio", "extensions", "plugins", "mcp");
+
+  const candidates = [
+    path.join(os.homedir(), ".lmstudio", "extensions", "plugins", "mcp"),
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "LM Studio", "extensions", "plugins", "mcp")
+      : null,
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "lmstudio", "extensions", "plugins", "mcp")
+      : null,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "LM Studio", "extensions", "plugins", "mcp")
+      : null,
+  ].filter((value) => typeof value === "string");
+
+  const existing = candidates.find((candidate) => fs.existsSync(candidate));
+  return existing || candidates[0];
 }
 
-function toolToServerName(tool) {
-  const map = {
-    Terminal: "terminal",
-    WebBrowser: "web-browser",
-    Calculator: "calculator",
-    DocumentScraper: "document-scraper",
-    Clock: "clock",
-    Browserless: "browserless",
-    AskUser: "ask-user",
-    RAG: "rag",
-  };
-  return map[tool] || tool.toLowerCase();
-}
 
 function buildBridgeConfig(tool, distScript) {
   const envMap = {
     Terminal: { TERMINAL_DEFAULT_TIMEOUT_MS: "60000", TERMINAL_MAX_TIMEOUT_MS: "120000" },
     WebBrowser: { BROWSER_DEFAULT_TIMEOUT_MS: "20000", BROWSER_MAX_TIMEOUT_MS: "60000", BROWSER_MAX_CONTENT_CHARS: "12000" },
-    Calculator: { CALCULATOR_DEFAULT_PRECISION: "12", CALCULATOR_MAX_PRECISION: "20" },
+    Basic: { CALCULATOR_DEFAULT_PRECISION: "12", CALCULATOR_MAX_PRECISION: "20", CLOCK_DEFAULT_TIMEZONE: "", CLOCK_DEFAULT_LOCALE: "en-US", ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
     DocumentScraper: { DOC_SCRAPER_DEFAULT_TIMEOUT_MS: "20000", DOC_SCRAPER_MAX_TIMEOUT_MS: "60000", DOC_SCRAPER_MAX_CONTENT_BYTES: "52428800", DOC_SCRAPER_MAX_CONTENT_CHARS: "50000", DOC_SCRAPER_WORKSPACE_ROOT: REPO_ROOT },
-    Clock: { CLOCK_DEFAULT_TIMEZONE: "", CLOCK_DEFAULT_LOCALE: "en-US" },
     Browserless: { BROWSERLESS_API_KEY: readEnvKey("BROWSERLESS_API_KEY"), BROWSERLESS_DEFAULT_REGION: "production-sfo", BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000", BROWSERLESS_MAX_TIMEOUT_MS: "120000", BROWSERLESS_CONCURRENCY_LIMIT: "5" },
-    AskUser: { ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
-    RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview" },
+    RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/interview_user" },
+    "3DTool": {},
+    ECM: { ECM_DB_PATH: path.join(REPO_ROOT, "ECM", "ecm.db"), ECM_EMBEDDINGS_MODE: "lmstudio", ECM_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5" },
+    PythonShell: { PYTHON_SHELL_DEFAULT_TIMEOUT_MS: "60000", PYTHON_SHELL_MAX_TIMEOUT_MS: "120000", PYTHON_SHELL_MAX_OUTPUT_CHARS: "50000", PYTHON_SHELL_WORKSPACE_ROOT: REPO_ROOT },
+    Skills: { SKILLS_DB_PATH: path.join(REPO_ROOT, "Skills", "skills.db") },
+    SlashCommands: { SLASH_DEFAULT_SESSION: "default" },
   };
 
   return {

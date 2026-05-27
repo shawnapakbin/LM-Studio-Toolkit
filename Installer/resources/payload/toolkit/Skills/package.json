@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-skills",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "private": true,
   "description": "Skills MCP tool for managing and executing agent skills",
   "main": "dist/index.js",

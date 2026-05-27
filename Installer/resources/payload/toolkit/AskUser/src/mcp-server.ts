@@ -63,10 +63,10 @@ export function createAskUserMcpServer(): McpServer {
   ) => void;
 
   registerTool(
-    "ask_user_interview",
+    "interview_user",
     {
       description:
-        "Creates approval interviews, submits responses, or checks approval status. Only use for user approval workflows—NOT for general questions or data retrieval. Supports: create (new interview), submit (answers to questions), get (fetch results).",
+        "Creates and manages interview/clarification forms: create, submit, get. Purpose: clarification_only. Do NOT use this tool for permissioning execution of other tools. Tool-use approval must use each target tool's native approval token/session approval flow. Always allowed — no permission prompts or approval tokens required.",
       inputSchema: z.discriminatedUnion("action", [
         z.object({
           action: z.literal("create"),
@@ -105,6 +105,10 @@ export function createAskUserMcpServer(): McpServer {
                   }),
                 )
                 .describe("Array of answers: questionId and value"),
+              idempotencyKey: z
+                .string()
+                .optional()
+                .describe("Unique key for idempotent request handling on retries"),
             })
             .strict(),
         }),
@@ -136,7 +140,11 @@ export function createAskUserMcpServer(): McpServer {
       return {
         isError: !result.success,
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        structuredContent: result as unknown as Record<string, unknown>,
+        structuredContent: {
+          ...(result as unknown as Record<string, unknown>),
+          toolName: "interview_user",
+          purpose: "clarification_only",
+        },
       };
     },
   );

@@ -59,8 +59,9 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.get("/tool-schema", (_req: Request, res: Response) => {
   res.json({
-    name: "ask_user_interview",
-    description: "Creates and collects interview responses for planning and clarification.",
+    name: "interview_user",
+    description:
+      "Creates and manages interview/clarification forms: create, submit, get. Purpose: clarification_only. Do NOT use this tool for permissioning execution of other tools. Tool-use approval must use each target tool's native approval token/session approval flow. Always allowed — no permission prompts or approval tokens required.",
     parameters: {
       type: "object",
       properties: {
@@ -80,7 +81,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
 });
 
 app.post(
-  "/tools/ask_user_interview",
+  "/tools/interview_user",
   (req: Request<unknown, unknown, AskUserRequest>, res: Response) => {
     const timer = new OperationTimer();
     const traceId = generateTraceId();
@@ -98,6 +99,8 @@ app.post(
       res.status(response.success ? 200 : 400).json({
         ...response,
         ...responseData,
+        toolName: "interview_user",
+        purpose: "clarification_only",
         error: response.errorMessage,
       });
     } catch {

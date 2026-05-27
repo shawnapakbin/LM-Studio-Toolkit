@@ -3,9 +3,31 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import { defineSkill, deleteSkill, executeSkill, getSkill, listSkills } from "./skills";
 
 dotenv.config();
+
+const approval = new SessionApprovalController({
+  toolName: "Skills",
+  askUserEndpoint: process.env.SKILLS_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "SKILLS_BYPASS_APPROVAL",
+});
+
+const MUTATING_ACTIONS = new Set(["define_skill", "delete_skill", "execute_skill"]);
+
+function getActionDetails(action: string, name?: string): string {
+  switch (action) {
+    case "define_skill":
+      return `Skill '${name || "(unnamed)"}' will be created or updated.`;
+    case "delete_skill":
+      return `Skill '${name || "(by id)"}' will be permanently deleted.`;
+    case "execute_skill":
+      return `Skill '${name || "(unnamed)"}' will be executed, potentially producing side effects.`;
+    default:
+      return "Skill state may be modified.";
+  }
+}
 
 // Flat input shape — all fields optional except action.
 // Cast to any to avoid Zod v3/v4 compat type depth errors in the SDK generics.
@@ -48,6 +70,24 @@ const skillsInputShape = {
   // list_skills fields
   limit: z.number().optional().describe("(list_skills) Max results (default 20)."),
   offset: z.number().optional().describe("(list_skills) Pagination offset (default 0)."),
+  approvalToken: z
+    .string()
+    .optional()
+    .describe(
+      "(mutating actions) Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+    ),
+  approvalInterviewId: z
+    .string()
+    .optional()
+    .describe("(mutating actions) AskUser interview ID for explicit approval."),
+  sessionId: z
+    .string()
+    .optional()
+    .describe("(mutating actions) Session ID for allow-in-session approvals."),
+  taskRunId: z
+    .string()
+    .optional()
+    .describe("(mutating actions) Alternate session identity when sessionId is absent."),
 } as const;
 
 type SkillsInput = {
@@ -69,6 +109,10 @@ type SkillsInput = {
   id?: string;
   limit?: number;
   offset?: number;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 export function createSkillsMcpServer(): McpServer {
@@ -88,9 +132,43 @@ export function createSkillsMcpServer(): McpServer {
       inputSchema: skillsInputShape,
     },
     async (input: SkillsInput): Promise<CallToolResult> => {
-      const { action, name, description, paramSchema, steps, params, id, limit, offset } = input;
+      const {
+        action,
+        name,
+        description,
+        paramSchema,
+        steps,
+        params,
+        id,
+        limit,
+        offset,
+        approvalToken,
+        approvalInterviewId,
+        sessionId,
+        taskRunId,
+      } = input;
 
       let result: unknown;
+
+      if (MUTATING_ACTIONS.has(action)) {
+        const gate = await approval.ensureApproved({
+          action: `skills:${action}`,
+          details: getActionDetails(action, name),
+          approvalToken,
+          approvalInterviewId,
+          sessionId,
+          taskRunId,
+        });
+        if (!gate.ok) {
+          result = gate.response;
+          const gateRes = result as { success: boolean };
+          return {
+            isError: !gateRes.success,
+            content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+            structuredContent: result as Record<string, unknown>,
+          };
+        }
+      }
 
       switch (action) {
         case "define_skill":

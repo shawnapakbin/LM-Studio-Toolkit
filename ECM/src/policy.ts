@@ -1,17 +1,12 @@
 import type {
-  AutoCompactNowInput,
   ClearSessionInput,
-  DeleteSegmentInput,
-  GetSessionPolicyInput,
-  ListSegmentsInput,
-  RetrieveContextInput,
+  GetStatusInput,
+  OnUserTurnInput,
   SegmentType,
-  SetContinuousCompactInput,
   StoreSegmentInput,
-  SummarizeSessionInput,
 } from "./types";
 
-const VALID_TYPES: SegmentType[] = [
+const VALID_SEGMENT_TYPES: SegmentType[] = [
   "conversation_turn",
   "tool_output",
   "document",
@@ -19,119 +14,120 @@ const VALID_TYPES: SegmentType[] = [
   "summary",
 ];
 
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`'${field}' is required and must be a non-empty string.`);
+export class ValidationError extends Error {
+  public readonly code = "INVALID_INPUT";
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
+function requireNonEmptyString(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ValidationError(`${field} must be a non-empty string`);
   }
   return value;
 }
 
 export function validateStoreSegment(input: unknown): StoreSegmentInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
+  if (!input || typeof input !== "object") {
+    throw new ValidationError("Input must be an object");
+  }
   const i = input as Record<string, unknown>;
 
-  const sessionId = requireString(i.sessionId, "sessionId");
-  const content = requireString(i.content, "content");
+  const sessionId = requireNonEmptyString(i.sessionId, "sessionId");
+  const content = requireNonEmptyString(i.content, "content");
 
-  if (!VALID_TYPES.includes(i.type as SegmentType)) {
-    throw new Error(`'type' must be one of: ${VALID_TYPES.join(", ")}.`);
+  const rawType = typeof i.type === "string" ? i.type : "conversation_turn";
+  if (!VALID_SEGMENT_TYPES.includes(rawType as SegmentType)) {
+    throw new ValidationError(
+      `type must be one of: ${VALID_SEGMENT_TYPES.join(", ")} (got: ${rawType})`,
+    );
   }
+  const type = rawType as SegmentType;
 
+  let importance: number | undefined;
   if (i.importance !== undefined) {
     if (typeof i.importance !== "number" || i.importance < 0 || i.importance > 1) {
-      throw new Error("'importance' must be a number between 0 and 1.");
+      throw new ValidationError("importance must be a number between 0 and 1");
     }
+    importance = i.importance;
   }
 
-  return {
-    sessionId,
-    type: i.type as SegmentType,
-    content,
-    importance: typeof i.importance === "number" ? i.importance : 0.5,
-    metadata: i.metadata as Record<string, unknown> | undefined,
-    includeEmbeddings: typeof i.includeEmbeddings === "boolean" ? i.includeEmbeddings : false,
-  };
+  let metadata: Record<string, unknown> | undefined;
+  if (i.metadata !== undefined) {
+    if (!i.metadata || typeof i.metadata !== "object" || Array.isArray(i.metadata)) {
+      throw new ValidationError("metadata must be an object");
+    }
+    metadata = i.metadata as Record<string, unknown>;
+  }
+
+  return { sessionId, type, content, importance, metadata };
 }
 
-export function validateRetrieveContext(input: unknown): RetrieveContextInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
+export function validateOnUserTurn(input: unknown): OnUserTurnInput {
+  if (!input || typeof input !== "object") {
+    throw new ValidationError("Input must be an object");
+  }
   const i = input as Record<string, unknown>;
 
-  return {
-    sessionId: requireString(i.sessionId, "sessionId"),
-    query: requireString(i.query, "query"),
-    topK: typeof i.topK === "number" ? Math.max(1, Math.floor(i.topK)) : 10,
-    maxTokens: typeof i.maxTokens === "number" ? Math.max(1, Math.floor(i.maxTokens)) : 4096,
-    minScore: typeof i.minScore === "number" ? i.minScore : undefined,
-  };
-}
+  const sessionId = requireNonEmptyString(i.sessionId, "sessionId");
 
-export function validateListSegments(input: unknown): ListSegmentsInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
-  const i = input as Record<string, unknown>;
+  let currentUsedTokens: number | undefined;
+  if (i.currentUsedTokens !== undefined) {
+    if (
+      typeof i.currentUsedTokens !== "number" ||
+      !Number.isFinite(i.currentUsedTokens) ||
+      i.currentUsedTokens < 0
+    ) {
+      throw new ValidationError("currentUsedTokens must be a non-negative finite number");
+    }
+    currentUsedTokens = i.currentUsedTokens;
+  }
 
-  return {
-    sessionId: requireString(i.sessionId, "sessionId"),
-    limit: typeof i.limit === "number" ? Math.max(1, Math.floor(i.limit)) : 20,
-    offset: typeof i.offset === "number" ? Math.max(0, Math.floor(i.offset)) : 0,
-    includeEmbeddings: typeof i.includeEmbeddings === "boolean" ? i.includeEmbeddings : false,
-  };
-}
+  let contextLimit: number | undefined;
+  if (i.contextLimit !== undefined) {
+    if (
+      typeof i.contextLimit !== "number" ||
+      !Number.isFinite(i.contextLimit) ||
+      i.contextLimit <= 0
+    ) {
+      throw new ValidationError("contextLimit must be a positive finite number");
+    }
+    contextLimit = i.contextLimit;
+  }
 
-export function validateDeleteSegment(input: unknown): DeleteSegmentInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
-  const i = input as Record<string, unknown>;
+  let keepNewest: number | undefined;
+  if (i.keepNewest !== undefined) {
+    if (typeof i.keepNewest !== "number" || !Number.isInteger(i.keepNewest) || i.keepNewest < 0) {
+      throw new ValidationError("keepNewest must be a non-negative integer");
+    }
+    keepNewest = i.keepNewest;
+  }
 
-  return {
-    sessionId: requireString(i.sessionId, "sessionId"),
-    segmentId: requireString(i.segmentId, "segmentId"),
-  };
+  let threshold: number | undefined;
+  if (i.threshold !== undefined) {
+    if (typeof i.threshold !== "number" || i.threshold <= 0 || i.threshold > 1) {
+      throw new ValidationError("threshold must be a number in (0, 1]");
+    }
+    threshold = i.threshold;
+  }
+
+  return { sessionId, currentUsedTokens, contextLimit, keepNewest, threshold };
 }
 
 export function validateClearSession(input: unknown): ClearSessionInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
-  const i = input as Record<string, unknown>;
-  return { sessionId: requireString(i.sessionId, "sessionId") };
-}
-
-export function validateSummarizeSession(input: unknown): SummarizeSessionInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
-  const i = input as Record<string, unknown>;
-
-  return {
-    sessionId: requireString(i.sessionId, "sessionId"),
-    keepNewest: typeof i.keepNewest === "number" ? Math.max(0, Math.floor(i.keepNewest)) : 10,
-  };
-}
-
-export function validateAutoCompactNow(input: unknown): AutoCompactNowInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
-  const i = input as Record<string, unknown>;
-
-  return {
-    sessionId: requireString(i.sessionId, "sessionId"),
-    keepNewest: typeof i.keepNewest === "number" ? Math.max(0, Math.floor(i.keepNewest)) : 10,
-  };
-}
-
-export function validateSetContinuousCompact(input: unknown): SetContinuousCompactInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
-  const i = input as Record<string, unknown>;
-
-  if (typeof i.enabled !== "boolean") {
-    throw new Error("'enabled' is required and must be a boolean.");
+  if (!input || typeof input !== "object") {
+    throw new ValidationError("Input must be an object");
   }
-
-  return {
-    sessionId: requireString(i.sessionId, "sessionId"),
-    enabled: i.enabled,
-    keepNewest:
-      typeof i.keepNewest === "number" ? Math.max(1, Math.floor(i.keepNewest)) : undefined,
-  };
+  const i = input as Record<string, unknown>;
+  return { sessionId: requireNonEmptyString(i.sessionId, "sessionId") };
 }
 
-export function validateGetSessionPolicy(input: unknown): GetSessionPolicyInput {
-  if (typeof input !== "object" || input === null) throw new Error("Input must be an object.");
+export function validateGetStatus(input: unknown): GetStatusInput {
+  if (!input || typeof input !== "object") {
+    throw new ValidationError("Input must be an object");
+  }
   const i = input as Record<string, unknown>;
-  return { sessionId: requireString(i.sessionId, "sessionId") };
+  return { sessionId: requireNonEmptyString(i.sessionId, "sessionId") };
 }

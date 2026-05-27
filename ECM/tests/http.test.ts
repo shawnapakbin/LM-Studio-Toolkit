@@ -1,291 +1,96 @@
-// Must be set before any import that triggers the store/embeddings singletons
-process.env.ECM_DB_PATH = ":memory:";
-process.env.ECM_EMBEDDINGS_MODE = "mock";
-
+/**
+ * ECM HTTP — single-tool surface tests.
+ */
 import request from "supertest";
-import { app } from "../src/index";
+import { resetEcmState } from "../src/ecm";
+import { createApp } from "../src/index";
 
-const SESSION = "test-session-001";
+const app = createApp();
+const SESSION = "http-test";
 
-describe("ECM HTTP Endpoints", () => {
-  test("GET /health returns 200 with ok: true", async () => {
-    const res = await request(app).get("/health");
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-  });
+afterEach(() => {
+  resetEcmState();
+});
 
-  test("GET /tool-schema returns 200 with name: ecm", async () => {
-    const res = await request(app).get("/tool-schema");
-    expect(res.status).toBe(200);
-    expect(res.body.name).toBe("ecm");
-  });
-
-  test("POST /tools/ecm with missing action returns 400", async () => {
-    const res = await request(app).post("/tools/ecm").send({ sessionId: SESSION });
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-  });
-
-  test("store_segment with valid input returns 200 and SegmentRecord", async () => {
+describe("POST /tools/ecm — store_segment", () => {
+  test("returns 200 and segment record", async () => {
     const res = await request(app).post("/tools/ecm").send({
       action: "store_segment",
       sessionId: SESSION,
       type: "conversation_turn",
-      content: "The user asked about the deployment pipeline.",
-      importance: 0.7,
+      content: "hello world",
     });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.session_id).toBe(SESSION);
-    expect(res.body.data.token_count).toBe(
-      Math.ceil("The user asked about the deployment pipeline.".length / 4),
-    );
+    expect(res.body.data).toMatchObject({
+      session_id: SESSION,
+      type: "conversation_turn",
+      content: "hello world",
+    });
   });
 
-  test("store_segment with missing content returns 400", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "store_segment",
-      sessionId: SESSION,
-      type: "tool_output",
-    });
+  test("missing content returns 400", async () => {
+    const res = await request(app)
+      .post("/tools/ecm")
+      .send({ action: "store_segment", sessionId: SESSION, type: "conversation_turn" });
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+    expect(res.body.errorCode).toBe("INVALID_INPUT");
   });
+});
 
-  test("store_segment with invalid type returns 400", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "store_segment",
-      sessionId: SESSION,
-      type: "invalid_type",
-      content: "some content",
-    });
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-  });
-
-  test("store_segment with importance out of range returns 400", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "store_segment",
-      sessionId: SESSION,
-      type: "document",
-      content: "some content",
-      importance: 1.5,
-    });
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-  });
-
-  test("retrieve_context returns segments sorted by score", async () => {
-    // Store a second segment first
+describe("POST /tools/ecm — get_status", () => {
+  test("reports counts after store", async () => {
     await request(app).post("/tools/ecm").send({
       action: "store_segment",
       sessionId: SESSION,
-      type: "tool_output",
-      content: "kubectl get pods returned: pod-1 Running",
+      type: "conversation_turn",
+      content: "hi",
     });
-
-    const res = await request(app).post("/tools/ecm").send({
-      action: "retrieve_context",
-      sessionId: SESSION,
-      query: "deployment pipeline",
-      topK: 5,
-      maxTokens: 2048,
-    });
+    const res = await request(app)
+      .post("/tools/ecm")
+      .send({ action: "get_status", sessionId: SESSION });
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(Array.isArray(res.body.data.segments)).toBe(true);
-    expect(typeof res.body.data.totalTokens).toBe("number");
-    expect(typeof res.body.data.truncated).toBe("boolean");
-    // totalTokens must not exceed maxTokens
-    expect(res.body.data.totalTokens).toBeLessThanOrEqual(2048);
+    expect(res.body.data.segmentCount).toBe(1);
+    expect(res.body.data.estimatedUsedTokens).toBeGreaterThan(0);
   });
+});
 
-  test("retrieve_context with tiny maxTokens returns truncated: true", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "retrieve_context",
-      sessionId: SESSION,
-      query: "deployment",
-      maxTokens: 1, // too small for any segment
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.data.truncated).toBe(true);
-    expect(res.body.data.totalTokens).toBe(0);
-  });
-
-  test("list_segments returns segments for session", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "list_segments",
-      sessionId: SESSION,
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(Array.isArray(res.body.data.segments)).toBe(true);
-    expect(typeof res.body.data.total).toBe("number");
-    expect(res.body.data.total).toBeGreaterThan(0);
-  });
-
-  test("delete_segment removes a segment", async () => {
-    // Store a segment to delete
-    const storeRes = await request(app).post("/tools/ecm").send({
+describe("POST /tools/ecm — clear_session", () => {
+  test("removes all segments", async () => {
+    await request(app).post("/tools/ecm").send({
       action: "store_segment",
       sessionId: SESSION,
-      type: "reasoning",
-      content: "This segment will be deleted.",
+      type: "conversation_turn",
+      content: "hi",
     });
-    const segmentId = storeRes.body.data.id;
-
-    const delRes = await request(app).post("/tools/ecm").send({
-      action: "delete_segment",
-      sessionId: SESSION,
-      segmentId,
-    });
-    expect(delRes.status).toBe(200);
-    expect(delRes.body.data.deleted).toBe(true);
-  });
-
-  test("delete_segment with unknown id returns 404", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "delete_segment",
-      sessionId: SESSION,
-      segmentId: "00000000-0000-0000-0000-000000000000",
-    });
-    expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
-  });
-
-  test("summarize_session compresses old segments", async () => {
-    const summarySession = "summary-test-session";
-    // Store 5 segments
-    for (let i = 0; i < 5; i++) {
-      await request(app)
-        .post("/tools/ecm")
-        .send({
-          action: "store_segment",
-          sessionId: summarySession,
-          type: "conversation_turn",
-          content: `Turn ${i}: discussing topic ${i} in detail with some context.`,
-        });
-    }
-
-    const res = await request(app).post("/tools/ecm").send({
-      action: "summarize_session",
-      sessionId: summarySession,
-      keepNewest: 2,
-    });
+    const res = await request(app)
+      .post("/tools/ecm")
+      .send({ action: "clear_session", sessionId: SESSION });
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.originalSegmentsRemoved).toBe(3);
-    expect(res.body.data.summaryTokenCount).toBeGreaterThan(0);
+    expect(res.body.data.deletedCount).toBe(1);
   });
+});
 
-  test("summarize_session with too few segments returns 400", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "summarize_session",
-      sessionId: "empty-session",
-      keepNewest: 10,
-    });
+describe("POST /tools/ecm — invalid action", () => {
+  test("returns 400 for unknown action", async () => {
+    const res = await request(app)
+      .post("/tools/ecm")
+      .send({ action: "retrieve_context", sessionId: SESSION });
     expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
+    expect(res.body.errorCode).toBe("INVALID_INPUT");
   });
+});
 
-  test("auto_compact_now compacts and returns strategy details", async () => {
-    const sessionId = "manual-compact-session";
-    for (let i = 0; i < 5; i++) {
-      await request(app)
-        .post("/tools/ecm")
-        .send({
-          action: "store_segment",
-          sessionId,
-          type: "conversation_turn",
-          content: `manual compact turn ${i} with details for summary generation`,
-        });
-    }
-
-    const res = await request(app).post("/tools/ecm").send({
-      action: "auto_compact_now",
-      sessionId,
-      keepNewest: 2,
-    });
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.executed).toBe(true);
-    expect(res.body.data.reason).toBe("executed");
-    expect(typeof res.body.data.originalSegmentsRemoved).toBe("number");
-    expect(res.body.data.originalSegmentsRemoved).toBeGreaterThan(0);
-    expect(typeof res.body.data.summaryTokenCount).toBe("number");
-  });
-
-  test("clear_session removes all segments", async () => {
-    const clearSession = "clear-test-session";
-    await request(app).post("/tools/ecm").send({
-      action: "store_segment",
-      sessionId: clearSession,
-      type: "document",
-      content: "to be cleared",
-    });
-
-    const res = await request(app).post("/tools/ecm").send({
-      action: "clear_session",
-      sessionId: clearSession,
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.data.deletedCount).toBeGreaterThan(0);
-
-    // Verify empty
-    const listRes = await request(app).post("/tools/ecm").send({
-      action: "list_segments",
-      sessionId: clearSession,
-    });
-    expect(listRes.body.data.total).toBe(0);
-  });
-
-  test("session isolation — session A segments not visible in session B", async () => {
-    const sessA = "isolation-session-a";
-    const sessB = "isolation-session-b";
-
-    await request(app).post("/tools/ecm").send({
-      action: "store_segment",
-      sessionId: sessA,
-      type: "document",
-      content: "secret content A",
-    });
-
-    const res = await request(app).post("/tools/ecm").send({
-      action: "list_segments",
-      sessionId: sessB,
-    });
-    expect(res.body.data.total).toBe(0);
-  });
-
-  test("set_continuous_compact returns session policy", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "set_continuous_compact",
-      sessionId: SESSION,
-      enabled: true,
-      keepNewest: 1,
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.continuousCompactEnabled).toBe(true);
-    expect(res.body.data.policySource).toBe("session");
-  });
-
-  test("get_session_policy returns env_default when no policy set", async () => {
-    const res = await request(app).post("/tools/ecm").send({
-      action: "get_session_policy",
-      sessionId: "no-policy-yet",
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.policySource).toBe("env_default");
-  });
-
-  test("tool-schema includes set_continuous_compact and get_session_policy", async () => {
+describe("GET /tool-schema", () => {
+  test("lists exactly the four supported actions", async () => {
     const res = await request(app).get("/tool-schema");
     expect(res.status).toBe(200);
-    const actions = res.body.parameters.properties.action.enum as string[];
-    expect(actions).toContain("set_continuous_compact");
-    expect(actions).toContain("get_session_policy");
+    expect(res.body.actions).toEqual([
+      "on_user_turn",
+      "store_segment",
+      "clear_session",
+      "get_status",
+    ]);
   });
 });

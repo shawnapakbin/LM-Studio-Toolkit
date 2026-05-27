@@ -4,6 +4,36 @@ const os = require("os");
 const path = require("path");
 const { buildMcpServers } = require("./mcp-config");
 
+function uniquePaths(paths) {
+  return [...new Set(paths.filter((value) => typeof value === "string" && value.trim()))];
+}
+
+function candidatePluginRoots(home) {
+  return uniquePaths([
+    home ? path.join(home, ".lmstudio", "extensions", "plugins", "mcp") : null,
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "LM Studio", "extensions", "plugins", "mcp")
+      : null,
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "lmstudio", "extensions", "plugins", "mcp")
+      : null,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "LM Studio", "extensions", "plugins", "mcp")
+      : null,
+  ]);
+}
+
+function resolveLmStudioMcpJsonPath(home) {
+  const candidates = uniquePaths([
+    home ? path.join(home, ".lmstudio", "mcp.json") : null,
+    process.env.APPDATA ? path.join(process.env.APPDATA, "LM Studio", "mcp.json") : null,
+    process.env.APPDATA ? path.join(process.env.APPDATA, "lmstudio", "mcp.json") : null,
+  ]);
+
+  const existing = candidates.find((candidate) => fs.existsSync(candidate));
+  return existing ?? candidates[0] ?? null;
+}
+
 function resolvePluginRoot() {
   const custom = process.env.LMSTUDIO_MCP_PLUGIN_ROOT;
   if (typeof custom === "string" && custom.trim()) {
@@ -17,7 +47,9 @@ function resolvePluginRoot() {
     );
   }
 
-  return path.join(home, ".lmstudio", "extensions", "plugins", "mcp");
+  const candidates = candidatePluginRoots(home);
+  const existing = candidates.find((candidate) => fs.existsSync(candidate));
+  return existing ?? candidates[0];
 }
 
 function writeUtf8NoBom(filePath, content) {
@@ -86,16 +118,16 @@ function mergeServerConfig(serverConfig, topLevelServerConfig, pluginServerConfi
 function main() {
   const pluginRoot = resolvePluginRoot();
   const { mcpServers, missingBuilds } = buildMcpServers();
-  const lmStudioMcpJson = readJsonSafe(path.join(os.homedir(), ".lmstudio", "mcp.json"));
+  const lmStudioMcpJsonPath = resolveLmStudioMcpJsonPath(os.homedir());
+  const lmStudioMcpJson = lmStudioMcpJsonPath ? readJsonSafe(lmStudioMcpJsonPath) : null;
   const topLevelServers =
     lmStudioMcpJson && typeof lmStudioMcpJson === "object" && lmStudioMcpJson.mcpServers
       ? lmStudioMcpJson.mcpServers
       : {};
 
   if (!fs.existsSync(pluginRoot)) {
-    console.error(`LM Studio plugin root not found: ${pluginRoot}`);
-    console.error("Set LMSTUDIO_MCP_PLUGIN_ROOT if LM Studio uses a custom location.");
-    process.exit(1);
+    fs.mkdirSync(pluginRoot, { recursive: true });
+    console.log(`Created LM Studio plugin root: ${pluginRoot}`);
   }
 
   let updated = 0;
@@ -112,7 +144,13 @@ function main() {
 
     const manifestFile = path.join(pluginDir, "manifest.json");
     if (!fs.existsSync(manifestFile)) {
-      const manifest = { type: "plugin", runner: "mcpBridge", owner: "mcp", name: serverName };
+      const manifest = {
+        type: "plugin",
+        runner: "mcpBridge",
+        owner: "mcp",
+        name: serverName,
+        displayName: "LLM Toolkit Plugin",
+      };
       writeUtf8NoBom(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
     }
 
@@ -127,7 +165,11 @@ function main() {
     const existingPluginConfig = readJsonSafe(targetFile);
     const topLevelServerConfig =
       topLevelServers && typeof topLevelServers === "object" ? topLevelServers[serverName] : null;
-    const mergedConfig = mergeServerConfig(serverConfig, topLevelServerConfig, existingPluginConfig);
+    const mergedConfig = mergeServerConfig(
+      serverConfig,
+      topLevelServerConfig,
+      existingPluginConfig,
+    );
 
     const json = `${JSON.stringify(mergedConfig, null, 2)}\n`;
     writeUtf8NoBom(targetFile, json);

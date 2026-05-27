@@ -8,9 +8,17 @@ process.env.ECM_AUTO_COMPACT_KEEP_NEWEST = "2";
 process.env.ECM_AUTO_COMPACT_COOLDOWN_MS = "600000";
 process.env.ECM_AUTO_COMPACT_FORCE_LLM = "true";
 process.env.ECM_COMPACTOR_MIN_CONFIDENCE = "0.95";
+process.env.ECM_BYPASS_APPROVAL = "1";
 
+import type { Express } from "express";
 import request from "supertest";
-import { app } from "../src/index";
+
+let app: Express;
+
+beforeAll(async () => {
+  jest.resetModules();
+  ({ app } = await import("../src/index"));
+});
 
 describe("ECM compactor quality gate", () => {
   test("rejects low-confidence LLM compactor output and falls back to extractive summary", async () => {

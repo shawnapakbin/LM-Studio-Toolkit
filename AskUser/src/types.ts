@@ -1,4 +1,4 @@
-export type InterviewStatus = "pending" | "answered" | "expired" | "cancelled";
+export type InterviewStatus = "pending" | "answered" | "expired" | "rejected";
 
 export type ChoiceOption = {
   id: string;
@@ -53,6 +53,7 @@ export type InterviewResponse = {
 };
 
 export type CreateInterviewInput = {
+  id?: string;
   title?: string;
   taskRunId?: string;
   expiresInSeconds?: number;
@@ -62,6 +63,7 @@ export type CreateInterviewInput = {
 export type SubmitResponsesInput = {
   interviewId: string;
   responses: InterviewResponse[];
+  idempotencyKey?: string;
 };
 
 export type GetInterviewInput = {

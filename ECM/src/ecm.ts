@@ -4,782 +4,300 @@ import {
   createErrorResponse,
   createSuccessResponse,
 } from "@shared/types";
-import { createCompactorLLM, getCompactorPromptVersion } from "./compactor";
-import { type EmbeddingProvider, createEmbeddingProvider } from "./embeddings";
 import {
-  validateAutoCompactNow,
+  type CompactorLLM,
+  type CompactorRunResult,
+  createCompactorLLM,
+  getCompactorPromptVersion,
+} from "./compactor";
+import {
+  ValidationError,
   validateClearSession,
-  validateDeleteSegment,
-  validateGetSessionPolicy,
-  validateListSegments,
-  validateRetrieveContext,
-  validateSetContinuousCompact,
+  validateGetStatus,
+  validateOnUserTurn,
   validateStoreSegment,
-  validateSummarizeSession,
 } from "./policy";
 import { DB_PATH, ECMStore } from "./store";
-import type {
-  AutoCompactNowInput,
-  AutoCompactNowResult,
-  AutoCompactionTelemetry,
-  ClearSessionInput,
-  ClearSessionResult,
-  DeleteSegmentInput,
-  DeleteSegmentResult,
-  GetSessionPolicyInput,
-  ListSegmentsInput,
-  ListSegmentsResult,
-  RetrieveContextInput,
-  RetrieveResult,
-  ScoredSegment,
-  SegmentRecord,
-  SessionPolicyResult,
-  SetContinuousCompactInput,
-  StoreSegmentInput,
-  SummarizeResult,
-  SummarizeSessionInput,
-} from "./types";
+import type { ClearSessionResult, GetStatusResult, OnUserTurnResult, SegmentRecord } from "./types";
 
-// ─── Singletons ───────────────────────────────────────────────────────────────
+// ─── Module state ────────────────────────────────────────────────────────────
 
-const store = new ECMStore(DB_PATH);
-const embeddings: EmbeddingProvider = createEmbeddingProvider();
-const compactor = createCompactorLLM();
-const EMBEDDING_OMITTED_MARKER = "[omitted; set includeEmbeddings=true to include raw vector]";
+let storeInstance: ECMStore | undefined;
+let compactorInstance: CompactorLLM | undefined;
 
-const AUTO_COMPACT_ENABLED = readBoolEnv("ECM_AUTO_COMPACT_ENABLED", true);
-const AUTO_COMPACT_THRESHOLD = readNumberEnv("ECM_AUTO_COMPACT_THRESHOLD", 0.7);
-const AUTO_COMPACT_MODEL_CONTEXT_LIMIT = Math.max(
-  1,
-  Math.floor(readNumberEnv("ECM_MODEL_CONTEXT_LIMIT", 8192)),
-);
-const AUTO_COMPACT_KEEP_NEWEST = Math.max(
-  0,
-  Math.floor(readNumberEnv("ECM_AUTO_COMPACT_KEEP_NEWEST", 10)),
-);
-const AUTO_COMPACT_COOLDOWN_MS = Math.max(
-  0,
-  Math.floor(readNumberEnv("ECM_AUTO_COMPACT_COOLDOWN_MS", 120_000)),
-);
-const AUTO_COMPACT_SUMMARY_MAX_TOKENS = Math.max(
-  32,
-  Math.floor(readNumberEnv("ECM_AUTO_COMPACT_SUMMARY_MAX_TOKENS", 600)),
-);
-const AUTO_COMPACT_MAX_COMPRESSION_RATIO = Math.max(
-  0.05,
-  readNumberEnv("ECM_AUTO_COMPACT_MAX_COMPRESSION_RATIO", 0.6),
-);
-const AUTO_COMPACT_FORCE_LLM = readBoolEnv("ECM_AUTO_COMPACT_FORCE_LLM", false);
-const COMPACTOR_MIN_CONFIDENCE = Math.max(
-  0,
-  Math.min(1, readNumberEnv("ECM_COMPACTOR_MIN_CONFIDENCE", 0.5)),
-);
-const COMPACTOR_MIN_HIGHLIGHTS = Math.max(
-  1,
-  Math.floor(readNumberEnv("ECM_COMPACTOR_MIN_HIGHLIGHTS", 2)),
-);
-const COMPACTOR_MIN_DECISIONS = Math.max(
-  1,
-  Math.floor(readNumberEnv("ECM_COMPACTOR_MIN_DECISIONS", 1)),
-);
+function getStore(): ECMStore {
+  if (!storeInstance) {
+    storeInstance = new ECMStore(DB_PATH);
+  }
+  return storeInstance;
+}
 
-const compactingSessions = new Set<string>();
-const lastAutoCompactAt = new Map<string, number>();
-const lastContinuousCompactAt = new Map<string, number>();
+function getCompactor(): CompactorLLM {
+  if (!compactorInstance) {
+    compactorInstance = createCompactorLLM();
+  }
+  return compactorInstance;
+}
 
-// ─── Continuous compact env config ───────────────────────────────────────────
+/** For tests. */
+export function resetEcmState(): void {
+  storeInstance?.close();
+  storeInstance = undefined;
+  compactorInstance = undefined;
+  inFlight.clear();
+}
 
-const CONTINUOUS_COMPACT_ENABLED = readBoolEnv("ECM_CONTINUOUS_COMPACT_ENABLED", false);
-const CONTINUOUS_COMPACT_KEEP_NEWEST = Math.max(
-  1,
-  Math.floor(readNumberEnv("ECM_CONTINUOUS_COMPACT_KEEP_NEWEST", 1)),
-);
-const CONTINUOUS_COMPACT_MIN_INTERVAL_MS = Math.max(
-  0,
-  Math.floor(readNumberEnv("ECM_CONTINUOUS_COMPACT_MIN_INTERVAL_MS", 0)),
-);
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const inFlight = new Set<string>();
 
 export function estimateTokens(text: string): number {
+  // Rough heuristic; ~4 chars/token.
   return Math.max(1, Math.ceil(text.length / 4));
 }
 
-function readBoolEnv(name: string, fallback: boolean): boolean {
-  const raw = process.env[name];
-  if (raw === undefined) return fallback;
-  const normalized = raw.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) return true;
-  if (["0", "false", "no", "off"].includes(normalized)) return false;
-  return fallback;
-}
-
 function readNumberEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  const v = process.env[name];
+  if (v === undefined) return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length || a.length === 0) return -1;
-  let dot = 0,
-    magA = 0,
-    magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
-  return denom ? dot / denom : -1;
+function defaultContextLimit(): number {
+  return readNumberEnv("ECM_MODEL_CONTEXT_LIMIT", 8192);
 }
 
-export function computeScore(segment: SegmentRecord, queryEmbedding: number[], now: Date): number {
-  const embedding = JSON.parse(segment.embedding_json) as number[];
-  const cosine = cosineSimilarity(queryEmbedding, embedding);
-  const ageMs = now.getTime() - new Date(segment.created_at).getTime();
-  const ageHours = ageMs / 3_600_000;
-  const recency = 1 / (1 + ageHours);
-  return cosine * 0.7 + segment.importance * 0.2 + recency * 0.1;
+function formatPercent(ratio: number): string {
+  return `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%`;
 }
 
-function parseMetadata(json: string | null): Record<string, unknown> {
-  if (!json) return {};
+// ─── store_segment ───────────────────────────────────────────────────────────
+
+export async function storeSegment(input: unknown): Promise<ToolResponse<SegmentRecord>> {
+  let validated: ReturnType<typeof validateStoreSegment>;
   try {
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-// ─── Effective policy resolution ─────────────────────────────────────────────
-
-function getEffectivePolicy(sessionId: string): {
-  continuousEnabled: boolean;
-  continuousKeepNewest: number;
-  policySource: "env" | "session";
-} {
-  const row = store.getSessionPolicy(sessionId);
-  if (row !== undefined) {
-    return {
-      continuousEnabled: row.continuous_compact_enabled === 1,
-      continuousKeepNewest: row.continuous_keep_newest,
-      policySource: "session",
-    };
-  }
-  return {
-    continuousEnabled: CONTINUOUS_COMPACT_ENABLED,
-    continuousKeepNewest: CONTINUOUS_COMPACT_KEEP_NEWEST,
-    policySource: "env",
-  };
-}
-
-function toScoredSegment(seg: SegmentRecord, score: number): ScoredSegment {
-  return {
-    id: seg.id,
-    sessionId: seg.session_id,
-    type: seg.type,
-    content: seg.content,
-    tokenCount: seg.token_count,
-    importance: seg.importance,
-    createdAt: seg.created_at,
-    score,
-    metadata: parseMetadata(seg.metadata_json),
-  };
-}
-
-// ─── Extractive summarization ─────────────────────────────────────────────────
-
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 10);
-}
-
-export function extractiveSummarize(segments: SegmentRecord[]): string {
-  const budget = Math.min(segments.length * 200, 2000);
-  const allSentences: Array<{ text: string; position: number; segImportance: number }> = [];
-
-  for (const seg of segments) {
-    for (const sent of splitSentences(seg.content)) {
-      allSentences.push({
-        text: sent,
-        position: allSentences.length,
-        segImportance: seg.importance,
-      });
-    }
-  }
-
-  if (allSentences.length === 0)
-    return segments
-      .map((s) => s.content)
-      .join(" ")
-      .slice(0, budget);
-
-  const maxLen = Math.max(...allSentences.map((s) => s.text.length), 1);
-  const scored = allSentences.map((s) => ({
-    ...s,
-    score:
-      (1 / (1 + s.position * 0.1)) * 0.4 + (s.text.length / maxLen) * 0.3 + s.segImportance * 0.3,
-  }));
-
-  scored.sort((a, b) => b.score - a.score);
-
-  const selected: typeof scored = [];
-  let charCount = 0;
-  for (const s of scored) {
-    if (charCount + s.text.length > budget) break;
-    selected.push(s);
-    charCount += s.text.length;
-  }
-
-  selected.sort((a, b) => a.position - b.position);
-  return selected.map((s) => s.text).join(" ");
-}
-
-function shouldUseLLMFallback(summaryTokens: number, sourceTokens: number): boolean {
-  if (AUTO_COMPACT_FORCE_LLM) return true;
-  if (summaryTokens > AUTO_COMPACT_SUMMARY_MAX_TOKENS) return true;
-  const compressionRatio = sourceTokens > 0 ? summaryTokens / sourceTokens : 1;
-  return compressionRatio > AUTO_COMPACT_MAX_COMPRESSION_RATIO;
-}
-
-function selectSegmentsForLLMCompaction(segments: SegmentRecord[]): SegmentRecord[] {
-  // Filter low-signal tool noise, but keep all content if filtering becomes too aggressive.
-  const filtered = segments.filter((s) => s.type !== "tool_output" || s.importance >= 0.75);
-  return filtered.length >= 2 ? filtered : segments;
-}
-
-function isCompactorQualityAcceptable(metrics: {
-  highlightsCount?: number;
-  decisionsCount?: number;
-  confidence?: number;
-}): { accepted: boolean; reason?: string } {
-  if ((metrics.confidence ?? -1) < COMPACTOR_MIN_CONFIDENCE) {
-    return {
-      accepted: false,
-      reason: `Compactor confidence ${metrics.confidence ?? "n/a"} below minimum ${COMPACTOR_MIN_CONFIDENCE}.`,
-    };
-  }
-  if ((metrics.highlightsCount ?? 0) < COMPACTOR_MIN_HIGHLIGHTS) {
-    return {
-      accepted: false,
-      reason: `Compactor highlights count ${metrics.highlightsCount ?? 0} below minimum ${COMPACTOR_MIN_HIGHLIGHTS}.`,
-    };
-  }
-  if ((metrics.decisionsCount ?? 0) < COMPACTOR_MIN_DECISIONS) {
-    return {
-      accepted: false,
-      reason: `Compactor decisions count ${metrics.decisionsCount ?? 0} below minimum ${COMPACTOR_MIN_DECISIONS}.`,
-    };
-  }
-  return { accepted: true };
-}
-
-async function createCompactionSummary(
-  sessionId: string,
-  toSummarize: SegmentRecord[],
-  sourceAction: "store_segment" | "retrieve_context" | "summarize_session" | "auto_compact_now",
-  triggeredByAutoPolicy: boolean,
-  triggeredByContinuousCompact = false,
-): Promise<{
-  strategy: "extractive" | "llm_highlights";
-  fallbackUsed: boolean;
-  summarySegmentId: string;
-  segmentsRemoved: number;
-  summaryTokenCount: number;
-}> {
-  const sourceTokens = toSummarize.reduce((sum, seg) => sum + seg.token_count, 0);
-  let strategy: "extractive" | "llm_highlights" = "extractive";
-  let fallbackUsed = false;
-
-  let summaryText = extractiveSummarize(toSummarize);
-  let summaryTokenCount = estimateTokens(summaryText);
-
-  const llmMetadata: Record<string, unknown> = {
-    promptVersion: getCompactorPromptVersion(),
-    attempted: false,
-    validationPassed: false,
-  };
-
-  if (shouldUseLLMFallback(summaryTokenCount, sourceTokens)) {
-    llmMetadata.attempted = true;
-    fallbackUsed = true;
-    const llmSegments = selectSegmentsForLLMCompaction(toSummarize);
-    const llmResult = await compactor.summarize(llmSegments);
-    llmMetadata.modelId = llmResult.modelId ?? null;
-    llmMetadata.promptVersion = llmResult.promptVersion;
-    llmMetadata.validationPassed = llmResult.validationPassed;
-    llmMetadata.qualityGate = {
-      minConfidence: COMPACTOR_MIN_CONFIDENCE,
-      minHighlights: COMPACTOR_MIN_HIGHLIGHTS,
-      minDecisions: COMPACTOR_MIN_DECISIONS,
-      confidence: llmResult.confidence ?? null,
-      highlightsCount: llmResult.highlightsCount ?? null,
-      decisionsCount: llmResult.decisionsCount ?? null,
-    };
-    if (llmResult.ok && llmResult.summaryText) {
-      const qualityGate = isCompactorQualityAcceptable({
-        confidence: llmResult.confidence,
-        highlightsCount: llmResult.highlightsCount,
-        decisionsCount: llmResult.decisionsCount,
-      });
-      llmMetadata.qualityGatePassed = qualityGate.accepted;
-      if (qualityGate.accepted) {
-        summaryText = llmResult.summaryText;
-        summaryTokenCount = estimateTokens(summaryText);
-        strategy = "llm_highlights";
-      } else {
-        llmMetadata.error = qualityGate.reason;
-      }
-    } else {
-      llmMetadata.error = llmResult.error ?? "Compactor fallback failed.";
-    }
-  }
-
-  const [embedding] = await embeddings.embedBatch([summaryText]);
-  const summaryRecord = store.insertSegment({
-    sessionId,
-    type: "summary",
-    content: summaryText,
-    embeddingJson: JSON.stringify(embedding),
-    tokenCount: summaryTokenCount,
-    metadataJson: JSON.stringify({
-      summarizedCount: toSummarize.length,
-      sourceAction,
-      triggeredByAutoPolicy,
-      triggeredByContinuousCompact,
-      strategy,
-      fallbackUsed,
-      compactor: llmMetadata,
-    }),
-    importance: 0.8,
-  });
-
-  const ids = toSummarize.map((s) => s.id);
-  const { deletedCount } = store.deleteSegmentsByIds(ids);
-
-  return {
-    strategy,
-    fallbackUsed,
-    summarySegmentId: summaryRecord.id,
-    segmentsRemoved: deletedCount,
-    summaryTokenCount,
-  };
-}
-
-export async function autoCompactNow(
-  input: AutoCompactNowInput,
-): Promise<ToolResponse<AutoCompactNowResult>> {
-  try {
-    const validated = validateAutoCompactNow(input);
-    const keepNewest = validated.keepNewest ?? AUTO_COMPACT_KEEP_NEWEST;
-    const estimatedUsedTokens = store.getSessionTokenCount(validated.sessionId, true);
-    const triggerRatio = estimatedUsedTokens / AUTO_COMPACT_MODEL_CONTEXT_LIMIT;
-    const toSummarize = store.getOldestNonSummarySegments(validated.sessionId, keepNewest);
-
-    if (toSummarize.length < 2) {
-      return createSuccessResponse({
-        executed: false,
-        reason: "not_enough_segments",
-        triggerRatio,
-        estimatedUsedTokens,
-        modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
-        threshold: AUTO_COMPACT_THRESHOLD,
-      });
-    }
-
-    const result = await createCompactionSummary(
-      validated.sessionId,
-      toSummarize,
-      "auto_compact_now",
-      false,
-    );
-
-    return createSuccessResponse({
-      executed: true,
-      reason: "executed",
-      triggerRatio,
-      estimatedUsedTokens,
-      modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
-      threshold: AUTO_COMPACT_THRESHOLD,
-      summarySegmentId: result.summarySegmentId,
-      originalSegmentsRemoved: result.segmentsRemoved,
-      summaryTokenCount: result.summaryTokenCount,
-      strategy: result.strategy,
-      fallbackUsed: result.fallbackUsed,
-    });
+    validated = validateStoreSegment(input);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return createErrorResponse(
-      ErrorCode.EXECUTION_FAILED,
-      msg,
-    ) as ToolResponse<AutoCompactNowResult>;
-  }
-}
-
-async function maybeAutoCompact(
-  sessionId: string,
-  sourceAction: "store_segment" | "retrieve_context",
-): Promise<AutoCompactionTelemetry> {
-  const estimatedUsedTokens = store.getSessionTokenCount(sessionId, true);
-  const triggerRatio = estimatedUsedTokens / AUTO_COMPACT_MODEL_CONTEXT_LIMIT;
-  const policy = getEffectivePolicy(sessionId);
-
-  // ── Continuous mode ────────────────────────────────────────────────────────
-  // Fires only from store_segment, not retrieve_context, to avoid double-fire.
-  if (policy.continuousEnabled && sourceAction === "store_segment") {
-    const base: AutoCompactionTelemetry = {
-      checked: true,
-      enabled: true,
-      executed: false,
-      triggerRatio,
-      estimatedUsedTokens,
-      modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
-      threshold: AUTO_COMPACT_THRESHOLD,
-      keepNewest: policy.continuousKeepNewest,
-      mode: "continuous",
-      policySource: policy.policySource,
-      sourceAction,
-      reason: "below_threshold",
-    };
-
-    if (compactingSessions.has(sessionId)) {
-      return { ...base, reason: "in_progress" };
+    if (err instanceof ValidationError) {
+      return createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        err.message,
+      ) as ToolResponse<SegmentRecord>;
     }
-
-    if (CONTINUOUS_COMPACT_MIN_INTERVAL_MS > 0) {
-      const last = lastContinuousCompactAt.get(sessionId);
-      if (last !== undefined && Date.now() - last < CONTINUOUS_COMPACT_MIN_INTERVAL_MS) {
-        return { ...base, reason: "cooldown" };
-      }
-    }
-
-    // Early exit: skip compaction if total non-summary segments <= keepNewest threshold
-    // This prevents redundant loop attempts when insufficient segments exist
-    const totalNonSummarySegments = store.countNonSummarySegments(sessionId);
-    if (totalNonSummarySegments <= policy.continuousKeepNewest) {
-      return { ...base, reason: "below_minimum_segment_count", totalSegments: totalNonSummarySegments };
-    }
-
-    const toSummarize = store.getOldestNonSummarySegments(
-      sessionId,
-      policy.continuousKeepNewest,
-    );
-    if (toSummarize.length === 0) {
-      return { ...base, reason: "insufficient_segments_to_compact" };
-    }
-
-    compactingSessions.add(sessionId);
-    try {
-      const result = await createCompactionSummary(sessionId, toSummarize, sourceAction, true, true);
-      lastContinuousCompactAt.set(sessionId, Date.now());
-      return {
-        ...base,
-        executed: true,
-        reason: "executed",
-        strategy: result.strategy,
-        fallbackUsed: result.fallbackUsed,
-        summarySegmentId: result.summarySegmentId,
-        segmentsRemoved: result.segmentsRemoved,
-        summaryTokenCount: result.summaryTokenCount,
-      };
-    } catch {
-      return { ...base, reason: "execution_failed" };
-    } finally {
-      compactingSessions.delete(sessionId);
-    }
+    throw err;
   }
 
-  // ── Threshold mode ─────────────────────────────────────────────────────────
-  const base: AutoCompactionTelemetry = {
-    checked: true,
-    enabled: AUTO_COMPACT_ENABLED,
-    executed: false,
-    triggerRatio,
-    estimatedUsedTokens,
-    modelContextLimit: AUTO_COMPACT_MODEL_CONTEXT_LIMIT,
-    threshold: AUTO_COMPACT_THRESHOLD,
-    keepNewest: AUTO_COMPACT_KEEP_NEWEST,
-    mode: "threshold",
-    policySource: policy.policySource,
-    sourceAction,
-    reason: "below_threshold",
-  };
-
-  if (!AUTO_COMPACT_ENABLED) {
-    return { ...base, reason: "disabled" };
-  }
-
-  if (triggerRatio < AUTO_COMPACT_THRESHOLD) {
-    return base;
-  }
-
-  if (compactingSessions.has(sessionId)) {
-    return { ...base, reason: "in_progress" };
-  }
-
-  const lastCompaction = lastAutoCompactAt.get(sessionId);
-  if (lastCompaction !== undefined && Date.now() - lastCompaction < AUTO_COMPACT_COOLDOWN_MS) {
-    return { ...base, reason: "cooldown" };
-  }
-
-  const toSummarize = store.getOldestNonSummarySegments(sessionId, AUTO_COMPACT_KEEP_NEWEST);
-  if (toSummarize.length < 2) {
-    return { ...base, reason: "not_enough_segments" };
-  }
-
-  compactingSessions.add(sessionId);
   try {
-    const result = await createCompactionSummary(sessionId, toSummarize, sourceAction, true);
-    lastAutoCompactAt.set(sessionId, Date.now());
-    return {
-      ...base,
-      executed: true,
-      reason: "executed",
-      strategy: result.strategy,
-      fallbackUsed: result.fallbackUsed,
-      summarySegmentId: result.summarySegmentId,
-      segmentsRemoved: result.segmentsRemoved,
-      summaryTokenCount: result.summaryTokenCount,
-    };
-  } catch {
-    return { ...base, reason: "execution_failed" };
-  } finally {
-    compactingSessions.delete(sessionId);
-  }
-}
-
-// ─── Operations ───────────────────────────────────────────────────────────────
-
-export async function storeSegment(input: StoreSegmentInput): Promise<ToolResponse<SegmentRecord>> {
-  try {
-    const validated = validateStoreSegment(input);
-    const [embedding] = await embeddings.embedBatch([validated.content]);
     const tokenCount = estimateTokens(validated.content);
-    const record = store.insertSegment({
+    const segment = getStore().insertSegment({
       sessionId: validated.sessionId,
       type: validated.type,
       content: validated.content,
-      embeddingJson: JSON.stringify(embedding),
       tokenCount,
       metadataJson: validated.metadata ? JSON.stringify(validated.metadata) : null,
       importance: validated.importance ?? 0.5,
     });
-    const rawRecord = record;
-
-    const finalRecord = validated.includeEmbeddings
-      ? rawRecord
-      : {
-          ...rawRecord,
-          embedding_json: EMBEDDING_OMITTED_MARKER,
-        };
-
-    await maybeAutoCompact(validated.sessionId, "store_segment");
-
-    return createSuccessResponse(finalRecord);
+    return createSuccessResponse(segment);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const code =
-      msg.startsWith("'") || msg.startsWith("Input") || msg.includes("must be")
-        ? ErrorCode.INVALID_INPUT
-        : ErrorCode.EXECUTION_FAILED;
-    return createErrorResponse(code, msg) as ToolResponse<SegmentRecord>;
-  }
-}
-
-export async function retrieveContext(
-  input: RetrieveContextInput,
-): Promise<ToolResponse<RetrieveResult>> {
-  try {
-    const validated = validateRetrieveContext(input);
-    const autoCompaction = await maybeAutoCompact(validated.sessionId, "retrieve_context");
-    const [queryEmbedding] = await embeddings.embedBatch([validated.query]);
-    const segments = store.getSegmentsBySession(validated.sessionId);
-    const now = new Date();
-
-    const scored = segments
-      .map((seg) => ({ seg, score: computeScore(seg, queryEmbedding, now) }))
-      .filter(({ score }) => validated.minScore === undefined || score >= validated.minScore)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, validated.topK ?? 10);
-
-    const result: ScoredSegment[] = [];
-    let totalTokens = 0;
-    let truncated = false;
-    const maxTokens = validated.maxTokens ?? 4096;
-
-    for (const { seg, score } of scored) {
-      if (totalTokens + seg.token_count > maxTokens) {
-        truncated = true;
-        continue;
-      }
-      result.push(toScoredSegment(seg, score));
-      totalTokens += seg.token_count;
-    }
-
-    return createSuccessResponse({ segments: result, totalTokens, truncated, autoCompaction });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<RetrieveResult>;
-  }
-}
-
-export async function listSegments(
-  input: ListSegmentsInput,
-): Promise<ToolResponse<ListSegmentsResult>> {
-  try {
-    const validated = validateListSegments(input);
-    const rawSegments = store.listSegments(
-      validated.sessionId,
-      validated.limit ?? 20,
-      validated.offset ?? 0,
-    );
-    const segments = validated.includeEmbeddings
-      ? rawSegments
-      : rawSegments.map((segment) => ({
-          ...segment,
-          embedding_json: EMBEDDING_OMITTED_MARKER,
-        }));
-    const total = store.countSegments(validated.sessionId);
-    return createSuccessResponse({ segments, total });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<ListSegmentsResult>;
-  }
-}
-
-export async function deleteSegment(
-  input: DeleteSegmentInput,
-): Promise<ToolResponse<DeleteSegmentResult>> {
-  try {
-    const validated = validateDeleteSegment(input);
-    const existing = store.getSegmentById(validated.segmentId);
-    if (!existing) {
-      return createErrorResponse(
-        ErrorCode.NOT_FOUND,
-        `Segment not found: ${validated.segmentId}`,
-      ) as ToolResponse<DeleteSegmentResult>;
-    }
-    const result = store.deleteSegment(validated.segmentId);
-    return createSuccessResponse(result);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
     return createErrorResponse(
       ErrorCode.EXECUTION_FAILED,
-      msg,
-    ) as ToolResponse<DeleteSegmentResult>;
+      err instanceof Error ? err.message : String(err),
+    ) as ToolResponse<SegmentRecord>;
   }
 }
 
-export async function clearSession(
-  input: ClearSessionInput,
-): Promise<ToolResponse<ClearSessionResult>> {
+// ─── clear_session ───────────────────────────────────────────────────────────
+
+export async function clearSession(input: unknown): Promise<ToolResponse<ClearSessionResult>> {
+  let validated: ReturnType<typeof validateClearSession>;
   try {
-    const validated = validateClearSession(input);
-    const result = store.clearSession(validated.sessionId);
-    return createSuccessResponse(result);
+    validated = validateClearSession(input);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<ClearSessionResult>;
-  }
-}
-
-export async function summarizeSession(
-  input: SummarizeSessionInput,
-): Promise<ToolResponse<SummarizeResult>> {
-  try {
-    const validated = validateSummarizeSession(input);
-    const toSummarize = store.getOldestNonSummarySegments(
-      validated.sessionId,
-      validated.keepNewest ?? 10,
-    );
-
-    if (toSummarize.length < 2) {
+    if (err instanceof ValidationError) {
       return createErrorResponse(
         ErrorCode.INVALID_INPUT,
-        "Not enough segments to summarize (need at least 2 non-summary segments outside keepNewest window).",
-      ) as ToolResponse<SummarizeResult>;
+        err.message,
+      ) as ToolResponse<ClearSessionResult>;
     }
+    throw err;
+  }
+  const result = getStore().clearSession(validated.sessionId);
+  return createSuccessResponse(result);
+}
 
-    const result = await createCompactionSummary(
-      validated.sessionId,
-      toSummarize,
-      "summarize_session",
-      false,
+// ─── get_status ──────────────────────────────────────────────────────────────
+
+export async function getStatus(input: unknown): Promise<ToolResponse<GetStatusResult>> {
+  let validated: ReturnType<typeof validateGetStatus>;
+  try {
+    validated = validateGetStatus(input);
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        err.message,
+      ) as ToolResponse<GetStatusResult>;
+    }
+    throw err;
+  }
+  const store = getStore();
+  return createSuccessResponse({
+    sessionId: validated.sessionId,
+    segmentCount: store.countSegments(validated.sessionId),
+    nonSummarySegmentCount: store.countNonSummarySegments(validated.sessionId),
+    estimatedUsedTokens: store.getSessionTokenCount(validated.sessionId),
+  });
+}
+
+// ─── on_user_turn ────────────────────────────────────────────────────────────
+
+export async function onUserTurn(input: unknown): Promise<ToolResponse<OnUserTurnResult>> {
+  let validated: ReturnType<typeof validateOnUserTurn>;
+  try {
+    validated = validateOnUserTurn(input);
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        err.message,
+      ) as ToolResponse<OnUserTurnResult>;
+    }
+    throw err;
+  }
+
+  const store = getStore();
+  const sessionId = validated.sessionId;
+  const keepNewest = validated.keepNewest ?? 4;
+  const threshold = validated.threshold ?? 0.5;
+  const contextLimit = validated.contextLimit ?? defaultContextLimit();
+  const estimatedUsedTokens = validated.currentUsedTokens ?? store.getSessionTokenCount(sessionId);
+  const ratio = contextLimit > 0 ? estimatedUsedTokens / contextLimit : 0;
+
+  const baseResult = (extra: Partial<OnUserTurnResult>): OnUserTurnResult => ({
+    compacted: false,
+    reason: "below_threshold",
+    ratio,
+    estimatedUsedTokens,
+    contextLimit,
+    threshold,
+    keepNewest,
+    message: "",
+    etaSeconds: 0,
+    ...extra,
+  });
+
+  // Below threshold — no-op.
+  if (ratio < threshold) {
+    return createSuccessResponse(
+      baseResult({
+        reason: "below_threshold",
+        message: `Context at ${formatPercent(ratio)} of ${contextLimit} tokens — below ${formatPercent(threshold)} trigger. No compaction needed.`,
+      }),
+    );
+  }
+
+  // Identify candidates: oldest non-summary segments past keepNewest.
+  const candidates = store.getOldestNonSummarySegments(sessionId, keepNewest);
+  if (candidates.length < 2) {
+    return createSuccessResponse(
+      baseResult({
+        reason: "not_enough_segments",
+        message: `Context at ${formatPercent(ratio)} but only ${candidates.length} older segment(s) available beyond the newest ${keepNewest}. Compaction skipped.`,
+      }),
+    );
+  }
+
+  // Guard against re-entry.
+  if (inFlight.has(sessionId)) {
+    return createSuccessResponse(
+      baseResult({
+        reason: "in_progress",
+        message: "Compaction already in progress for this session; skipping duplicate trigger.",
+        etaSeconds: estimateEtaSeconds(candidates.length),
+      }),
+    );
+  }
+  inFlight.add(sessionId);
+  try {
+    const eta = estimateEtaSeconds(candidates.length);
+    process.stderr.write(
+      `[ECM] Compacting ${candidates.length} segments for session "${sessionId}" — context ${formatPercent(ratio)} (~${eta}s)…\n`,
     );
 
-    return createSuccessResponse({
-      summarySegmentId: result.summarySegmentId,
-      originalSegmentsRemoved: result.segmentsRemoved,
-      summaryTokenCount: result.summaryTokenCount,
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return createErrorResponse(ErrorCode.EXECUTION_FAILED, msg) as ToolResponse<SummarizeResult>;
-  }
-}
-
-export async function setContinuousCompact(
-  input: SetContinuousCompactInput,
-): Promise<ToolResponse<SessionPolicyResult>> {
-  try {
-    const validated = validateSetContinuousCompact(input);
-    const keepNewest = validated.keepNewest ?? CONTINUOUS_COMPACT_KEEP_NEWEST;
-    const row = store.setSessionPolicy(validated.sessionId, validated.enabled, keepNewest);
-    return createSuccessResponse({
-      sessionId: validated.sessionId,
-      continuousCompactEnabled: row.continuous_compact_enabled === 1,
-      continuousKeepNewest: row.continuous_keep_newest,
-      policySource: "session",
-      effectiveEnabled: row.continuous_compact_enabled === 1,
-      effectiveKeepNewest: row.continuous_keep_newest,
-      updatedAt: row.updated_at,
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const code =
-      msg.startsWith("'") || msg.includes("must be")
-        ? ErrorCode.INVALID_INPUT
-        : ErrorCode.EXECUTION_FAILED;
-    return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
-  }
-}
-
-export async function getSessionPolicy(
-  input: GetSessionPolicyInput,
-): Promise<ToolResponse<SessionPolicyResult>> {
-  try {
-    const validated = validateGetSessionPolicy(input);
-    const row = store.getSessionPolicy(validated.sessionId);
-    if (row) {
-      return createSuccessResponse({
-        sessionId: validated.sessionId,
-        continuousCompactEnabled: row.continuous_compact_enabled === 1,
-        continuousKeepNewest: row.continuous_keep_newest,
-        policySource: "session",
-        effectiveEnabled: row.continuous_compact_enabled === 1,
-        effectiveKeepNewest: row.continuous_keep_newest,
-        updatedAt: row.updated_at,
-      });
+    const run = await getCompactor().summarize(candidates);
+    if (!run.ok || !run.summaryText) {
+      const errMsg = run.error ?? "LLM compactor returned no summary.";
+      process.stderr.write(`[ECM] Compaction failed: ${errMsg}\n`);
+      return createSuccessResponse(
+        baseResult({
+          reason: "llm_error",
+          error: errMsg,
+          message: `Compaction failed: ${errMsg}. Conversation history was preserved unchanged.`,
+        }),
+      );
     }
-    // No session override — return env defaults
-    return createSuccessResponse({
-      sessionId: validated.sessionId,
-      continuousCompactEnabled: CONTINUOUS_COMPACT_ENABLED,
-      continuousKeepNewest: CONTINUOUS_COMPACT_KEEP_NEWEST,
-      policySource: "env_default",
-      effectiveEnabled: CONTINUOUS_COMPACT_ENABLED,
-      effectiveKeepNewest: CONTINUOUS_COMPACT_KEEP_NEWEST,
-    });
+
+    const summarySegment = writeSummary(sessionId, candidates, run);
+    const removed = store.deleteSegmentsByIds(candidates.map((c) => c.id));
+
+    const postRatio = contextLimit > 0 ? store.getSessionTokenCount(sessionId) / contextLimit : 0;
+
+    process.stderr.write(
+      `[ECM] Compaction complete — removed ${removed.deletedCount} segments, summary ${summarySegment.token_count} tokens, context now ${formatPercent(postRatio)}.\n`,
+    );
+
+    return createSuccessResponse(
+      baseResult({
+        compacted: true,
+        reason: "compacted",
+        message: `Compacted ${removed.deletedCount} older segments into a highlights summary. Context dropped from ${formatPercent(ratio)} to ~${formatPercent(postRatio)}.`,
+        etaSeconds: 0,
+        summarySegmentId: summarySegment.id,
+        segmentsRemoved: removed.deletedCount,
+        summaryTokenCount: summarySegment.token_count,
+      }),
+    );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-      const code =
-        msg.startsWith("'") || msg.includes("must be")
-          ? ErrorCode.INVALID_INPUT
-          : ErrorCode.EXECUTION_FAILED;
-      return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[ECM] Compaction errored: ${errMsg}\n`);
+    return createSuccessResponse(
+      baseResult({
+        reason: "llm_error",
+        error: errMsg,
+        message: `Compaction errored: ${errMsg}. Conversation history was preserved unchanged.`,
+      }),
+    );
+  } finally {
+    inFlight.delete(sessionId);
   }
+}
+
+function estimateEtaSeconds(segmentCount: number): number {
+  return Math.min(30, Math.max(2, segmentCount));
+}
+
+function writeSummary(
+  sessionId: string,
+  candidates: SegmentRecord[],
+  run: CompactorRunResult,
+): SegmentRecord {
+  const summaryText = run.summaryText as string;
+  return getStore().insertSegment({
+    sessionId,
+    type: "summary",
+    content: summaryText,
+    tokenCount: estimateTokens(summaryText),
+    metadataJson: JSON.stringify({
+      kind: "ecm_compaction_summary",
+      promptVersion: getCompactorPromptVersion(),
+      modelId: run.modelId,
+      sourceSegmentIds: candidates.map((c) => c.id),
+      sourceSegmentCount: candidates.length,
+      highlightsCount: run.highlightsCount,
+      decisionsCount: run.decisionsCount,
+      confidence: run.confidence,
+      validationPassed: run.validationPassed,
+    }),
+    importance: 0.9,
+  });
 }

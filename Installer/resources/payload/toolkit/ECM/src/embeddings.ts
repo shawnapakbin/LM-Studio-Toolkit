@@ -24,13 +24,20 @@ class MockEmbeddingProvider implements EmbeddingProvider {
 }
 
 class LMStudioEmbeddingProvider implements EmbeddingProvider {
-  private client = new LMStudioClient();
+  private client?: LMStudioClient;
   private modelName = process.env.ECM_EMBEDDING_MODEL ?? "nomic-ai/nomic-embed-text-v1.5";
   private modelPromise?: Promise<EmbeddingModel>;
 
+  private getClient(): LMStudioClient {
+    if (!this.client) {
+      this.client = new LMStudioClient();
+    }
+    return this.client;
+  }
+
   private getModel(): Promise<EmbeddingModel> {
     if (!this.modelPromise) {
-      this.modelPromise = this.client.embedding.model(this.modelName);
+      this.modelPromise = this.getClient().embedding.model(this.modelName);
     }
     return this.modelPromise;
   }

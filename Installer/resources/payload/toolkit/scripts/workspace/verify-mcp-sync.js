@@ -9,11 +9,9 @@ const readme = fs.readFileSync(readmePath, "utf8");
 const expectedServers = {
   terminal: "Terminal/dist/mcp-server.js",
   "web-browser": "WebBrowser/dist/mcp-server.js",
-  calculator: "Calculator/dist/mcp-server.js",
+  basic: "Basic/dist/mcp-server.js",
   "document-scraper": "DocumentScraper/dist/mcp-server.js",
-  clock: "Clock/dist/mcp-server.js",
   browserless: "Browserless/dist/mcp-server.js",
-  "ask-user": "AskUser/dist/mcp-server.js",
   rag: "RAG/dist/mcp-server.js",
   "python-shell": "PythonShell/dist/mcp-server.js",
 };

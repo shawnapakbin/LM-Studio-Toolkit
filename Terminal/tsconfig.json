@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "baseUrl": "../",
     "paths": {
-      "@shared/*": ["shared/*"]
+      "@shared/*": ["shared/dist/*"]
     }
   },
   "include": ["src"]

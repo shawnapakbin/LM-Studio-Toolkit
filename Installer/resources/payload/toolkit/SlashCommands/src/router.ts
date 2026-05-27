@@ -2,8 +2,8 @@
  * Router — takes a DispatchDescriptor and executes the appropriate tool call
  */
 
-import path from "path";
 import fs from "fs";
+import path from "path";
 import Database from "better-sqlite3";
 import { DEFAULT_SESSION, ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
@@ -226,7 +226,7 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         return { success: false, error: "Missing prompt. Usage: /ask <prompt> [--title <title>]" };
       }
 
-      return post(`${ENDPOINTS.askuser}/tools/ask_user_interview`, {
+      return post(`${ENDPOINTS.askuser}/tools/interview_user`, {
         action: "create",
         payload: {
           ...(desc.title && { title: desc.title }),

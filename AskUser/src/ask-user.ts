@@ -55,6 +55,7 @@ function createInterview(
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
   const interviewId = store.createInterview({
+    id: payload.id,
     title: payload.title,
     taskRunId: payload.taskRunId,
     questions: payload.questions,
@@ -63,6 +64,8 @@ function createInterview(
 
   return createSuccessResponse(
     {
+      toolName: "interview_user",
+      purpose: "clarification_only",
       action: "create",
       interviewId,
       status: "pending",
@@ -97,6 +100,8 @@ function getInterview(payload: GetInterviewInput, timingMs: number, traceId: str
 
   return createSuccessResponse(
     {
+      toolName: "interview_user",
+      purpose: "clarification_only",
       action: "get",
       interviewId: record.id,
       title: record.title,
@@ -122,6 +127,36 @@ function submitResponses(
     return createErrorResponse(ErrorCode.NOT_FOUND, "Interview not found.", timingMs, traceId);
   }
 
+  // Allow idempotent replay after interview has already been answered.
+  if (
+    record.status === "answered" &&
+    payload.idempotencyKey?.trim() &&
+    record.idempotency_key === payload.idempotencyKey
+  ) {
+    const replay = store.saveResponsesIdempotent(
+      record.id,
+      payload.responses,
+      payload.idempotencyKey,
+    );
+
+    if (replay.ok && replay.isDuplicate) {
+      return createSuccessResponse(
+        {
+          toolName: "interview_user",
+          purpose: "clarification_only",
+          action: "submit",
+          interviewId: record.id,
+          status: "answered",
+          answeredAt: record.answered_at ?? new Date().toISOString(),
+          responses: replay.responses,
+          isDuplicate: true,
+        },
+        timingMs,
+        traceId,
+      );
+    }
+  }
+
   if (record.status !== "pending") {
     return createErrorResponse(
       ErrorCode.EXECUTION_FAILED,
@@ -142,15 +177,32 @@ function submitResponses(
     return createErrorResponse(ErrorCode.INVALID_INPUT, validationError, timingMs, traceId);
   }
 
-  store.saveResponses(record.id, payload.responses);
+  // Use idempotent save to support retries with same idempotency key
+  const saveResult = store.saveResponsesIdempotent(
+    record.id,
+    payload.responses,
+    payload.idempotencyKey,
+  );
+
+  if (!saveResult.ok) {
+    return createErrorResponse(
+      ErrorCode.EXECUTION_FAILED,
+      "Failed to save interview responses.",
+      timingMs,
+      traceId,
+    );
+  }
 
   return createSuccessResponse(
     {
+      toolName: "interview_user",
+      purpose: "clarification_only",
       action: "submit",
       interviewId: record.id,
       status: "answered",
       answeredAt: new Date().toISOString(),
-      responses: payload.responses,
+      responses: saveResult.responses,
+      isDuplicate: saveResult.isDuplicate,
     },
     timingMs,
     traceId,
@@ -163,30 +215,43 @@ export function handleAskUserRequest(
   traceId: string,
 ): ToolResponse {
   if (!request || !request.action || !request.payload) {
-    return createErrorResponse(
+    const error = createErrorResponse(
       ErrorCode.INVALID_INPUT,
       "Request must contain 'action' and 'payload'.",
       timingMs,
       traceId,
     );
+    return {
+      ...error,
+      toolName: "interview_user",
+      purpose: "clarification_only",
+    } as ToolResponse;
   }
+
+  let response: ToolResponse;
 
   if (request.action === "create") {
-    return createInterview(request.payload as CreateInterviewInput, timingMs, traceId);
+    response = createInterview(request.payload as CreateInterviewInput, timingMs, traceId);
+  } else if (request.action === "submit") {
+    response = submitResponses(request.payload as SubmitResponsesInput, timingMs, traceId);
+  } else if (request.action === "get") {
+    response = getInterview(request.payload as GetInterviewInput, timingMs, traceId);
+  } else {
+    response = createErrorResponse(
+      ErrorCode.INVALID_INPUT,
+      `Unsupported action '${String(request.action)}'.`,
+      timingMs,
+      traceId,
+    );
   }
 
-  if (request.action === "submit") {
-    return submitResponses(request.payload as SubmitResponsesInput, timingMs, traceId);
+  // Ensure toolName and purpose are always present
+  if (!("toolName" in response)) {
+    response.toolName = "interview_user";
+  }
+  if (!("purpose" in response)) {
+    response.purpose = "clarification_only";
   }
 
-  if (request.action === "get") {
-    return getInterview(request.payload as GetInterviewInput, timingMs, traceId);
-  }
-
-  return createErrorResponse(
-    ErrorCode.INVALID_INPUT,
-    `Unsupported action '${String(request.action)}'.`,
-    timingMs,
-    traceId,
-  );
+  return response;
 }

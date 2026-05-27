@@ -42,19 +42,21 @@ npm run mcp:sync-lmstudio
 |---|---|---|---|
 | `terminal` | `run_terminal_command` | 3333 | Execute shell commands (OS-aware) |
 | `web-browser` | `browse_web` | 3334 | Headless Chromium — JS rendering, screenshots, markdown |
-| `calculator` | `calculate_engineering` | 3335 | Math expressions, engineering notation, unit conversions |
+| `basic` | `get_current_datetime`, `calculate_engineering`, `interview_user` | stdio | Consolidated Clock + Calculator + AskUser MCP plugin. Always allowed — no permission prompts or approval tokens required. |
 | `document-scraper` | `read_document` | 3336 | Read local/remote documents (PDF, DOCX, HTML, CSV) |
-| `clock` | `get_current_datetime` | 3337 | Current date/time with timezone + locale formatting |
-| `ask-user` | `ask_user_interview` | 3338 | Interactive clarification interview workflow |
 | `rag` | `ingest_documents`, `query_knowledge` | 3339 | Persistent retrieval-augmented generation |
+| `python-shell` | `python_run_code`, `python_open_repl`, `python_open_idle` | 3343 | Python execution and shell/editor launch |
 | `skills` | `skills` | 3341 | Define and execute named parameterized playbooks |
-| `ecm` | `ecm` | 3342 | Extended Context Memory — 1M token context via vector retrieval |
+| `ecm` | `ecm` | 3342 | Enhanced Context Memory — automatic conversation compaction at 50% context usage |
 | `browserless` | 7 tools | 3003 | Advanced browser automation (BrowserQL, screenshots, PDFs, scraping) |
 | `slash-commands` | `slash_command` | stdio | `/command` shortcuts for LM Studio chat |
+| `3d-tool` | `launch_viewer`, `poll_interactions`, `edit_3d_file`, `get_model_metadata` | 3344 | Interactive 3D model viewer — load OBJ files, annotate geometry, live-reload edits |
 
 ---
 
 ## Minimal `mcp.json` (Core Tools)
+
+`basic` is always allowed — no permission prompts or approval tokens required.
 
 ```json
 {
@@ -67,13 +69,9 @@ npm run mcp:sync-lmstudio
         "TERMINAL_MAX_TIMEOUT_MS": "120000"
       }
     },
-    "calculator": {
+    "basic": {
       "command": "node",
-      "args": ["Calculator/dist/mcp-server.js"]
-    },
-    "clock": {
-      "command": "node",
-      "args": ["Clock/dist/mcp-server.js"]
+      "args": ["Basic/dist/mcp-server.js"]
     },
     "web-browser": {
       "command": "node",
@@ -86,7 +84,7 @@ npm run mcp:sync-lmstudio
 }
 ```
 
-For the full config with all 11 tools, see the `mcp.json` example in [README.md](README.md#complete-mcpjson-example).
+For the full config with all 10 MCP servers, see the `mcp.json` example in [README.md](README.md#complete-mcpjson-example).
 
 ---
 
@@ -107,6 +105,36 @@ Add `slash-commands` to your `mcp.json` to enable `/command` shortcuts in LM Stu
 Then type `/compact`, `/calc sin(30°)`, `/browse https://...`, etc. directly in chat.
 
 See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command reference.
+
+---
+
+## ECM — Automatic Context Compaction
+
+ECM (`ecm` server, port 3342) keeps the active context window from overflowing
+by compacting older turns into a single highlights summary when usage crosses
+a threshold (default 50%).
+
+To enable automatic compaction, add this snippet to your LM Studio system
+prompt (or your agent's instructions):
+
+```text
+Before responding to each user message, call the `ecm` MCP tool with:
+
+{
+  "action": "on_user_turn",
+  "sessionId": "<stable session id, e.g. 'lm-studio-default'>",
+  "currentUsedTokens": <your best estimate of tokens used so far>,
+  "contextLimit": <the model's context window size>
+}
+
+If the response includes `compacted: true`, treat the returned `summary` as
+the canonical conversation history going forward — older turns have been
+replaced by it.
+```
+
+The user can also trigger compaction manually with `/compact` (slash command)
+or `llm compact` (CLI). Both forward to `ecm.on_user_turn` with parameters
+that force the threshold check.
 
 ---
 

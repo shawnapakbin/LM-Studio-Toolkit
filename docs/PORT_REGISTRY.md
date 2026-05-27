@@ -17,6 +17,8 @@ Central reference for all LLM Toolkit tool port assignments.
 | 3340 | CSVExporter | HTTP + MCP | Staging |
 | 3341 | Skills | HTTP + MCP | Active |
 | 3342 | ECM | HTTP + MCP | Active |
+| 3343 | PythonShell | HTTP + MCP | Active |
+| 3344 | 3DTool | HTTP + MCP | Active |
 
 ## Non-HTTP Tools
 

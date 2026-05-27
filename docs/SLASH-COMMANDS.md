@@ -10,6 +10,10 @@ This works because the system prompt instructs the model to intercept messages t
 
 Add the `slash-commands` MCP server to your LM Studio `mcp.json`. The server registers a single `slash_command` tool — the LLM sees it in its tool list and calls it automatically whenever you type a `/command` in chat. No system prompt required.
 
+The server also exposes command discovery helpers:
+- `slash_commands_help` is the canonical discovery tool.
+- `slash_commands_list` is a compatibility alias and returns the same output.
+
 ```json
 "slash-commands": {
   "command": "node",
@@ -80,8 +84,8 @@ Run `npm run mcp:print-config` to get the full generated config with correct pat
 | `/python run <code>` | Execute non-interactive Python code via PythonShell |
 | `/python run <code> --cwd <dir>` | Run Python code in a specific working directory |
 | `/python run <code> --timeout <ms>` | Set execution timeout |
-| `/python repl` | Open Python REPL in a visible shell |
-| `/python idle` | Launch Python IDLE shell |
+| `/python repl` | Open the plain terminal Python REPL in a visible shell |
+| `/python idle` | Launch Python IDLE GUI shell/editor (`python -m idlelib`) |
 
 ### Skills
 

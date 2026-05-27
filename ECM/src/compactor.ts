@@ -67,13 +67,20 @@ class MockCompactorLLM implements CompactorLLM {
 }
 
 class LMStudioCompactorLLM implements CompactorLLM {
-  private client = new LMStudioClient();
+  private client?: LMStudioClient;
   private modelName = process.env.ECM_COMPACTOR_MODEL ?? "qwen2.5-7b-instruct";
   private modelPromise?: Promise<LLMModel>;
 
+  private getClient(): LMStudioClient {
+    if (!this.client) {
+      this.client = new LMStudioClient();
+    }
+    return this.client;
+  }
+
   private getModel(): Promise<LLMModel> {
     if (!this.modelPromise) {
-      this.modelPromise = this.client.llm.load(this.modelName);
+      this.modelPromise = this.getClient().llm.load(this.modelName);
     }
     return this.modelPromise;
   }

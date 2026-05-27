@@ -51,37 +51,40 @@ program
   .command("compact")
   .description("/compact — compact ECM context memory for the current session")
   .option("-s, --session <id>", "Session ID (default: cli-session)")
-  .option("--keep-newest <n>", "Newest segments to keep (default: 5)", parseInt)
-  .action(async (opts: { session?: string; keepNewest?: number }) => {
-    // Delegate to the ecm compact sub-command logic directly
-    const { DEFAULT_ECM_SESSION, TOOL_ENDPOINTS } = await import("./config");
-    const { toolPost, handleError } = await import("./http");
+  .option("--used <n>", "Current used tokens (forces compaction trigger)", parseInt)
+  .option("--limit <n>", "Model context limit", parseInt)
+  .option("--keep-newest <n>", "Newest segments to keep (default: 4)", parseInt)
+  .option("--threshold <n>", "Trigger ratio in (0, 1] (default: 0.5)", parseFloat)
+  .action(
+    async (opts: {
+      session?: string;
+      used?: number;
+      limit?: number;
+      keepNewest?: number;
+      threshold?: number;
+    }) => {
+      const { DEFAULT_ECM_SESSION, TOOL_ENDPOINTS } = await import("./config");
+      const { toolPost, handleError } = await import("./http");
 
-    const session = opts.session ?? DEFAULT_ECM_SESSION;
-    const keepNewest = opts.keepNewest ?? 5;
+      const session = opts.session ?? DEFAULT_ECM_SESSION;
+      const limit = opts.limit ?? 8192;
+      const used = opts.used ?? limit;
 
-    console.log(`Compacting session "${session}" (keeping ${keepNewest} newest segments)...`);
-    try {
-      const summary = await toolPost(`${TOOL_ENDPOINTS.ecm}/tools/ecm`, {
-        action: "summarize_session",
-        sessionId: session,
-        keepNewest,
-      });
-      console.log("\nSummary written:");
-      console.log(JSON.stringify(summary, null, 2));
-
-      const list = (await toolPost(`${TOOL_ENDPOINTS.ecm}/tools/ecm`, {
-        action: "list_segments",
-        sessionId: session,
-        limit: 1,
-      })) as Record<string, unknown>;
-
-      const data = list.data as Record<string, unknown> | undefined;
-      const total = data?.total ?? "unknown";
-      console.log(`\nContext compacted. Segments remaining: ${total}`);
-    } catch (err) {
-      handleError(err);
-    }
-  });
+      console.log(`Compacting session "${session}"...`);
+      try {
+        const result = await toolPost(`${TOOL_ENDPOINTS.ecm}/tools/ecm`, {
+          action: "on_user_turn",
+          sessionId: session,
+          currentUsedTokens: used,
+          contextLimit: limit,
+          ...(opts.keepNewest !== undefined && { keepNewest: opts.keepNewest }),
+          ...(opts.threshold !== undefined && { threshold: opts.threshold }),
+        });
+        console.log(JSON.stringify(result, null, 2));
+      } catch (err) {
+        handleError(err);
+      }
+    },
+  );
 
 program.parse(process.argv);

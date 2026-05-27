@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   autoCompactNow,
   clearSession,
@@ -16,6 +17,40 @@ import {
 } from "./ecm";
 
 dotenv.config();
+
+const approval = new SessionApprovalController({
+  toolName: "ECM",
+  askUserEndpoint: process.env.ECM_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "ECM_BYPASS_APPROVAL",
+});
+
+const MUTATING_ACTIONS = new Set([
+  "store_segment",
+  "delete_segment",
+  "clear_session",
+  "summarize_session",
+  "auto_compact_now",
+  "set_continuous_compact",
+]);
+
+function getActionDetails(action: string, sessionId: string): string {
+  switch (action) {
+    case "store_segment":
+      return `A new memory segment will be persisted for session '${sessionId || "default"}'.`;
+    case "delete_segment":
+      return `A memory segment will be permanently deleted from session '${sessionId || "default"}'.`;
+    case "clear_session":
+      return `All memory segments in session '${sessionId || "default"}' will be deleted.`;
+    case "summarize_session":
+      return `Session '${sessionId || "default"}' history will be compacted into summary segments.`;
+    case "auto_compact_now":
+      return `Immediate compaction will mutate stored memory for session '${sessionId || "default"}'.`;
+    case "set_continuous_compact":
+      return `Continuous compaction policy will be updated for session '${sessionId || "default"}'.`;
+    default:
+      return "ECM state will be modified.";
+  }
+}
 
 const ecmInputShape = {
   action: z
@@ -33,6 +68,17 @@ const ecmInputShape = {
     .describe("The operation to perform."),
   // shared
   sessionId: z.string().optional().describe("(all actions) Session namespace."),
+  taskRunId: z.string().optional().describe("(all actions) Optional task run identifier."),
+  approvalToken: z
+    .string()
+    .optional()
+    .describe(
+      "(mutating actions) Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+    ),
+  approvalInterviewId: z
+    .string()
+    .optional()
+    .describe("(mutating actions) AskUser interview ID used to verify explicit approval."),
   // store_segment
   type: z
     .enum(["conversation_turn", "tool_output", "document", "reasoning", "summary"])
@@ -44,7 +90,7 @@ const ecmInputShape = {
     .min(0)
     .max(1)
     .optional()
-    .describe("(store_segment) Importance weight 0–1 (default 0.5)."),
+    .describe("(store_segment) Importance weight 0-1 (default 0.5)."),
   metadata: z.record(z.unknown()).optional().describe("(store_segment) Arbitrary metadata JSON."),
   includeEmbeddings: z
     .boolean()
@@ -65,7 +111,7 @@ const ecmInputShape = {
   minScore: z
     .number()
     .optional()
-    .describe("(retrieve_context) Minimum composite score filter 0–1."),
+    .describe("(retrieve_context) Minimum composite score filter 0-1."),
   // list_segments
   limit: z.number().optional().describe("(list_segments) Max results (default 20)."),
   offset: z.number().optional().describe("(list_segments) Pagination offset (default 0)."),
@@ -75,7 +121,9 @@ const ecmInputShape = {
   keepNewest: z
     .number()
     .optional()
-    .describe("(summarize_session / auto_compact_now / set_continuous_compact) Number of newest segments to keep untouched (default 10 / 10 / 1)."),
+    .describe(
+      "(summarize_session / auto_compact_now / set_continuous_compact) Number of newest segments to keep untouched (default 10 / 10 / 1).",
+    ),
   enabled: z
     .boolean()
     .optional()
@@ -94,6 +142,9 @@ type EcmInput = {
     | "set_continuous_compact"
     | "get_session_policy";
   sessionId?: string;
+  taskRunId?: string;
+  approvalToken?: string;
+  approvalInterviewId?: string;
   type?: "conversation_turn" | "tool_output" | "document" | "reasoning" | "summary";
   content?: string;
   importance?: number;
@@ -131,8 +182,29 @@ export function createECMMcpServer(): McpServer {
       inputSchema: ecmInputShape,
     },
     async (input: EcmInput): Promise<CallToolResult> => {
-      const { action, sessionId = "", ...rest } = input;
+      const {
+        action,
+        sessionId = "",
+        taskRunId,
+        approvalToken,
+        approvalInterviewId,
+        ...rest
+      } = input;
       let result: unknown;
+
+      if (MUTATING_ACTIONS.has(action)) {
+        const gate = await approval.ensureApproved({
+          action: `ecm:${action}`,
+          details: getActionDetails(action, sessionId),
+          approvalToken,
+          approvalInterviewId,
+          sessionId,
+          taskRunId,
+        });
+        if (!gate.ok) {
+          return toCallToolResult(gate.response);
+        }
+      }
 
       switch (action) {
         case "store_segment":

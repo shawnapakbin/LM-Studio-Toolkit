@@ -3,9 +3,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import { openPythonIde, openPythonRepl, runPythonCode } from "./python-shell";
 
 dotenv.config();
+
+const approval = new SessionApprovalController({
+  toolName: "PythonShell",
+  askUserEndpoint: process.env.PYTHON_SHELL_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "PYTHON_SHELL_BYPASS_APPROVAL",
+});
 
 export function createPythonShellMcpServer(): McpServer {
   const server = new McpServer({
@@ -35,10 +42,54 @@ export function createPythonShellMcpServer(): McpServer {
           .string()
           .optional()
           .describe("Optional working directory inside the workspace root."),
+        approvalToken: z
+          .string()
+          .optional()
+          .describe(
+            "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+          ),
+        approvalInterviewId: z
+          .string()
+          .optional()
+          .describe("AskUser interview ID used to verify explicit approval."),
+        sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+        taskRunId: z
+          .string()
+          .optional()
+          .describe("Alternate session identity when sessionId is unavailable."),
       },
     },
     async (input): Promise<CallToolResult> => {
-      const result = runPythonCode(input as { code: string; timeoutMs?: number; cwd?: string });
+      const typedInput = input as {
+        code: string;
+        timeoutMs?: number;
+        cwd?: string;
+        approvalToken?: string;
+        approvalInterviewId?: string;
+        sessionId?: string;
+        taskRunId?: string;
+      };
+      const gate = await approval.ensureApproved({
+        action: "python_shell:python_run_code",
+        details: `Python code will be executed in cwd '${typedInput.cwd || "workspace root"}'.`,
+        approvalToken: typedInput.approvalToken,
+        approvalInterviewId: typedInput.approvalInterviewId,
+        sessionId: typedInput.sessionId,
+        taskRunId: typedInput.taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response as unknown as Record<string, unknown>,
+        };
+      }
+
+      const result = runPythonCode({
+        code: typedInput.code,
+        timeoutMs: typedInput.timeoutMs,
+        cwd: typedInput.cwd,
+      });
       return {
         isError: !result.success,
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -50,16 +101,55 @@ export function createPythonShellMcpServer(): McpServer {
   registerTool(
     "python_open_repl",
     {
-      description: "Open an interactive Python 3 REPL in a visible terminal window.",
+      description:
+        "Launches the plain Python interactive terminal REPL in a visible shell window. This is terminal-based stdin/stdout Python (not IDLE GUI). Use this for command-line interactive experimentation.",
       inputSchema: {
         cwd: z
           .string()
           .optional()
           .describe("Optional working directory inside the workspace root."),
+        approvalToken: z
+          .string()
+          .optional()
+          .describe(
+            "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+          ),
+        approvalInterviewId: z
+          .string()
+          .optional()
+          .describe("AskUser interview ID used to verify explicit approval."),
+        sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+        taskRunId: z
+          .string()
+          .optional()
+          .describe("Alternate session identity when sessionId is unavailable."),
       },
     },
     async (input): Promise<CallToolResult> => {
-      const result = openPythonRepl(input as { cwd?: string });
+      const typedInput = input as {
+        cwd?: string;
+        approvalToken?: string;
+        approvalInterviewId?: string;
+        sessionId?: string;
+        taskRunId?: string;
+      };
+      const gate = await approval.ensureApproved({
+        action: "python_shell:python_open_repl",
+        details: `A visible Python REPL will be launched in cwd '${typedInput.cwd || "workspace root"}'.`,
+        approvalToken: typedInput.approvalToken,
+        approvalInterviewId: typedInput.approvalInterviewId,
+        sessionId: typedInput.sessionId,
+        taskRunId: typedInput.taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response as unknown as Record<string, unknown>,
+        };
+      }
+
+      const result = openPythonRepl({ cwd: typedInput.cwd });
       return {
         isError: !result.success,
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -71,16 +161,55 @@ export function createPythonShellMcpServer(): McpServer {
   registerTool(
     "python_open_idle",
     {
-      description: "Launch Python IDLE shell (python -m idlelib).",
+      description:
+        "Launches Python IDLE via python -m idlelib, opening the IDLE GUI shell/editor (not the plain terminal REPL). Use this when a GUI Python shell/editor is needed.",
       inputSchema: {
         cwd: z
           .string()
           .optional()
           .describe("Optional working directory inside the workspace root."),
+        approvalToken: z
+          .string()
+          .optional()
+          .describe(
+            "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+          ),
+        approvalInterviewId: z
+          .string()
+          .optional()
+          .describe("AskUser interview ID used to verify explicit approval."),
+        sessionId: z.string().optional().describe("Session ID for allow-in-session approvals."),
+        taskRunId: z
+          .string()
+          .optional()
+          .describe("Alternate session identity when sessionId is unavailable."),
       },
     },
     async (input): Promise<CallToolResult> => {
-      const result = openPythonIde(input as { cwd?: string });
+      const typedInput = input as {
+        cwd?: string;
+        approvalToken?: string;
+        approvalInterviewId?: string;
+        sessionId?: string;
+        taskRunId?: string;
+      };
+      const gate = await approval.ensureApproved({
+        action: "python_shell:python_open_idle",
+        details: `Python IDLE will be launched in cwd '${typedInput.cwd || "workspace root"}'.`,
+        approvalToken: typedInput.approvalToken,
+        approvalInterviewId: typedInput.approvalInterviewId,
+        sessionId: typedInput.sessionId,
+        taskRunId: typedInput.taskRunId,
+      });
+      if (!gate.ok) {
+        return {
+          isError: !gate.response.success,
+          content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
+          structuredContent: gate.response as unknown as Record<string, unknown>,
+        };
+      }
+
+      const result = openPythonIde({ cwd: typedInput.cwd });
       return {
         isError: !result.success,
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],

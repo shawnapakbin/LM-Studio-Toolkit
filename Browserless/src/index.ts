@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { z } from "zod";
 import { MAX_CODE_LENGTH, hasUnsafeCodePatterns, isValidApiKey, validateTargetUrl } from "./policy";
+import { getRegionUrl } from "./utils";
 
 const smartscraperSchema = z.object({
   url: z.string().url(),
@@ -185,12 +186,6 @@ async function smartscraperHandler(params: SmartscraperParams) {
 
 function getAuthHeaders(apiKey?: string): Record<string, string> {
   return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
-}
-function getRegionUrl(region?: string): string {
-  if (!region) return "https://production-sfo.browserless.io";
-  if (region === "lon") return "https://production-lon.browserless.io";
-  if (region === "ams") return "https://production-ams.browserless.io";
-  return region;
 }
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;

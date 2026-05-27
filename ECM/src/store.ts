@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
 import { v4 as uuid } from "uuid";
@@ -9,6 +10,61 @@ export const DB_PATH =
     ? _rawDbPath
     : path.resolve(__dirname, _rawDbPath);
 
+/**
+ * Detect a legacy ECM schema (pre-v3): presence of `embedding_json` column on
+ * `ecm_segments` or the `ecm_session_policy` table. If found, rename the DB to
+ * `<path>.bak-<ISO timestamp>` so a fresh schema can be created cleanly.
+ */
+function migrateLegacyIfNeeded(dbPath: string): void {
+  if (dbPath === ":memory:") return;
+  if (!fs.existsSync(dbPath)) return;
+
+  let isLegacy = false;
+  let probe: Database.Database | undefined;
+  try {
+    probe = new Database(dbPath, { readonly: true });
+    const segCols = probe.prepare("PRAGMA table_info(ecm_segments)").all() as Array<{
+      name: string;
+    }>;
+    if (segCols.some((c) => c.name === "embedding_json")) isLegacy = true;
+    const policyTable = probe
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ecm_session_policy'")
+      .get();
+    if (policyTable) isLegacy = true;
+  } catch {
+    // If we can't even open it read-only, treat as non-legacy and let init handle it.
+    return;
+  } finally {
+    probe?.close();
+  }
+
+  if (!isLegacy) return;
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = `${dbPath}.bak-${stamp}`;
+  try {
+    fs.renameSync(dbPath, backupPath);
+    // Move sidecar WAL/SHM files too if present.
+    for (const suffix of ["-wal", "-shm"]) {
+      const sidecar = `${dbPath}${suffix}`;
+      if (fs.existsSync(sidecar)) {
+        try {
+          fs.renameSync(sidecar, `${backupPath}${suffix}`);
+        } catch {
+          // Best-effort cleanup only.
+        }
+      }
+    }
+    process.stderr.write(
+      `[ECM] Detected legacy schema; backed up DB to ${backupPath} and starting fresh.\n`,
+    );
+  } catch (err) {
+    process.stderr.write(
+      `[ECM] Legacy schema detected but backup failed: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+  }
+}
+
 function initSchema(db: Database.Database): void {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
@@ -18,7 +74,6 @@ function initSchema(db: Database.Database): void {
       session_id      TEXT NOT NULL,
       type            TEXT NOT NULL,
       content         TEXT NOT NULL,
-      embedding_json  TEXT NOT NULL,
       token_count     INTEGER NOT NULL,
       metadata_json   TEXT,
       importance      REAL NOT NULL DEFAULT 0.5,
@@ -27,47 +82,34 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_ecm_session_id ON ecm_segments(session_id);
     CREATE INDEX IF NOT EXISTS idx_ecm_session_type ON ecm_segments(session_id, type);
     CREATE INDEX IF NOT EXISTS idx_ecm_created_at ON ecm_segments(created_at);
-
-    CREATE TABLE IF NOT EXISTS ecm_session_policy (
-      session_id                   TEXT PRIMARY KEY,
-      continuous_compact_enabled   INTEGER NOT NULL DEFAULT 0,
-      continuous_keep_newest       INTEGER NOT NULL DEFAULT 1,
-      updated_at                   DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
   `);
-}
-
-export interface SessionPolicyRow {
-  session_id: string;
-  continuous_compact_enabled: number;
-  continuous_keep_newest: number;
-  updated_at: string;
 }
 
 export class ECMStore {
   private db: Database.Database;
 
   constructor(dbPath: string) {
+    migrateLegacyIfNeeded(dbPath);
     this.db = new Database(dbPath);
     initSchema(this.db);
   }
 
   insertSegment(input: SegmentInsertInput): SegmentRecord {
     const id = uuid();
-    const stmt = this.db.prepare(`
-      INSERT INTO ecm_segments (id, session_id, type, content, embedding_json, token_count, metadata_json, importance)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
-      id,
-      input.sessionId,
-      input.type,
-      input.content,
-      input.embeddingJson,
-      input.tokenCount,
-      input.metadataJson,
-      input.importance,
-    );
+    this.db
+      .prepare(
+        `INSERT INTO ecm_segments (id, session_id, type, content, token_count, metadata_json, importance)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        id,
+        input.sessionId,
+        input.type,
+        input.content,
+        input.tokenCount,
+        input.metadataJson,
+        input.importance,
+      );
     return this.getSegmentById(id) as SegmentRecord;
   }
 
@@ -77,14 +119,7 @@ export class ECMStore {
       | undefined;
   }
 
-  getSegmentsBySession(sessionId: string): SegmentRecord[] {
-    return this.db
-      .prepare("SELECT * FROM ecm_segments WHERE session_id = ? ORDER BY created_at ASC")
-      .all(sessionId) as SegmentRecord[];
-  }
-
   getOldestNonSummarySegments(sessionId: string, keepNewest: number): SegmentRecord[] {
-    // Get all non-summary segments ordered oldest first, excluding the keepNewest newest
     const all = this.db
       .prepare(
         "SELECT * FROM ecm_segments WHERE session_id = ? AND type != 'summary' ORDER BY created_at ASC",
@@ -92,14 +127,6 @@ export class ECMStore {
       .all(sessionId) as SegmentRecord[];
     if (all.length <= keepNewest) return [];
     return all.slice(0, all.length - keepNewest);
-  }
-
-  listSegments(sessionId: string, limit: number, offset: number): SegmentRecord[] {
-    return this.db
-      .prepare(
-        "SELECT * FROM ecm_segments WHERE session_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-      )
-      .all(sessionId, limit, offset) as SegmentRecord[];
   }
 
   countSegments(sessionId: string): number {
@@ -111,50 +138,20 @@ export class ECMStore {
 
   countNonSummarySegments(sessionId: string): number {
     const row = this.db
-      .prepare("SELECT COUNT(*) as cnt FROM ecm_segments WHERE session_id = ? AND type != 'summary'")
+      .prepare(
+        "SELECT COUNT(*) as cnt FROM ecm_segments WHERE session_id = ? AND type != 'summary'",
+      )
       .get(sessionId) as { cnt: number };
     return row.cnt;
   }
 
-  getSessionTokenCount(sessionId: string, includeSummaries = true): number {
-    const whereClause = includeSummaries
-      ? "session_id = ?"
-      : "session_id = ? AND type != 'summary'";
+  getSessionTokenCount(sessionId: string): number {
     const row = this.db
       .prepare(
-        `SELECT COALESCE(SUM(token_count), 0) as total FROM ecm_segments WHERE ${whereClause}`,
+        "SELECT COALESCE(SUM(token_count), 0) as total FROM ecm_segments WHERE session_id = ?",
       )
       .get(sessionId) as { total: number };
     return row.total;
-  }
-
-  deleteSegment(id: string): { deleted: boolean } {
-    const result = this.db.prepare("DELETE FROM ecm_segments WHERE id = ?").run(id);
-    return { deleted: result.changes > 0 };
-  }
-
-  getSessionPolicy(sessionId: string): SessionPolicyRow | undefined {
-    return this.db
-      .prepare("SELECT * FROM ecm_session_policy WHERE session_id = ?")
-      .get(sessionId) as SessionPolicyRow | undefined;
-  }
-
-  setSessionPolicy(
-    sessionId: string,
-    continuousCompactEnabled: boolean,
-    continuousKeepNewest: number,
-  ): SessionPolicyRow {
-    this.db
-      .prepare(
-        `INSERT INTO ecm_session_policy (session_id, continuous_compact_enabled, continuous_keep_newest, updated_at)
-         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-         ON CONFLICT(session_id) DO UPDATE SET
-           continuous_compact_enabled = excluded.continuous_compact_enabled,
-           continuous_keep_newest     = excluded.continuous_keep_newest,
-           updated_at                 = CURRENT_TIMESTAMP`,
-      )
-      .run(sessionId, continuousCompactEnabled ? 1 : 0, Math.max(1, continuousKeepNewest));
-    return this.getSessionPolicy(sessionId) as SessionPolicyRow;
   }
 
   deleteSegmentsByIds(ids: string[]): { deletedCount: number } {

@@ -23,10 +23,25 @@ function normalizeAskUserRequest(input: unknown): AskUserRequest {
   };
   const action = legacyActionMap[rawAction] ?? (rawAction as AskUserRequest["action"]);
 
-  const payload =
-    raw.payload && typeof raw.payload === "object"
-      ? ({ ...(raw.payload as Record<string, unknown>) } as Record<string, unknown>)
-      : {};
+  const payload = (() => {
+    if (raw.payload && typeof raw.payload === "object") {
+      return { ...(raw.payload as Record<string, unknown>) } as Record<string, unknown>;
+    }
+
+    // Some model routers send payload as a stringified JSON object.
+    if (typeof raw.payload === "string") {
+      try {
+        const parsed = JSON.parse(raw.payload) as unknown;
+        if (parsed && typeof parsed === "object") {
+          return { ...(parsed as Record<string, unknown>) };
+        }
+      } catch {
+        // leave as empty payload; downstream validation will return INVALID_INPUT
+      }
+    }
+
+    return {} as Record<string, unknown>;
+  })();
 
   if (action === "create") {
     if (payload.expiresInSeconds === undefined && typeof payload.expires === "number") {
@@ -63,60 +78,18 @@ export function createAskUserMcpServer(): McpServer {
   ) => void;
 
   registerTool(
-    "ask_user_interview",
+    "interview_user",
     {
       description:
-        "Creates approval interviews, submits responses, or checks approval status. Only use for user approval workflows—NOT for general questions or data retrieval. Supports: create (new interview), submit (answers to questions), get (fetch results).",
-      inputSchema: z.discriminatedUnion("action", [
-        z.object({
-          action: z.literal("create"),
-          payload: z
-            .object({
-              title: z
-                .string()
-                .optional()
-                .describe("Interview title (e.g., 'Approve document deletion')"),
-              taskRunId: z.string().optional().describe("Associated task ID"),
-              expiresInSeconds: z
-                .number()
-                .int()
-                .min(60)
-                .max(86400)
-                .optional()
-                .describe("Expiration time in seconds (60–86400, default 3600)"),
-              questions: z
-                .array(z.record(z.unknown()))
-                .describe(
-                  "Array of question objects with id, type (text/single_choice/confirm), prompt, required",
-                ),
-            })
-            .strict(),
-        }),
-        z.object({
-          action: z.literal("submit"),
-          payload: z
-            .object({
-              interviewId: z.string().describe("Interview ID from create action"),
-              responses: z
-                .array(
-                  z.object({
-                    questionId: z.string(),
-                    value: z.union([z.string(), z.array(z.string()), z.number(), z.boolean()]),
-                  }),
-                )
-                .describe("Array of answers: questionId and value"),
-            })
-            .strict(),
-        }),
-        z.object({
-          action: z.literal("get"),
-          payload: z
-            .object({
-              interviewId: z.string().describe("Interview ID to fetch results"),
-            })
-            .strict(),
-        }),
-      ]),
+        "Creates and manages interview/clarification forms: create, submit, get. Purpose: clarification_only. Do NOT use this tool for permissioning execution of other tools. Tool-use approval must use each target tool's native approval token/session approval flow. Always allowed — no permission prompts or approval tokens required.",
+      inputSchema: z.object({
+        action: z.enum(["create", "submit", "get"]),
+        payload: z
+          .unknown()
+          .describe(
+            "Action-specific payload. May be an object or JSON string; server normalizes and validates it. Examples: create: {title, questions: [{id, type, prompt, ...}]}, submit: {interviewId, responses: [{questionId, value}], idempotencyKey}, get: {interviewId}",
+          ),
+      }),
     },
     async (input): Promise<CallToolResult> => {
       const timer = new OperationTimer();
@@ -136,7 +109,11 @@ export function createAskUserMcpServer(): McpServer {
       return {
         isError: !result.success,
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        structuredContent: result as unknown as Record<string, unknown>,
+        structuredContent: {
+          ...(result as unknown as Record<string, unknown>),
+          toolName: "interview_user",
+          purpose: "clarification_only",
+        },
       };
     },
   );

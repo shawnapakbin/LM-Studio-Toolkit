@@ -1,6 +1,6 @@
 import { type Browser, type Page, chromium } from "playwright";
 import { extractContent } from "./extract-content";
-import { isAllowedContentType, validateTargetUrl } from "./policy";
+import { isAllowedContentType, MAX_CONTENT_CHARS, validateTargetUrl } from "./policy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,7 +100,6 @@ export async function shutdownBrowser(): Promise<void> {
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_DEFAULT_TIMEOUT_MS ?? 20000);
 const MAX_TIMEOUT_MS = Number(process.env.BROWSER_MAX_TIMEOUT_MS ?? 60000);
-const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
 
 export async function browseWeb(input: BrowseInput): Promise<BrowseResult> {
   // Phase 1: SSRF policy check — before any Playwright call

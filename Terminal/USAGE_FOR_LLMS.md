@@ -218,3 +218,119 @@ Make sure you understand:
 - ✅ Use piping to limit large output
 - ✅ Never use interactive commands
 - ✅ Set reasonable timeouts for slow operations
+
+## Approval Handshake (Mutating Commands)
+
+Running commands requires user approval. When you call a mutating action without an approval token, the tool returns `status: "approval_required"` and two tokens:
+
+| Response field | Meaning |
+|----------------|---------|
+| `approvalToken` | Use this for **one-time** approval on the very next retry |
+| `sessionApprovalToken` | Use this (in the `approvalToken` input field) for **session-scoped** approval so future calls with the same `sessionId` skip the prompt |
+
+> **Key rule**: Both allow-once and allow-in-session use the **same `approvalToken` input field**. There is no separate `sessionApprovalToken` input field. For session-scoped approval, put the `sessionApprovalToken` value into `approvalToken`.
+
+### Example 1 — Allow Once
+
+**Step 1 — initial call (no token):**
+```json
+{ "command": "npm test" }
+```
+
+**Step 1 — response:**
+```json
+{
+  "status": "approval_required",
+  "approvalToken": "tok_abc123",
+  "sessionApprovalToken": "sess_xyz789",
+  "message": "User approval required. To allow once: retry with approvalToken: \"tok_abc123\" in the approvalToken field. ..."
+}
+```
+
+**Step 2 — retry with allow-once token:**
+```json
+{
+  "command": "npm test",
+  "approvalToken": "tok_abc123"
+}
+```
+
+**Step 2 — response (success):**
+```json
+{ "success": true, "stdout": "...", "code": 0 }
+```
+
+---
+
+### Example 2 — Allow in This Session
+
+**Step 1 — initial call (include sessionId to enable session grants):**
+```json
+{
+  "command": "npm test",
+  "sessionId": "session-abc"
+}
+```
+
+**Step 1 — response:**
+```json
+{
+  "status": "approval_required",
+  "approvalToken": "tok_abc123",
+  "sessionApprovalToken": "sess_xyz789",
+  "message": "... To allow for the rest of this session, place the sessionApprovalToken value (\"sess_xyz789\") into the approvalToken field (same field), and include sessionId or taskRunId."
+}
+```
+
+**Step 2 — retry with session token (put sessionApprovalToken value into `approvalToken`):**
+```json
+{
+  "command": "npm test",
+  "sessionId": "session-abc",
+  "approvalToken": "sess_xyz789"
+}
+```
+
+**Step 2 — response (success):**
+```json
+{ "success": true, "stdout": "...", "code": 0 }
+```
+
+**Step 3 — subsequent calls in the same session (no token needed):**
+```json
+{
+  "command": "npm run build",
+  "sessionId": "session-abc"
+}
+```
+→ Runs immediately without re-prompting.
+
+---
+
+### Example 3 — Stale Token (Token Already Used or Expired)
+
+**Response:**
+```json
+{
+  "errorCode": "POLICY_BLOCKED",
+  "error": "Token not found, already used, or expired."
+}
+```
+
+**Fix**: Call the tool again without a token to receive fresh tokens, then retry.
+
+---
+
+### Example 4 — Hard Policy Block
+
+Some commands are on the denylist regardless of approval:
+
+**Response:**
+```json
+{
+  "errorCode": "POLICY_BLOCKED",
+  "error": "Command is not allowed: rm -rf /"
+}
+```
+
+**Fix**: Do not retry — use a safer alternative command.

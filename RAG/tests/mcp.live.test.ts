@@ -88,7 +88,7 @@ describeIfLive("RAG MCP live integration", () => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
-      if (url.includes("ask_user_interview")) {
+      if (url.includes("interview_user")) {
         return jsonResponse({
           success: true,
           status: "answered",

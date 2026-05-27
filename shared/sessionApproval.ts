@@ -1,0 +1,341 @@
+import crypto from "crypto";
+import { ErrorCode, type ToolResponse, createErrorResponse, createSuccessResponse } from "./types";
+
+const DEFAULT_APPROVAL_TOKEN_TTL_MS = 15 * 60 * 1000;
+const DEFAULT_ASK_USER_ENDPOINT = "http://localhost:3338/tools/interview_user";
+
+type PendingApprovalToken = {
+  action: string;
+  expiresAt: number;
+  used: boolean;
+  scope?: "once" | "session";
+  sessionKey?: string;
+};
+
+type ApprovalResponse = {
+  questionId?: string;
+  value?: unknown;
+};
+
+type AskUserResponse = {
+  interviewId?: string;
+  status?: string;
+  responses?: ApprovalResponse[];
+  data?: {
+    interviewId?: string;
+    status?: string;
+    responses?: ApprovalResponse[];
+  };
+};
+
+export type SessionApprovalEnsureInput = {
+  action: string;
+  details: string;
+  approvalInterviewId?: string;
+  approvalToken?: string;
+  sessionId?: string;
+  taskRunId?: string;
+};
+
+export type SessionApprovalOptions = {
+  toolName: string;
+  askUserEndpoint?: string;
+  tokenTtlMs?: number;
+  bypassEnvVarName?: string;
+};
+
+export function normalizeSessionKey(sessionId?: string, taskRunId?: string): string | undefined {
+  const sid = sessionId?.trim();
+  if (sid) {
+    return sid;
+  }
+  const tid = taskRunId?.trim();
+  if (tid) {
+    return tid;
+  }
+  return undefined;
+}
+
+export class SessionApprovalController {
+  private readonly toolName: string;
+  private readonly askUserEndpoint: string;
+  private readonly tokenTtlMs: number;
+  private readonly bypassEnvVarName?: string;
+  private readonly pendingApprovalTokens = new Map<string, PendingApprovalToken>();
+  private readonly sessionGrants = new Map<string, Set<string>>();
+
+  constructor(options: SessionApprovalOptions) {
+    this.toolName = options.toolName;
+    this.askUserEndpoint = options.askUserEndpoint ?? DEFAULT_ASK_USER_ENDPOINT;
+    this.tokenTtlMs = options.tokenTtlMs ?? DEFAULT_APPROVAL_TOKEN_TTL_MS;
+    this.bypassEnvVarName = options.bypassEnvVarName;
+  }
+
+  clearSessionGrants(sessionKey: string): void {
+    this.sessionGrants.delete(sessionKey);
+  }
+
+  private addSessionGrant(sessionKey: string, action: string): void {
+    if (!this.sessionGrants.has(sessionKey)) {
+      this.sessionGrants.set(sessionKey, new Set());
+    }
+    this.sessionGrants.get(sessionKey)!.add(action);
+  }
+
+  private createApprovalToken(
+    action: string,
+    scope: "once" | "session" = "once",
+    sessionKey?: string,
+  ): string {
+    const token = crypto.randomUUID();
+
+    for (const [key, entry] of this.pendingApprovalTokens.entries()) {
+      if (entry.expiresAt <= Date.now() || entry.used) {
+        this.pendingApprovalTokens.delete(key);
+      }
+    }
+
+    this.pendingApprovalTokens.set(token, {
+      action,
+      expiresAt: Date.now() + this.tokenTtlMs,
+      used: false,
+      scope,
+      sessionKey,
+    });
+    return token;
+  }
+
+  private redeemApprovalToken(
+    token: string,
+    action: string,
+    sessionKey?: string,
+  ): { ok: true } | { ok: false; reason: string } {
+    const entry = this.pendingApprovalTokens.get(token);
+    if (!entry) {
+      return { ok: false, reason: "Approval token not found or already used." };
+    }
+    if (entry.used && entry.scope !== "session") {
+      return { ok: false, reason: "Approval token has already been used." };
+    }
+    if (entry.expiresAt <= Date.now()) {
+      this.pendingApprovalTokens.delete(token);
+      return { ok: false, reason: "Approval token has expired. Please request a new one." };
+    }
+    if (entry.action !== action) {
+      return {
+        ok: false,
+        reason: `Approval token was issued for '${entry.action}', not '${action}'.`,
+      };
+    }
+
+    if (entry.scope === "session") {
+      const effectiveSession = sessionKey ?? entry.sessionKey;
+      if (effectiveSession) {
+        this.addSessionGrant(effectiveSession, action);
+      } else {
+        entry.used = true;
+      }
+    } else {
+      entry.used = true;
+    }
+
+    return { ok: true };
+  }
+
+  private buildApprovalQuestion(action: string, details: string): string {
+    return `Approve '${action}' in ${this.toolName}? ${details}`;
+  }
+
+  requestApproval(
+    action: string,
+    details: string,
+    sessionKey?: string,
+    approvalSignature?: string,
+  ): ToolResponse {
+    const approvalToken = this.createApprovalToken(action, "once");
+    const sessionApprovalToken = sessionKey
+      ? this.createApprovalToken(action, "session", sessionKey)
+      : undefined;
+    const question = this.buildApprovalQuestion(action, details);
+
+    const approveUrl = approvalSignature
+      ? this.askUserEndpoint.replace("/tools/interview_user", `/tools/approve/${approvalSignature}`)
+      : "";
+    const approvalLinkLine = approveUrl
+      ? `[✅ Click here to Approve](${approveUrl}) — or just type **proceed** below`
+      : "";
+
+    return createSuccessResponse({
+      status: "approval_required",
+      action,
+      approvalToken,
+      ...(sessionApprovalToken ? { sessionApprovalToken } : {}),
+      question,
+      message: `User approval is required before this operation can proceed.`,
+      instructions: `Present this EXACT markdown to the user in chat:\n\n**Approval Required**\n${question}\n\n${approvalLinkLine}\n\nDO NOT SHOW THE TOKENS TO THE USER. When the user types **proceed** (or **yes**) in chat, call this tool again with the SAME parameters — that is enough to approve. Alternatively, if they clicked the link in a browser, no token is needed either. (You may also optionally include the \`approvalToken\` in the payload to approve without a user reply.)`,
+    });
+  }
+
+  async ensureApproved(
+    input: SessionApprovalEnsureInput,
+  ): Promise<{ ok: true } | { ok: false; response: ToolResponse }> {
+    const sessionKey = normalizeSessionKey(input.sessionId, input.taskRunId);
+
+    if (sessionKey && this.sessionGrants.get(sessionKey)?.has(input.action)) {
+      return { ok: true };
+    }
+
+    if (this.bypassEnvVarName) {
+      const value = process.env[this.bypassEnvVarName];
+      if (value === "true" || value === "1") {
+        return { ok: true };
+      }
+    }
+
+    // Always compute the deterministic hash for this exact action/details combo
+    const approvalSignature = crypto
+      .createHash("sha256")
+      .update(`${this.toolName}:${input.action}:${input.details}`)
+      .digest("hex");
+
+    // Check if the user clicked the web button for this signature
+    try {
+      const response = await fetch(this.askUserEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get",
+          payload: { interviewId: approvalSignature },
+        }),
+      });
+
+      if (response.ok) {
+        const body = (await response.json()) as AskUserResponse;
+        const status = body?.status || body?.data?.status;
+        const responses = body?.responses || body?.data?.responses || [];
+        const approval = Array.isArray(responses)
+          ? responses.find((item) => item?.questionId === "approve")
+          : undefined;
+
+        if (status === "answered" && approval?.value === true) {
+          return { ok: true }; // Successfully approved via web link!
+        }
+      }
+    } catch {
+      // AskUser service unreachable, silently fallback to token method
+    }
+
+    if (input.approvalToken) {
+      const result = this.redeemApprovalToken(input.approvalToken, input.action, sessionKey);
+      if (result.ok) {
+        return { ok: true };
+      }
+      return {
+        ok: false,
+        response: createErrorResponse(ErrorCode.POLICY_BLOCKED, result.reason),
+      };
+    }
+
+    if (input.approvalInterviewId) {
+      // Legacy AskUser explicit check flow
+      let response: Response;
+      try {
+        response = await fetch(this.askUserEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "get",
+            payload: { interviewId: input.approvalInterviewId },
+          }),
+        });
+      } catch {
+        return {
+          ok: false,
+          response: createErrorResponse(
+            ErrorCode.EXECUTION_FAILED,
+            `AskUser service is unreachable at ${this.askUserEndpoint}. Use chat-first approval flow instead: call without approvalInterviewId to receive approvalToken, confirm with user, then retry with approvalToken.`,
+          ),
+        };
+      }
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          response: createErrorResponse(
+            ErrorCode.EXECUTION_FAILED,
+            "Unable to verify approval interview via AskUser.",
+          ),
+        };
+      }
+
+      const body = (await response.json()) as AskUserResponse;
+      const status = body?.status || body?.data?.status;
+      const responses = body?.responses || body?.data?.responses || [];
+      const approval = Array.isArray(responses)
+        ? responses.find((item) => item?.questionId === "approve")
+        : undefined;
+
+      if (status === "answered" && approval?.value === "allow_in_session") {
+        if (sessionKey) {
+          this.addSessionGrant(sessionKey, input.action);
+        }
+        return { ok: true };
+      }
+
+      if (status === "answered" && approval?.value === true) {
+        return { ok: true };
+      }
+
+      if (status === "pending") {
+        return {
+          ok: false,
+          response: createSuccessResponse({
+            status: "approval_pending",
+            action: input.action,
+            interviewId: input.approvalInterviewId,
+            message: "Approval interview has not been answered yet.",
+          }),
+        };
+      }
+
+      return {
+        ok: false,
+        response: createErrorResponse(
+          ErrorCode.POLICY_BLOCKED,
+          "Write operation requires explicit approval and was not approved.",
+        ),
+      };
+    }
+
+    // Try to create the interview on the backend for the clickable link
+    try {
+      await fetch(this.askUserEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          payload: {
+            id: approvalSignature,
+            title: `Approve ${input.action}`,
+            expiresInSeconds: 3600,
+            questions: [
+              {
+                id: "approve",
+                type: "confirm",
+                prompt: input.details,
+                required: true,
+              },
+            ],
+          },
+        }),
+      });
+    } catch {
+      // Best effort
+    }
+
+    return {
+      ok: false,
+      response: this.requestApproval(input.action, input.details, sessionKey, approvalSignature),
+    };
+  }
+}

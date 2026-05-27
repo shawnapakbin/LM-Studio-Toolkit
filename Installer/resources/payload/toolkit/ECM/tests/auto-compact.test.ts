@@ -7,11 +7,18 @@ process.env.ECM_MODEL_CONTEXT_LIMIT = "80";
 process.env.ECM_AUTO_COMPACT_KEEP_NEWEST = "2";
 process.env.ECM_AUTO_COMPACT_COOLDOWN_MS = "600000";
 process.env.ECM_AUTO_COMPACT_FORCE_LLM = "true";
+process.env.ECM_BYPASS_APPROVAL = "1";
 
+import type { Express } from "express";
 import request from "supertest";
-import { app } from "../src/index";
 
 const SESSION = "auto-compact-session";
+let app: Express;
+
+beforeAll(async () => {
+  jest.resetModules();
+  ({ app } = await import("../src/index"));
+});
 
 describe("ECM auto-compaction", () => {
   test("auto compacts when context ratio crosses threshold", async () => {

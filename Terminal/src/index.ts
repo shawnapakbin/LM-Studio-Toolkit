@@ -12,6 +12,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import { getRegistry } from "llm-toolkit-observability";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import {
   DEFAULT_MAX_OUTPUT_CHARS,
   WORKSPACE_ROOT,
@@ -42,6 +43,11 @@ const PORT = Number(process.env.PORT ?? 3333);
 const DEFAULT_TIMEOUT_MS = Number(process.env.TERMINAL_DEFAULT_TIMEOUT_MS ?? 60000);
 const MAX_TIMEOUT_MS = Number(process.env.TERMINAL_MAX_TIMEOUT_MS ?? 120000);
 const MAX_OUTPUT_CHARS = DEFAULT_MAX_OUTPUT_CHARS;
+const approval = new SessionApprovalController({
+  toolName: "Terminal",
+  askUserEndpoint: process.env.TERMINAL_ASK_USER_ENDPOINT,
+  bypassEnvVarName: "TERMINAL_BYPASS_APPROVAL",
+});
 
 // Auto-detect operating system
 const OPERATING_SYSTEM = (() => {
@@ -85,6 +91,10 @@ type ExecuteRequest = {
   timeoutMs?: number;
   cwd?: string;
   punchout?: boolean;
+  approvalToken?: string;
+  approvalInterviewId?: string;
+  sessionId?: string;
+  taskRunId?: string;
 };
 
 app.get("/health", (_req: Request, res: Response) => {
@@ -148,6 +158,23 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
           description:
             "When true, opens a visible terminal window so the user can watch the command run. The terminal is reused if still open; otherwise a new window is launched. stdout/stderr are NOT captured—output appears only in the terminal window.",
         },
+        approvalToken: {
+          type: "string",
+          description:
+            "Approval token from a prior approval_required response. For allow-once: use the approvalToken value. For allow-in-session: put the sessionApprovalToken value here (same field) and include sessionId or taskRunId.",
+        },
+        approvalInterviewId: {
+          type: "string",
+          description: "AskUser interview ID used to verify explicit approval.",
+        },
+        sessionId: {
+          type: "string",
+          description: "Session ID for allow-in-session approvals.",
+        },
+        taskRunId: {
+          type: "string",
+          description: "Alternate session identity when sessionId is unavailable.",
+        },
       },
       required: ["command"],
     },
@@ -156,7 +183,7 @@ app.get("/tool-schema", (_req: Request, res: Response) => {
 
 app.post(
   "/tools/run_terminal_command",
-  (req: Request<unknown, unknown, ExecuteRequest>, res: Response) => {
+  async (req: Request<unknown, unknown, ExecuteRequest>, res: Response) => {
     try {
       const timer = new OperationTimer();
       const traceId = generateTraceId();
@@ -203,6 +230,26 @@ app.post(
       const timeoutMs = Number.isFinite(timeoutFromReq)
         ? Math.min(Math.max(timeoutFromReq, 1), MAX_TIMEOUT_MS)
         : DEFAULT_TIMEOUT_MS;
+
+      const gate = await approval.ensureApproved({
+        action: "terminal:run_terminal_command",
+        details: `Command '${command}' will be executed in local terminal at '${safeCwd.cwd}'.`,
+        approvalToken: req.body.approvalToken,
+        approvalInterviewId: req.body.approvalInterviewId,
+        sessionId: req.body.sessionId,
+        taskRunId: req.body.taskRunId,
+      });
+      if (!gate.ok) {
+        const status = gate.response.success
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
+        res.status(status).json(gate.response);
+        return;
+      }
 
       // ---------------------------------------------------------------
       // Punchout mode: launch a visible terminal window and return early.

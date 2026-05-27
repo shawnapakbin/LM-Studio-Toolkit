@@ -41,7 +41,7 @@ function resolveDbPath(): string {
 const DOC_SCRAPER_ENDPOINT =
   process.env.RAG_DOC_SCRAPER_ENDPOINT ?? "http://localhost:3336/tools/read_document";
 const ASK_USER_ENDPOINT =
-  process.env.RAG_ASK_USER_ENDPOINT ?? "http://localhost:3338/tools/ask_user_interview";
+  process.env.RAG_ASK_USER_ENDPOINT ?? "http://localhost:3338/tools/interview_user";
 
 const APPROVAL_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -49,13 +49,34 @@ type PendingApprovalToken = {
   action: string;
   expiresAt: number;
   used: boolean;
+  scope?: "once" | "session";
+  sessionId?: string;
 };
 
 // Short-lived approval tokens for the chat-first approval flow (no HTTP dependency).
 // Cleared on process restart — intentional; approval context should not persist across restarts.
 const pendingApprovalTokens = new Map<string, PendingApprovalToken>();
 
-function createApprovalToken(action: string): string {
+// Session-scoped grants: sessionId → Set of approved action strings.
+// Cleared on process restart — intentional.
+const sessionGrants = new Map<string, Set<string>>();
+
+export function clearSessionGrants(sessionId: string): void {
+  sessionGrants.delete(sessionId);
+}
+
+function addSessionGrant(sessionId: string, action: string): void {
+  if (!sessionGrants.has(sessionId)) {
+    sessionGrants.set(sessionId, new Set());
+  }
+  sessionGrants.get(sessionId)!.add(action);
+}
+
+function createApprovalToken(
+  action: string,
+  scope: "once" | "session" = "once",
+  sessionId?: string,
+): string {
   const token = crypto.randomUUID();
   // Prune stale entries before inserting
   for (const [key, entry] of pendingApprovalTokens.entries()) {
@@ -67,6 +88,8 @@ function createApprovalToken(action: string): string {
     action,
     expiresAt: Date.now() + APPROVAL_TOKEN_TTL_MS,
     used: false,
+    scope,
+    sessionId,
   });
   return token;
 }
@@ -74,12 +97,13 @@ function createApprovalToken(action: string): string {
 function redeemApprovalToken(
   token: string,
   action: string,
+  sessionId?: string,
 ): { ok: true } | { ok: false; reason: string } {
   const entry = pendingApprovalTokens.get(token);
   if (!entry) {
     return { ok: false, reason: "Approval token not found or already used." };
   }
-  if (entry.used) {
+  if (entry.used && entry.scope !== "session") {
     return { ok: false, reason: "Approval token has already been used." };
   }
   if (entry.expiresAt <= Date.now()) {
@@ -92,7 +116,17 @@ function redeemApprovalToken(
       reason: `Approval token was issued for '${entry.action}', not '${action}'.`,
     };
   }
-  entry.used = true;
+  if (entry.scope === "session") {
+    const sid = sessionId ?? entry.sessionId;
+    if (sid) {
+      addSessionGrant(sid, action);
+    } else {
+      // No session context — treat as one-time
+      entry.used = true;
+    }
+  } else {
+    entry.used = true;
+  }
   return { ok: true };
 }
 
@@ -190,17 +224,24 @@ class RAGService {
     this.store.close();
   }
 
-  private requestApproval(action: string, details: string): ToolResponse {
-    const approvalToken = createApprovalToken(action);
+  private requestApproval(action: string, details: string, sessionId?: string): ToolResponse {
+    const approvalToken = createApprovalToken(action, "once");
+    const sessionApprovalToken = sessionId
+      ? createApprovalToken(action, "session", sessionId)
+      : undefined;
     const question = buildApprovalQuestion(action, details);
+    const sessionNote = sessionApprovalToken
+      ? ` To allow for the rest of this session, place the sessionApprovalToken value ("${sessionApprovalToken}") into the approvalToken field (same field), and include sessionId.`
+      : "";
     return createSuccessResponse({
       status: "approval_required",
       action,
       approvalToken,
+      ...(sessionApprovalToken ? { sessionApprovalToken } : {}),
       question,
-      message: `User approval is required before this operation can proceed. Ask the user: "${question}" — If they confirm, retry with approvalToken: "${approvalToken}".`,
+      message: `User approval is required before this operation can proceed. Ask the user: "${question}" — To allow once: retry with approvalToken: "${approvalToken}" in the approvalToken field.${sessionNote}`,
       instructions:
-        "Present the question to the user in chat. On confirmation, call this tool again with the same parameters and add approvalToken to the payload.",
+        "Present the question to the user in chat. On confirmation, call this tool again with the same parameters and EITHER: (a) set approvalToken to the approvalToken value shown above for one-time approval, OR (b) set approvalToken to the sessionApprovalToken value shown above AND include sessionId for session-scoped approval. Both options use the same 'approvalToken' input field — do NOT create a separate 'sessionApprovalToken' input field.",
     });
   }
 
@@ -209,7 +250,13 @@ class RAGService {
     details: string,
     approvalInterviewId?: string,
     approvalToken?: string,
+    sessionId?: string,
   ): Promise<{ ok: true } | { ok: false; response: ToolResponse }> {
+    // Session grant check: if this action was previously allowed for this session, skip re-prompt
+    if (sessionId && sessionGrants.get(sessionId)?.has(action)) {
+      return { ok: true };
+    }
+
     // Env-var bypass: skip approval, log for auditability
     if (process.env.RAG_BYPASS_APPROVAL === "true" || process.env.RAG_BYPASS_APPROVAL === "1") {
       console.error(
@@ -220,7 +267,7 @@ class RAGService {
 
     // Chat-first token path: no HTTP dependency required
     if (approvalToken) {
-      const result = redeemApprovalToken(approvalToken, action);
+      const result = redeemApprovalToken(approvalToken, action, sessionId);
       if (result.ok) {
         return { ok: true };
       }
@@ -269,6 +316,13 @@ class RAGService {
         ? responses.find((item) => item?.questionId === "approve")
         : undefined;
 
+      if (status === "answered" && approval?.value === "allow_in_session") {
+        if (sessionId) {
+          addSessionGrant(sessionId, action);
+        }
+        return { ok: true };
+      }
+
       if (status === "answered" && approval?.value === true) {
         return { ok: true };
       }
@@ -297,7 +351,7 @@ class RAGService {
     // No token or interview ID — initiate the chat-first approval flow
     return {
       ok: false,
-      response: this.requestApproval(action, details),
+      response: this.requestApproval(action, details, sessionId),
     };
   }
 
@@ -408,6 +462,7 @@ class RAGService {
       `${input.documents.length} document(s) will be added or updated in persistent knowledge storage.`,
       input.approvalInterviewId,
       input.approvalToken,
+      input.sessionId,
     );
 
     if (!approval.ok) {
@@ -528,6 +583,7 @@ class RAGService {
       `Source '${source.source_key}' with ${source.chunk_count} chunk(s) will be removed.`,
       input.approvalInterviewId,
       input.approvalToken,
+      input.sessionId,
     );
 
     if (!approval.ok) {
@@ -560,6 +616,7 @@ class RAGService {
       `Source '${source.source_key}' will be re-chunked and re-embedded.`,
       input.approvalInterviewId,
       input.approvalToken,
+      input.sessionId,
     );
 
     if (!approval.ok) {

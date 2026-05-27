@@ -135,16 +135,16 @@ describe("AgentRunner", () => {
       expect(analysis.reasons.length).toBeGreaterThan(0);
     });
 
-    test("builds clarification workflow with ask-user step", () => {
-      const workflow = runner.buildClarificationWorkflow("Implement ask user tool", {
+    test("builds clarification workflow with interview_user step", () => {
+      const workflow = runner.buildClarificationWorkflow("Implement interview_user tool", {
         taskRunId: "task-123",
         expiresInSeconds: 1200,
       });
 
       expect(workflow.mode).toBe(ExecutionMode.SEQUENTIAL);
       expect(workflow.steps).toHaveLength(1);
-      expect(workflow.steps[0].toolId).toBe("ask-user");
-      expect(workflow.steps[0].endpoint).toBe("/tools/ask_user_interview");
+      expect(workflow.steps[0].toolId).toBe("interview_user");
+      expect(workflow.steps[0].endpoint).toBe("/tools/interview_user");
 
       const payload = workflow.steps[0].input.payload as { questions: Array<{ id: string }> };
       expect(payload.questions.length).toBeGreaterThanOrEqual(5);
@@ -664,7 +664,7 @@ describe("AgentRunner", () => {
       expect(result.success).toBe(false);
       expect(result.approvalBlock?.interviewId).toBe("iv-followup-1");
       expect(result.followUpWorkflow).toBeDefined();
-      expect(result.followUpWorkflow?.steps[0].toolId).toBe("ask-user");
+      expect(result.followUpWorkflow?.steps[0].toolId).toBe("interview_user");
       expect(result.followUpWorkflow?.steps[0].input.action).toBe("get");
       const firstStepInput = result.followUpWorkflow?.steps[0].input as {
         payload?: { interviewId?: string };
@@ -674,7 +674,7 @@ describe("AgentRunner", () => {
 
     test("auto-approves blocked write per session and retries original step", async () => {
       registry.register(
-        createMockTool("ask-user", 3338, async (input: Record<string, unknown>) => {
+        createMockTool("interview_user", 3338, async (input: Record<string, unknown>) => {
           if (input.action === "submit") {
             return {
               success: true,
@@ -684,7 +684,7 @@ describe("AgentRunner", () => {
 
           return {
             success: false,
-            error: "unsupported ask-user action in test",
+            error: "unsupported interview_user action in test",
           };
         }),
       );

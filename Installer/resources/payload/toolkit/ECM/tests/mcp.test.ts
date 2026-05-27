@@ -1,5 +1,6 @@
 process.env.ECM_DB_PATH = ":memory:";
 process.env.ECM_EMBEDDINGS_MODE = "mock";
+process.env.ECM_BYPASS_APPROVAL = "1";
 
 describe("ECM MCP Server", () => {
   test("createECMMcpServer creates server without throwing", async () => {

@@ -88,4 +88,3 @@ export declare function createErrorResponse(
   timingMs?: number,
   traceId?: string,
 ): ToolResponse;
-//# sourceMappingURL=types.d.ts.map

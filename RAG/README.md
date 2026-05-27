@@ -25,7 +25,7 @@ RAG MCP tool for persistent document ingestion and semantic retrieval, with robu
 - RAG_CHUNK_OVERLAP_TOKENS (default 75)
 - RAG_QUERY_TOP_K (default 6)
 - RAG_DOC_SCRAPER_ENDPOINT (default http://localhost:3336/tools/read_document)
-- RAG_ASK_USER_ENDPOINT (default http://localhost:3338/tools/ask_user_interview)
+- RAG_ASK_USER_ENDPOINT (default http://localhost:3338/tools/interview_user)
 - RAG_BYPASS_APPROVAL (set to "true" to skip write approval gates)
 
 ## Dynamic Documentation Sites: Fallback and BrowserQL Playbook

@@ -146,11 +146,46 @@ export class SessionApprovalController {
     return `Approve '${action}' in ${this.toolName}? ${details}`;
   }
 
+  private async createApprovalInterview(action: string, details: string): Promise<string | null> {
+    const interviewId = crypto.randomUUID();
+    try {
+      const response = await fetch(this.askUserEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          payload: {
+            id: interviewId,
+            title: `Approve '${action}'`,
+            expiresInSeconds: 900,
+            questions: [
+              {
+                id: "approve",
+                type: "single_choice",
+                prompt: details || "Do you want to allow this action?",
+                required: true,
+                options: [
+                  { id: "allow_once", label: "\u2705 Allow once" },
+                  { id: "allow_session", label: "\u2705 Allow for this session" },
+                  { id: "deny", label: "\u274c Deny" },
+                ],
+              },
+            ],
+          },
+        }),
+      });
+      if (!response.ok) return null;
+      return interviewId;
+    } catch {
+      return null;
+    }
+  }
+
   requestApproval(
     action: string,
     details: string,
     sessionKey?: string,
-    approvalSignature?: string,
+    interviewId?: string,
   ): ToolResponse {
     const approvalToken = this.createApprovalToken(action, "once");
     const sessionApprovalToken = sessionKey
@@ -158,21 +193,19 @@ export class SessionApprovalController {
       : undefined;
     const question = this.buildApprovalQuestion(action, details);
 
-    const approveUrl = approvalSignature
-      ? this.askUserEndpoint.replace("/tools/interview_user", `/tools/approve/${approvalSignature}`)
-      : "";
-    const approvalLinkLine = approveUrl
-      ? `[✅ Click here to Approve](${approveUrl}) — or just type **proceed** below`
-      : "";
+    const submitInstruction = interviewId
+      ? `When the user selects an option, call \`interview_user\` with \`action="submit"\`, \`payload.interviewId="${interviewId}"\`, and \`payload.responses=[{questionId:"approve", value:"allow_once" | "allow_session" | "deny"}]\`. Then retry this tool with the SAME parameters plus \`approvalInterviewId="${interviewId}"\`.`
+      : `When the user types **proceed** (or **yes**) in chat, call this tool again with the SAME parameters. You may also include the \`approvalToken\` in the payload to approve without a user reply.`;
 
     return createSuccessResponse({
       status: "approval_required",
       action,
       approvalToken,
       ...(sessionApprovalToken ? { sessionApprovalToken } : {}),
+      ...(interviewId ? { approvalInterviewId: interviewId } : {}),
       question,
       message: `User approval is required before this operation can proceed.`,
-      instructions: `Present this EXACT markdown to the user in chat:\n\n**Approval Required**\n${question}\n\n${approvalLinkLine}\n\nDO NOT SHOW THE TOKENS TO THE USER. When the user types **proceed** (or **yes**) in chat, call this tool again with the SAME parameters — that is enough to approve. Alternatively, if they clicked the link in a browser, no token is needed either. (You may also optionally include the \`approvalToken\` in the payload to approve without a user reply.)`,
+      instructions: `Present this EXACT markdown to the user in chat:\n\n**Approval Required**\n${question}\n\n1. ✅ Allow once\n2. ✅ Allow for this session\n3. ❌ Deny\n\nDO NOT SHOW THE TOKENS TO THE USER. ${submitInstruction}`,
     });
   }
 
@@ -192,39 +225,6 @@ export class SessionApprovalController {
       }
     }
 
-    // Always compute the deterministic hash for this exact action/details combo
-    const approvalSignature = crypto
-      .createHash("sha256")
-      .update(`${this.toolName}:${input.action}:${input.details}`)
-      .digest("hex");
-
-    // Check if the user clicked the web button for this signature
-    try {
-      const response = await fetch(this.askUserEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "get",
-          payload: { interviewId: approvalSignature },
-        }),
-      });
-
-      if (response.ok) {
-        const body = (await response.json()) as AskUserResponse;
-        const status = body?.status || body?.data?.status;
-        const responses = body?.responses || body?.data?.responses || [];
-        const approval = Array.isArray(responses)
-          ? responses.find((item) => item?.questionId === "approve")
-          : undefined;
-
-        if (status === "answered" && approval?.value === true) {
-          return { ok: true }; // Successfully approved via web link!
-        }
-      }
-    } catch {
-      // AskUser service unreachable, silently fallback to token method
-    }
-
     if (input.approvalToken) {
       const result = this.redeemApprovalToken(input.approvalToken, input.action, sessionKey);
       if (result.ok) {
@@ -237,7 +237,6 @@ export class SessionApprovalController {
     }
 
     if (input.approvalInterviewId) {
-      // Legacy AskUser explicit check flow
       let response: Response;
       try {
         response = await fetch(this.askUserEndpoint, {
@@ -253,7 +252,7 @@ export class SessionApprovalController {
           ok: false,
           response: createErrorResponse(
             ErrorCode.EXECUTION_FAILED,
-            `AskUser service is unreachable at ${this.askUserEndpoint}. Use chat-first approval flow instead: call without approvalInterviewId to receive approvalToken, confirm with user, then retry with approvalToken.`,
+            `AskUser service is unreachable at ${this.askUserEndpoint}. Retry without approvalInterviewId to receive a new approval prompt.`,
           ),
         };
       }
@@ -275,15 +274,25 @@ export class SessionApprovalController {
         ? responses.find((item) => item?.questionId === "approve")
         : undefined;
 
-      if (status === "answered" && approval?.value === "allow_in_session") {
+      if (status === "answered" && (approval?.value === "allow_once" || approval?.value === true)) {
+        return { ok: true };
+      }
+
+      if (
+        status === "answered" &&
+        (approval?.value === "allow_session" || approval?.value === "allow_in_session")
+      ) {
         if (sessionKey) {
           this.addSessionGrant(sessionKey, input.action);
         }
         return { ok: true };
       }
 
-      if (status === "answered" && approval?.value === true) {
-        return { ok: true };
+      if (status === "answered" && approval?.value === "deny") {
+        return {
+          ok: false,
+          response: createErrorResponse(ErrorCode.POLICY_BLOCKED, "Action was denied by user."),
+        };
       }
 
       if (status === "pending") {
@@ -307,35 +316,16 @@ export class SessionApprovalController {
       };
     }
 
-    // Try to create the interview on the backend for the clickable link
-    try {
-      await fetch(this.askUserEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          payload: {
-            id: approvalSignature,
-            title: `Approve ${input.action}`,
-            expiresInSeconds: 3600,
-            questions: [
-              {
-                id: "approve",
-                type: "confirm",
-                prompt: input.details,
-                required: true,
-              },
-            ],
-          },
-        }),
-      });
-    } catch {
-      // Best effort
-    }
-
+    // No prior approval — create an interview form for the user to respond to in chat.
+    const interviewId = await this.createApprovalInterview(input.action, input.details);
     return {
       ok: false,
-      response: this.requestApproval(input.action, input.details, sessionKey, approvalSignature),
+      response: this.requestApproval(
+        input.action,
+        input.details,
+        sessionKey,
+        interviewId ?? undefined,
+      ),
     };
   }
 }

@@ -1,12 +1,13 @@
 import crypto from "crypto";
 import path from "path";
+import { toolEndpoint } from "@shared/ports";
 import {
   ErrorCode,
   type ToolResponse,
   createErrorResponse,
   createSuccessResponse,
 } from "@shared/types";
-import { toolEndpoint } from "@shared/ports";
+import { SessionApprovalController } from "../../shared/dist/sessionApproval";
 import { chunkTextByTokens } from "./chunker";
 import { type EmbeddingProvider, createEmbeddingProvider } from "./embeddings";
 import {
@@ -44,109 +45,6 @@ const DOC_SCRAPER_ENDPOINT =
 const ASK_USER_ENDPOINT =
   process.env.RAG_ASK_USER_ENDPOINT ?? `${toolEndpoint("askuser")}/tools/interview_user`;
 
-const APPROVAL_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
-
-type PendingApprovalToken = {
-  action: string;
-  expiresAt: number;
-  used: boolean;
-  scope?: "once" | "session";
-  sessionId?: string;
-};
-
-// Short-lived approval tokens for the chat-first approval flow (no HTTP dependency).
-// Cleared on process restart — intentional; approval context should not persist across restarts.
-const pendingApprovalTokens = new Map<string, PendingApprovalToken>();
-
-// Session-scoped grants: sessionId → Set of approved action strings.
-// Cleared on process restart — intentional.
-const sessionGrants = new Map<string, Set<string>>();
-
-export function clearSessionGrants(sessionId: string): void {
-  sessionGrants.delete(sessionId);
-}
-
-function addSessionGrant(sessionId: string, action: string): void {
-  if (!sessionGrants.has(sessionId)) {
-    sessionGrants.set(sessionId, new Set());
-  }
-  sessionGrants.get(sessionId)!.add(action);
-}
-
-function createApprovalToken(
-  action: string,
-  scope: "once" | "session" = "once",
-  sessionId?: string,
-): string {
-  const token = crypto.randomUUID();
-  // Prune stale entries before inserting
-  for (const [key, entry] of pendingApprovalTokens.entries()) {
-    if (entry.expiresAt <= Date.now() || entry.used) {
-      pendingApprovalTokens.delete(key);
-    }
-  }
-  pendingApprovalTokens.set(token, {
-    action,
-    expiresAt: Date.now() + APPROVAL_TOKEN_TTL_MS,
-    used: false,
-    scope,
-    sessionId,
-  });
-  return token;
-}
-
-function redeemApprovalToken(
-  token: string,
-  action: string,
-  sessionId?: string,
-): { ok: true } | { ok: false; reason: string } {
-  const entry = pendingApprovalTokens.get(token);
-  if (!entry) {
-    return { ok: false, reason: "Approval token not found or already used." };
-  }
-  if (entry.used && entry.scope !== "session") {
-    return { ok: false, reason: "Approval token has already been used." };
-  }
-  if (entry.expiresAt <= Date.now()) {
-    pendingApprovalTokens.delete(token);
-    return { ok: false, reason: "Approval token has expired. Please request a new one." };
-  }
-  if (entry.action !== action) {
-    return {
-      ok: false,
-      reason: `Approval token was issued for '${entry.action}', not '${action}'.`,
-    };
-  }
-  if (entry.scope === "session") {
-    const sid = sessionId ?? entry.sessionId;
-    if (sid) {
-      addSessionGrant(sid, action);
-    } else {
-      // No session context — treat as one-time
-      entry.used = true;
-    }
-  } else {
-    entry.used = true;
-  }
-  return { ok: true };
-}
-
-type ApprovalResponse = {
-  questionId?: string;
-  value?: unknown;
-};
-
-type AskUserResponse = {
-  interviewId?: string;
-  status?: string;
-  responses?: ApprovalResponse[];
-  data?: {
-    interviewId?: string;
-    status?: string;
-    responses?: ApprovalResponse[];
-  };
-};
-
 type ScraperResponse = {
   success?: boolean;
   error?: string;
@@ -164,6 +62,10 @@ type ScraperResponse = {
 
 function hashText(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+export function clearSessionGrants(sessionId: string): void {
+  getService().clearSessionGrants(sessionId);
 }
 
 function inferSourceType(document: DocumentInput): SourceType {
@@ -208,152 +110,27 @@ function pickDocumentText(resultBody: ScraperResponse | undefined): string | und
   return undefined;
 }
 
-function buildApprovalQuestion(action: string, details: string): string {
-  return `Approve '${action}' in RAG knowledge base? ${details}`;
-}
-
 class RAGService {
   private readonly store: RAGStore;
   private readonly embeddings: EmbeddingProvider;
+  private readonly approval: SessionApprovalController;
 
   constructor(dbPath: string) {
     this.store = new RAGStore(dbPath);
     this.embeddings = createEmbeddingProvider();
+    this.approval = new SessionApprovalController({
+      toolName: "RAG",
+      askUserEndpoint: ASK_USER_ENDPOINT,
+      bypassEnvVarName: "RAG_BYPASS_APPROVAL",
+    });
   }
 
   close(): void {
     this.store.close();
   }
 
-  private requestApproval(action: string, details: string, sessionId?: string): ToolResponse {
-    const approvalToken = createApprovalToken(action, "once");
-    const sessionApprovalToken = sessionId
-      ? createApprovalToken(action, "session", sessionId)
-      : undefined;
-    const question = buildApprovalQuestion(action, details);
-    const sessionNote = sessionApprovalToken
-      ? ` To allow for the rest of this session, place the sessionApprovalToken value ("${sessionApprovalToken}") into the approvalToken field (same field), and include sessionId.`
-      : "";
-    return createSuccessResponse({
-      status: "approval_required",
-      action,
-      approvalToken,
-      ...(sessionApprovalToken ? { sessionApprovalToken } : {}),
-      question,
-      message: `User approval is required before this operation can proceed. Ask the user: "${question}" — To allow once: retry with approvalToken: "${approvalToken}" in the approvalToken field.${sessionNote}`,
-      instructions:
-        "Present the question to the user in chat. On confirmation, call this tool again with the same parameters and EITHER: (a) set approvalToken to the approvalToken value shown above for one-time approval, OR (b) set approvalToken to the sessionApprovalToken value shown above AND include sessionId for session-scoped approval. Both options use the same 'approvalToken' input field — do NOT create a separate 'sessionApprovalToken' input field.",
-    });
-  }
-
-  private async ensureApproved(
-    action: string,
-    details: string,
-    approvalInterviewId?: string,
-    approvalToken?: string,
-    sessionId?: string,
-  ): Promise<{ ok: true } | { ok: false; response: ToolResponse }> {
-    // Session grant check: if this action was previously allowed for this session, skip re-prompt
-    if (sessionId && sessionGrants.get(sessionId)?.has(action)) {
-      return { ok: true };
-    }
-
-    // Env-var bypass: skip approval, log for auditability
-    if (process.env.RAG_BYPASS_APPROVAL === "true" || process.env.RAG_BYPASS_APPROVAL === "1") {
-      console.error(
-        `[RAG] Approval bypassed for '${action}' (RAG_BYPASS_APPROVAL=true) at ${new Date().toISOString()}`,
-      );
-      return { ok: true };
-    }
-
-    // Chat-first token path: no HTTP dependency required
-    if (approvalToken) {
-      const result = redeemApprovalToken(approvalToken, action, sessionId);
-      if (result.ok) {
-        return { ok: true };
-      }
-      return {
-        ok: false,
-        response: createErrorResponse(ErrorCode.POLICY_BLOCKED, result.reason),
-      };
-    }
-
-    // AskUser HTTP path: used when the AskUser HTTP server is separately running
-    if (approvalInterviewId) {
-      let response: Response;
-      try {
-        response = await fetch(ASK_USER_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "get",
-            payload: { interviewId: approvalInterviewId },
-          }),
-        });
-      } catch {
-        return {
-          ok: false,
-          response: createErrorResponse(
-            ErrorCode.EXECUTION_FAILED,
-            `AskUser service is unreachable at ${ASK_USER_ENDPOINT}. Use the chat-first approval flow instead: call without approvalInterviewId to receive an approvalToken, confirm with the user, then retry with that approvalToken.`,
-          ),
-        };
-      }
-
-      if (!response.ok) {
-        return {
-          ok: false,
-          response: createErrorResponse(
-            ErrorCode.EXECUTION_FAILED,
-            "Unable to verify approval interview via AskUser.",
-          ),
-        };
-      }
-
-      const body = (await response.json()) as AskUserResponse;
-      const status = body?.status || body?.data?.status;
-      const responses = body?.responses || body?.data?.responses || [];
-      const approval = Array.isArray(responses)
-        ? responses.find((item) => item?.questionId === "approve")
-        : undefined;
-
-      if (status === "answered" && approval?.value === "allow_in_session") {
-        if (sessionId) {
-          addSessionGrant(sessionId, action);
-        }
-        return { ok: true };
-      }
-
-      if (status === "answered" && approval?.value === true) {
-        return { ok: true };
-      }
-
-      if (status === "pending") {
-        return {
-          ok: false,
-          response: createSuccessResponse({
-            status: "approval_pending",
-            action,
-            interviewId: approvalInterviewId,
-            message: "Approval interview has not been answered yet.",
-          }),
-        };
-      }
-
-      return {
-        ok: false,
-        response: createErrorResponse(
-          ErrorCode.POLICY_BLOCKED,
-          "Write operation requires explicit approval and was not approved.",
-        ),
-      };
-    }
-
-    // No token or interview ID — initiate the chat-first approval flow
-    return {
-      ok: false,
-      response: this.requestApproval(action, details, sessionId),
-    };
+  clearSessionGrants(sessionId: string): void {
+    this.approval.clearSessionGrants(sessionId);
   }
 
   private async resolveText(document: DocumentInput): Promise<{ content: string; title?: string }> {
@@ -458,13 +235,13 @@ class RAGService {
       return createErrorResponse(ErrorCode.INVALID_INPUT, validationError);
     }
 
-    const approval = await this.ensureApproved(
-      "ingest_documents",
-      `${input.documents.length} document(s) will be added or updated in persistent knowledge storage.`,
-      input.approvalInterviewId,
-      input.approvalToken,
-      input.sessionId,
-    );
+    const approval = await this.approval.ensureApproved({
+      action: "ingest_documents",
+      details: `${input.documents.length} document(s) will be added or updated in persistent knowledge storage.`,
+      approvalInterviewId: input.approvalInterviewId,
+      approvalToken: input.approvalToken,
+      sessionId: input.sessionId,
+    });
 
     if (!approval.ok) {
       return approval.response;
@@ -579,13 +356,13 @@ class RAGService {
       return createErrorResponse(ErrorCode.NOT_FOUND, "Source not found.");
     }
 
-    const approval = await this.ensureApproved(
-      "delete_source",
-      `Source '${source.source_key}' with ${source.chunk_count} chunk(s) will be removed.`,
-      input.approvalInterviewId,
-      input.approvalToken,
-      input.sessionId,
-    );
+    const approval = await this.approval.ensureApproved({
+      action: "delete_source",
+      details: `Source '${source.source_key}' with ${source.chunk_count} chunk(s) will be removed.`,
+      approvalInterviewId: input.approvalInterviewId,
+      approvalToken: input.approvalToken,
+      sessionId: input.sessionId,
+    });
 
     if (!approval.ok) {
       return approval.response;
@@ -612,13 +389,13 @@ class RAGService {
       return createErrorResponse(ErrorCode.NOT_FOUND, "Source not found.");
     }
 
-    const approval = await this.ensureApproved(
-      "reindex_source",
-      `Source '${source.source_key}' will be re-chunked and re-embedded.`,
-      input.approvalInterviewId,
-      input.approvalToken,
-      input.sessionId,
-    );
+    const approval = await this.approval.ensureApproved({
+      action: "reindex_source",
+      details: `Source '${source.source_key}' will be re-chunked and re-embedded.`,
+      approvalInterviewId: input.approvalInterviewId,
+      approvalToken: input.approvalToken,
+      sessionId: input.sessionId,
+    });
 
     if (!approval.ok) {
       return approval.response;

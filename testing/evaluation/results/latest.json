@@ -1,6 +1,6 @@
 {
   "summary": {
-    "runAt": "2026-05-27T04:49:09.032Z",
+    "runAt": "2026-05-29T02:34:32.773Z",
     "totalTasks": 10,
     "passedTasks": 10,
     "failedTasks": 0,
@@ -42,9 +42,9 @@
       "name": "File Edit Simulation",
       "category": "file-edit",
       "success": true,
-      "durationMs": 0,
+      "durationMs": 1,
       "retries": 0,
-      "traceId": "1779857349025-58y6mtkm"
+      "traceId": "1780022072766-5y0dpxj8"
     },
     {
       "expectedSuccess": false,
@@ -55,7 +55,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349026-88w53ky5",
+      "traceId": "1780022072767-ylesw88e",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -67,7 +67,7 @@
       "success": true,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349026-0vaajv0q"
+      "traceId": "1780022072768-0zf1cb5i"
     },
     {
       "expectedSuccess": false,
@@ -78,7 +78,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349027-w4n4nzzv",
+      "traceId": "1780022072768-wfuswl3u",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -88,9 +88,9 @@
       "name": "Web Retrieval Simulation",
       "category": "web-retrieval",
       "success": true,
-      "durationMs": 1,
+      "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349027-5a27rvrt"
+      "traceId": "1780022072769-qr2omkva"
     },
     {
       "expectedSuccess": false,
@@ -101,7 +101,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349028-p116r3xe",
+      "traceId": "1780022072770-r7f1d2fl",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -113,7 +113,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349029-9nn9izpf",
+      "traceId": "1780022072771-s8qkql7c",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -125,7 +125,7 @@
       "success": true,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349030-owiyqcpb"
+      "traceId": "1780022072772-tvf8y7sd"
     },
     {
       "expectedSuccess": false,
@@ -136,7 +136,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349030-08wo0ek6",
+      "traceId": "1780022072772-fdglp5t2",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -148,40 +148,40 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1779857349031-4a30yre4",
+      "traceId": "1780022072773-ljpiwfm0",
       "error": "Workflow failed: 1 step(s)"
     }
   ],
   "traces": {
     "eval-file-edit-1": {
-      "traceId": "1779857349025-58y6mtkm"
+      "traceId": "1780022072766-5y0dpxj8"
     },
     "eval-file-edit-2-negative-empty-command": {
-      "traceId": "1779857349026-88w53ky5"
+      "traceId": "1780022072767-ylesw88e"
     },
     "eval-shell-build-1": {
-      "traceId": "1779857349026-0vaajv0q"
+      "traceId": "1780022072768-0zf1cb5i"
     },
     "eval-shell-build-2-negative-invalid-input": {
-      "traceId": "1779857349027-w4n4nzzv"
+      "traceId": "1780022072768-wfuswl3u"
     },
     "eval-web-summary-1": {
-      "traceId": "1779857349027-5a27rvrt"
+      "traceId": "1780022072769-qr2omkva"
     },
     "eval-web-summary-2-negative-invalid-url": {
-      "traceId": "1779857349028-p116r3xe"
+      "traceId": "1780022072770-r7f1d2fl"
     },
     "eval-web-summary-3-negative-missing-url": {
-      "traceId": "1779857349029-9nn9izpf"
+      "traceId": "1780022072771-s8qkql7c"
     },
     "eval-math-1": {
-      "traceId": "1779857349030-owiyqcpb"
+      "traceId": "1780022072772-tvf8y7sd"
     },
     "eval-math-2-negative-empty-expression": {
-      "traceId": "1779857349030-08wo0ek6"
+      "traceId": "1780022072772-fdglp5t2"
     },
     "eval-math-3-negative-missing-expression": {
-      "traceId": "1779857349031-4a30yre4"
+      "traceId": "1780022072773-ljpiwfm0"
     }
   },
   "gate": {

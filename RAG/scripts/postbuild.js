@@ -23,5 +23,9 @@ for (const fileName of [
   const target = path.join(rootDist, fileName);
   if (fs.existsSync(source)) {
     fs.copyFileSync(source, target);
+    // Rewrite TypeScript path aliases that aren't resolved by tsc
+    const content = fs.readFileSync(target, "utf8");
+    const patched = content.replace(/require\("@shared\/ports"\)/g, 'require("../../shared/dist/ports")');
+    if (patched !== content) fs.writeFileSync(target, patched, "utf8");
   }
 }

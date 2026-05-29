@@ -1,16 +1,16 @@
 {
-  "traceId": "1779857349025-58y6mtkm",
+  "traceId": "1780022072766-5y0dpxj8",
   "workflowId": "eval-file-edit-1",
   "workflowName": "File Edit Simulation",
   "status": "success",
-  "durationMs": 0,
+  "durationMs": 1,
   "steps": [
     {
       "id": "plan-edit",
       "toolId": "terminal",
       "success": true,
       "retries": 0,
-      "durationMs": 0
+      "durationMs": 1
     },
     {
       "id": "apply-edit",
@@ -20,5 +20,5 @@
       "durationMs": 0
     }
   ],
-  "generatedAt": "2026-05-27T04:49:09.025Z"
+  "generatedAt": "2026-05-29T02:34:32.767Z"
 }

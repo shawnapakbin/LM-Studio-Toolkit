@@ -113,3 +113,8 @@ compact instructions
 # Tauri installer build artifacts
 Installer/target/
 Installer/tauri-build.log
+
+# Stray dev artifacts
+.history/
+*.obj
+ECM/ecm.db.bak-*

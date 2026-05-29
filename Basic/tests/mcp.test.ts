@@ -250,7 +250,7 @@ describe("Basic MCP integration", () => {
       expect(result.status).toBe("pending");
     });
 
-    test("rejects using ask_user_interview for tool approval prompts", async () => {
+    test("allows creating interview even with approval-phrased prompts", async () => {
       const raw = await client.callTool({
         name: "interview_user",
         arguments: {
@@ -269,8 +269,8 @@ describe("Basic MCP integration", () => {
       });
 
       const result = parseToolResult(raw);
-      expect(result.success).toBe(false);
-      expect(result.errorCode).toBe("INVALID_INPUT");
+      expect(result.success).toBe(true);
+      expect(result.status).toBe("pending");
     });
   });
 });

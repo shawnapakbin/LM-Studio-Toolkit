@@ -181,13 +181,14 @@ app.post("/tools/write_file", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -335,13 +336,14 @@ app.post("/tools/delete_file", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -411,13 +413,14 @@ app.post("/tools/move_file", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 

@@ -134,7 +134,7 @@ describe("RAG HTTP Endpoints", () => {
       });
 
     expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
+    expect(response.body.success).toBe(false);
     expect(response.body.status).toBe("approval_required");
   });
 
@@ -150,7 +150,7 @@ describe("RAG HTTP Endpoints", () => {
       });
 
     expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
+    expect(response.body.success).toBe(false);
     expect(response.body.status).toBe("approval_required");
     expect(typeof response.body.sessionApprovalToken).toBe("string");
     expect(response.body.sessionApprovalToken).not.toBe(response.body.approvalToken);

@@ -190,7 +190,7 @@ server.registerTool(
         });
         if (!gate.ok) {
           return {
-            isError: !gate.response.success,
+            isError: true,
             content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
             structuredContent: gate.response,
           };
@@ -254,7 +254,7 @@ server.registerTool(
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response,
         };
@@ -320,7 +320,7 @@ server.registerTool(
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response,
         };
@@ -391,7 +391,7 @@ server.registerTool(
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response,
         };
@@ -454,7 +454,7 @@ server.registerTool(
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response,
         };
@@ -532,7 +532,7 @@ server.registerTool(
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response,
         };
@@ -605,7 +605,7 @@ server.registerTool(
         });
         if (!gate.ok) {
           return {
-            isError: !gate.response.success,
+            isError: true,
             content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
             structuredContent: gate.response,
           };
@@ -671,7 +671,7 @@ server.registerTool(
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response,
         };

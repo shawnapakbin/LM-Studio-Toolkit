@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { ErrorCode, type ToolResponse, createErrorResponse, createSuccessResponse } from "./types";
+import { ErrorCode, type ToolResponse, createErrorResponse } from "./types";
 
 const DEFAULT_APPROVAL_TOKEN_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_ASK_USER_ENDPOINT = "http://localhost:3338/tools/interview_user";
@@ -197,16 +197,21 @@ export class SessionApprovalController {
       ? `When the user selects an option, call \`interview_user\` with \`action="submit"\`, \`payload.interviewId="${interviewId}"\`, and \`payload.responses=[{questionId:"approve", value:"allow_once" | "allow_session" | "deny"}]\`. Then retry this tool with the SAME parameters plus \`approvalInterviewId="${interviewId}"\`.`
       : `When the user types **proceed** (or **yes**) in chat, call this tool again with the SAME parameters. You may also include the \`approvalToken\` in the payload to approve without a user reply.`;
 
-    return createSuccessResponse({
-      status: "approval_required",
-      action,
-      approvalToken,
-      ...(sessionApprovalToken ? { sessionApprovalToken } : {}),
-      ...(interviewId ? { approvalInterviewId: interviewId } : {}),
-      question,
-      message: `User approval is required before this operation can proceed.`,
-      instructions: `Present this EXACT markdown to the user in chat:\n\n**Approval Required**\n${question}\n\n1. ✅ Allow once\n2. ✅ Allow for this session\n3. ❌ Deny\n\nDO NOT SHOW THE TOKENS TO THE USER. ${submitInstruction}`,
-    });
+    return {
+      success: false,
+      errorCode: ErrorCode.APPROVAL_REQUIRED,
+      errorMessage: "User approval is required before this operation can proceed.",
+      data: {
+        status: "approval_required",
+        action,
+        approvalToken,
+        ...(sessionApprovalToken ? { sessionApprovalToken } : {}),
+        ...(interviewId ? { approvalInterviewId: interviewId } : {}),
+        question,
+        message: `User approval is required before this operation can proceed.`,
+        instructions: `Present this EXACT markdown to the user in chat:\n\n**Approval Required**\n${question}\n\n1. ✅ Allow once\n2. ✅ Allow for this session\n3. ❌ Deny\n\nDO NOT SHOW THE TOKENS TO THE USER. ${submitInstruction}`,
+      },
+    };
   }
 
   async ensureApproved(
@@ -298,12 +303,17 @@ export class SessionApprovalController {
       if (status === "pending") {
         return {
           ok: false,
-          response: createSuccessResponse({
-            status: "approval_pending",
-            action: input.action,
-            interviewId: input.approvalInterviewId,
-            message: "Approval interview has not been answered yet.",
-          }),
+          response: {
+            success: false,
+            errorCode: ErrorCode.APPROVAL_REQUIRED,
+            errorMessage: "Approval interview has not been answered yet.",
+            data: {
+              status: "approval_pending",
+              action: input.action,
+              interviewId: input.approvalInterviewId,
+              message: "Approval interview has not been answered yet.",
+            },
+          },
         };
       }
 

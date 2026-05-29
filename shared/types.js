@@ -28,6 +28,8 @@ var ErrorCode;
   ErrorCode["AUTH_FAILED"] = "AUTH_FAILED";
   /** Rate limit exceeded */
   ErrorCode["RATE_LIMITED"] = "RATE_LIMITED";
+  /** User approval is required before the operation can proceed */
+  ErrorCode["APPROVAL_REQUIRED"] = "APPROVAL_REQUIRED";
 })(ErrorCode || (exports.ErrorCode = ErrorCode = {}));
 /**
  * Timing utility for tracking operation duration.

@@ -51,7 +51,7 @@ describe("AskUser policy", () => {
     expect(error).toBeUndefined();
   });
 
-  test("rejects tool-approval prompt misuse", () => {
+  test("allows tool-approval-phrased prompts (guard removed)", () => {
     const error = validateCreateInput({
       questions: [
         {
@@ -63,7 +63,7 @@ describe("AskUser policy", () => {
       ],
     });
 
-    expect(error).toContain("interview/clarification only");
+    expect(error).toBeUndefined();
   });
 
   test("rejects duplicate question IDs", () => {

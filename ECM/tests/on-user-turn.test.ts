@@ -29,7 +29,7 @@ describe("on_user_turn", () => {
     const res = await onUserTurn({
       sessionId: SESSION,
       currentUsedTokens: 100,
-      contextLimit: 10000,
+      contextLimit: 32000,
       threshold: 0.5,
     });
     expect(res.success).toBe(true);
@@ -44,7 +44,7 @@ describe("on_user_turn", () => {
     const res = await onUserTurn({
       sessionId: SESSION,
       currentUsedTokens: 9000,
-      contextLimit: 10000,
+      contextLimit: 16000,
       keepNewest: 4,
     });
     const data = res.data as OnUserTurnResult;
@@ -64,7 +64,7 @@ describe("on_user_turn", () => {
     const res = await onUserTurn({
       sessionId: SESSION,
       currentUsedTokens: 9000,
-      contextLimit: 10000,
+      contextLimit: 16000,
       keepNewest: 2,
       threshold: 0.5,
     });
@@ -84,10 +84,12 @@ describe("on_user_turn", () => {
   });
 
   test("falls back to internal token count when currentUsedTokens omitted", async () => {
-    for (let i = 0; i < 6; i++) await seed("x".repeat(2000));
+    // 6 segments × 12 000 chars ≈ 6 × 3 000 tokens = 18 000 tokens
+    // ratio = 18 000 / 32 000 ≈ 0.56, above the 0.5 threshold
+    for (let i = 0; i < 6; i++) await seed("x".repeat(12000));
     const res = await onUserTurn({
       sessionId: SESSION,
-      contextLimit: 4000,
+      contextLimit: 32000,
       threshold: 0.5,
       keepNewest: 1,
     });

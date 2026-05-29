@@ -52,13 +52,14 @@ async function handleRagHttpRequest(req: Request<unknown, unknown, RagRequest>, 
 
   try {
     const response = await handleRAGRequest(req.body);
-    const statusCode = response.success
-      ? 200
-      : response.errorCode === ErrorCode.NOT_FOUND
-        ? 404
-        : response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : 400;
+    const statusCode =
+      response.success || response.errorCode === ErrorCode.APPROVAL_REQUIRED
+        ? 200
+        : response.errorCode === ErrorCode.NOT_FOUND
+          ? 404
+          : response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : 400;
     const responseData =
       response.data && typeof response.data === "object"
         ? (response.data as Record<string, unknown>)

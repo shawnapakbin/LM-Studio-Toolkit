@@ -97,33 +97,6 @@ function validateQuestion(question: InterviewQuestion): string | undefined {
   return undefined;
 }
 
-function isToolApprovalPrompt(prompt: string): boolean {
-  const normalized = prompt.toLowerCase();
-  const approvalPhrases = [
-    "do you approve",
-    "approve",
-    "approval token",
-    "approval_required",
-    "allow once",
-    "session approval",
-  ];
-  const toolExecutionPhrases = [
-    "run_terminal_command",
-    "run terminal command",
-    "execute command",
-    "local terminal",
-    "command '",
-    "will be executed",
-    "tool call",
-    "tool use",
-  ];
-
-  return (
-    approvalPhrases.some((phrase) => normalized.includes(phrase)) &&
-    toolExecutionPhrases.some((phrase) => normalized.includes(phrase))
-  );
-}
-
 export function validateCreateInput(input: CreateInterviewInput): string | undefined {
   if (!Array.isArray(input.questions) || input.questions.length === 0) {
     return "'questions' must be a non-empty array.";
@@ -141,10 +114,6 @@ export function validateCreateInput(input: CreateInterviewInput): string | undef
     const questionError = validateQuestion(question);
     if (questionError) {
       return questionError;
-    }
-
-    if (isToolApprovalPrompt(question.prompt)) {
-      return "interview_user is for interview/clarification only. For tool execution approvals, use the target tool's native approval token/session approval flow.";
     }
   }
 

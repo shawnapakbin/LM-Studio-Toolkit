@@ -37,6 +37,8 @@ export enum ErrorCode {
   AUTH_FAILED = "AUTH_FAILED",
   /** Rate limit exceeded */
   RATE_LIMITED = "RATE_LIMITED",
+  /** User approval is required before the operation can proceed */
+  APPROVAL_REQUIRED = "APPROVAL_REQUIRED",
 }
 
 /**

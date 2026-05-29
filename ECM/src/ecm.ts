@@ -67,6 +67,12 @@ function defaultContextLimit(): number {
   return readNumberEnv("ECM_MODEL_CONTEXT_LIMIT", 8192);
 }
 
+/** ECM only activates for models with a context window this large or bigger. */
+const MIN_CONTEXT_FOR_COMPACTION = 16_000;
+
+/** Default post-compaction target: aim to drop context below this ratio. */
+const TARGET_RATIO_DEFAULT = 0.4;
+
 function formatPercent(ratio: number): string {
   return `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%`;
 }
@@ -169,6 +175,7 @@ export async function onUserTurn(input: unknown): Promise<ToolResponse<OnUserTur
   const sessionId = validated.sessionId;
   const keepNewest = validated.keepNewest ?? 4;
   const threshold = validated.threshold ?? 0.5;
+  const targetRatio = validated.targetRatio ?? TARGET_RATIO_DEFAULT;
   const contextLimit = validated.contextLimit ?? defaultContextLimit();
   const estimatedUsedTokens = validated.currentUsedTokens ?? store.getSessionTokenCount(sessionId);
   const ratio = contextLimit > 0 ? estimatedUsedTokens / contextLimit : 0;
@@ -180,6 +187,7 @@ export async function onUserTurn(input: unknown): Promise<ToolResponse<OnUserTur
     estimatedUsedTokens,
     contextLimit,
     threshold,
+    targetRatio,
     keepNewest,
     message: "",
     etaSeconds: 0,
@@ -192,6 +200,17 @@ export async function onUserTurn(input: unknown): Promise<ToolResponse<OnUserTur
       baseResult({
         reason: "below_threshold",
         message: `Context at ${formatPercent(ratio)} of ${contextLimit} tokens — below ${formatPercent(threshold)} trigger. No compaction needed.`,
+      }),
+    );
+  }
+
+  // Auto-activation gate: only compact for models with large context windows (≥ 16k).
+  // Small-context models gain little from compaction overhead.
+  if (contextLimit < MIN_CONTEXT_FOR_COMPACTION) {
+    return createSuccessResponse(
+      baseResult({
+        reason: "context_too_small",
+        message: `Context limit ${contextLimit} is below the minimum ${MIN_CONTEXT_FOR_COMPACTION} tokens for compaction. ECM only activates for large-context models (≥16k).`,
       }),
     );
   }

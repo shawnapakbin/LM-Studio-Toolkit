@@ -68,8 +68,6 @@ class MockCompactorLLM implements CompactorLLM {
 
 class LMStudioCompactorLLM implements CompactorLLM {
   private client?: LMStudioClient;
-  private modelName = process.env.ECM_COMPACTOR_MODEL ?? "qwen2.5-7b-instruct";
-  private modelPromise?: Promise<LLMModel>;
 
   private getClient(): LMStudioClient {
     if (!this.client) {
@@ -78,23 +76,27 @@ class LMStudioCompactorLLM implements CompactorLLM {
     return this.client;
   }
 
-  private getModel(): Promise<LLMModel> {
-    if (!this.modelPromise) {
-      this.modelPromise = this.getClient().llm.load(this.modelName);
+  private async getActiveModel(): Promise<LLMModel> {
+    const loaded = await this.getClient().llm.listLoaded();
+    if (loaded.length === 0) {
+      throw new Error("No LLM model is currently loaded in LM Studio. Load a model and try again.");
     }
-    return this.modelPromise;
+    // Use the first loaded model (the active/primary model).
+    return loaded[0];
   }
 
   async summarize(segments: SegmentRecord[]): Promise<CompactorRunResult> {
+    let modelId: string | undefined;
     try {
-      const model = await this.getModel();
+      const model = await this.getActiveModel();
+      modelId = model.identifier;
       const prompt = buildCompactorPrompt(segments);
       const result = await model.complete(prompt).result();
       const parsed = parseCompactorOutput(result.content);
       if (!parsed.ok) {
         return {
           ok: false,
-          modelId: this.modelName,
+          modelId,
           promptVersion: COMPACTOR_PROMPT_VERSION,
           validationPassed: false,
           error: parsed.error,
@@ -103,7 +105,7 @@ class LMStudioCompactorLLM implements CompactorLLM {
 
       return {
         ok: true,
-        modelId: this.modelName,
+        modelId,
         summaryText: renderHighlightsSummary(parsed.value),
         promptVersion: COMPACTOR_PROMPT_VERSION,
         validationPassed: true,
@@ -114,7 +116,7 @@ class LMStudioCompactorLLM implements CompactorLLM {
     } catch (err) {
       return {
         ok: false,
-        modelId: this.modelName,
+        modelId,
         promptVersion: COMPACTOR_PROMPT_VERSION,
         validationPassed: false,
         error: err instanceof Error ? err.message : String(err),

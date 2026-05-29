@@ -44,6 +44,8 @@ export interface OnUserTurnInput {
   keepNewest?: number;
   /** Trigger ratio (0–1). Compaction fires when ratio >= threshold. Default 0.5. */
   threshold?: number;
+  /** Target ratio to reach after compaction. Compaction aims to drop below this. Default 0.40. */
+  targetRatio?: number;
 }
 
 export interface ClearSessionInput {
@@ -60,12 +62,19 @@ export interface OnUserTurnResult {
   /** True iff a summary was created and old segments were purged. */
   compacted: boolean;
   /** Reason code for telemetry / logging. */
-  reason: "below_threshold" | "not_enough_segments" | "compacted" | "in_progress" | "llm_error";
+  reason:
+    | "below_threshold"
+    | "context_too_small"
+    | "not_enough_segments"
+    | "compacted"
+    | "in_progress"
+    | "llm_error";
   /** currentUsedTokens / contextLimit. */
   ratio: number;
   estimatedUsedTokens: number;
   contextLimit: number;
   threshold: number;
+  targetRatio: number;
   keepNewest: number;
   /** Pre-flight or post-flight natural-language status for the user. */
   message: string;

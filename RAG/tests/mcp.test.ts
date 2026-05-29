@@ -255,7 +255,7 @@ describe("RAG MCP integration", () => {
     });
 
     const response = parseToolResult(responseRaw);
-    expect(response.success).toBe(true);
+    expect(response.success).toBe(false);
     expect(response.status).toBe("approval_required");
     // Token must be present so the LLM can present it back after user confirms in chat
     expect(typeof (response as Record<string, unknown>).approvalToken).toBe("string");

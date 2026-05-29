@@ -79,7 +79,7 @@ export function createPythonShellMcpServer(): McpServer {
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response as unknown as Record<string, unknown>,
         };
@@ -143,7 +143,7 @@ export function createPythonShellMcpServer(): McpServer {
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response as unknown as Record<string, unknown>,
         };
@@ -203,7 +203,7 @@ export function createPythonShellMcpServer(): McpServer {
       });
       if (!gate.ok) {
         return {
-          isError: !gate.response.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(gate.response, null, 2) }],
           structuredContent: gate.response as unknown as Record<string, unknown>,
         };

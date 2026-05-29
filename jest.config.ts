@@ -4,6 +4,7 @@ const config: Config = {
   preset: "ts-jest",
   testEnvironment: "node",
   testTimeout: 15000,
+  setupFiles: ["<rootDir>/ECM/tests/setup-env.ts"],
   roots: ["<rootDir>"],
   testMatch: ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
   testPathIgnorePatterns: ["/node_modules/", "/Installer/", "/dist/"],

@@ -241,13 +241,14 @@ app.post("/tools/git_branch", async (req, res) => {
         taskRunId,
       });
       if (!gate.ok) {
-        const status = gate.response.success
-          ? 200
-          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-            ? 403
-            : gate.response.errorCode === ErrorCode.INVALID_INPUT
-              ? 400
-              : 500;
+        const status =
+          gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+            ? 200
+            : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+              ? 403
+              : gate.response.errorCode === ErrorCode.INVALID_INPUT
+                ? 400
+                : 500;
         return res.status(status).json(gate.response);
       }
     }
@@ -317,13 +318,14 @@ app.post("/tools/git_checkout", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -390,13 +392,14 @@ app.post("/tools/git_commit", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -465,13 +468,14 @@ app.post("/tools/git_push", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -526,13 +530,14 @@ app.post("/tools/git_pull", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -593,13 +598,14 @@ app.post("/tools/git_clone", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 
@@ -655,13 +661,14 @@ app.post("/tools/git_stash", async (req, res) => {
         taskRunId,
       });
       if (!gate.ok) {
-        const status = gate.response.success
-          ? 200
-          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-            ? 403
-            : gate.response.errorCode === ErrorCode.INVALID_INPUT
-              ? 400
-              : 500;
+        const status =
+          gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+            ? 200
+            : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+              ? 403
+              : gate.response.errorCode === ErrorCode.INVALID_INPUT
+                ? 400
+                : 500;
         return res.status(status).json(gate.response);
       }
     }
@@ -731,13 +738,14 @@ app.post("/tools/git_reset", async (req, res) => {
       taskRunId,
     });
     if (!gate.ok) {
-      const status = gate.response.success
-        ? 200
-        : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
-          ? 403
-          : gate.response.errorCode === ErrorCode.INVALID_INPUT
-            ? 400
-            : 500;
+      const status =
+        gate.response.success || gate.response.errorCode === ErrorCode.APPROVAL_REQUIRED
+          ? 200
+          : gate.response.errorCode === ErrorCode.POLICY_BLOCKED
+            ? 403
+            : gate.response.errorCode === ErrorCode.INVALID_INPUT
+              ? 400
+              : 500;
       return res.status(status).json(gate.response);
     }
 

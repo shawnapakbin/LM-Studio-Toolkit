@@ -113,7 +113,15 @@ export function validateOnUserTurn(input: unknown): OnUserTurnInput {
     threshold = i.threshold;
   }
 
-  return { sessionId, currentUsedTokens, contextLimit, keepNewest, threshold };
+  let targetRatio: number | undefined;
+  if (i.targetRatio !== undefined) {
+    if (typeof i.targetRatio !== "number" || i.targetRatio <= 0 || i.targetRatio >= 1) {
+      throw new ValidationError("targetRatio must be a number in (0, 1)");
+    }
+    targetRatio = i.targetRatio;
+  }
+
+  return { sessionId, currentUsedTokens, contextLimit, keepNewest, threshold, targetRatio };
 }
 
 export function validateClearSession(input: unknown): ClearSessionInput {

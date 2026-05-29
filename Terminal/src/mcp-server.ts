@@ -162,9 +162,8 @@ export function createTerminalMcpServer(): McpServer {
       });
       if (!gate.ok) {
         const approvalResult = gate.response;
-        const gateRes = approvalResult as { success: boolean };
         return {
-          isError: !gateRes.success,
+          isError: true,
           content: [{ type: "text", text: JSON.stringify(approvalResult, null, 2) }],
           structuredContent: approvalResult as unknown as Record<string, unknown>,
         };

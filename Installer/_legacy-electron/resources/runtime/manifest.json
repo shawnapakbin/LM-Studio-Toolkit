@@ -1,0 +1,6 @@
+{
+  "createdAt": "2026-04-14T02:27:55.239Z",
+  "strategy": "download-on-demand",
+  "nodeVersion": "20.17.0",
+  "note": "Portable runtime is downloaded by the installer at first use."
+}

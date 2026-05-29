@@ -109,3 +109,7 @@ shared/toolCallNormalizer.js.map
 Installer/release/
 Installer/resources/runtime/
 compact instructions
+
+# Tauri installer build artifacts
+Installer/target/
+Installer/tauri-build.log

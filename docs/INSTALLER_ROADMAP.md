@@ -1,5 +1,15 @@
 # Installer Roadmap — Multi-Platform Strategy
 
+> **2026-05 update:** the Electron-based installer has been replaced by a
+> Tauri 2 (Rust + system WebView) implementation. The legacy code is preserved
+> at [Installer/_legacy-electron/](../Installer/_legacy-electron/) for reference.
+> See [Installer/README.md](../Installer/README.md) for the new architecture.
+>
+> **Active surface:** [`Installer/shared/core`](../Installer/shared/core) (Rust
+> install orchestration), [`Installer/shared/ui`](../Installer/shared/ui)
+> (React + Vite + Tailwind), [`Installer/windows/src-tauri`](../Installer/windows/src-tauri)
+> (Windows MSI + NSIS bundles).
+
 Derived from the working `Installer/` (Windows portable `install-0019.exe`).
 
 ---

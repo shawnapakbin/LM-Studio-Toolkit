@@ -15,14 +15,33 @@ Quick reference for setting up LLM Toolkit.
 
 ---
 
-## Option A — Native GUI Installer (recommended)
+## Option A — Native GUI Installer (recommended, Windows)
 
-Download the latest release artifact for your OS from GitHub Releases:
-- Windows: `install-XXXX.exe` (portable)
-- macOS: `install.dmg`
-- Linux: `install.AppImage`
+Download the latest artifact from GitHub Releases:
 
-If your platform artifact is temporarily unavailable, use Option B fallback below.
+| Artifact | Size | Notes |
+|----------|------|-------|
+| `LLM Toolkit_<version>_x64_en-US.msi` | ~6 MB | MSI — best for managed/enterprise installs |
+| `LLM Toolkit_<version>_x64-setup.exe` | ~4 MB | NSIS — recommended for individual users |
+
+Run either installer. The wizard walks through:
+
+1. **Welcome** — system info + elevation status
+2. **License** — scroll to the bottom, then check the box (both required)
+3. **Location** — choose install scope:
+   - **System** (requires admin) → `C:\Program Files\expDigit Studio\LLM Toolkit\`
+   - **Per-user** (no admin) → `%LOCALAPPDATA%\Programs\expDigit Studio\LLM Toolkit\`
+4. **Options** — Playwright browsers, LM Studio bridge sync, Start Menu shortcut
+5. **Install** — downloads Node.js 20 LTS, the toolkit payload, runs `npm install`,
+   builds, and (optionally) wires LM Studio. Live log + Cancel button throughout.
+6. **Done** — open install folder or finish.
+
+On any failure the installer writes a redacted diagnostic report to
+`%APPDATA%\expDigit Studio\LLM Toolkit\diagnostics\` and offers a one-click
+"Report on GitHub" button with a prefilled issue.
+
+> **macOS / Linux:** native installers are planned but not yet shipped. Use
+> Option B or Option C in the meantime.
 
 ---
 

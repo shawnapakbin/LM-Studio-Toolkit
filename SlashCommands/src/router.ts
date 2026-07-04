@@ -18,19 +18,11 @@ const TOOL_NAMES: Record<string, string> = {
   askuser: "AskUser",
   rag: "RAG",
   skills: "Skills",
-  ecm: "ECM",
 };
 
 const HELP_TEXT = `Available slash commands:
 
   /help                                  Show this help message
-
-  Context Memory (ECM)
-  /compact [--session <id>] [--used <n>] [--limit <n>] [--keep-newest <n>] [--threshold <n>]
-  /ecm store <text> [--session <id>] [--type <type>] [--importance <0-1>]
-  /ecm status [--session <id>]
-  /ecm clear [--session <id>]
-  /ecm compact [--session <id>] [--used <n>] [--limit <n>] [--keep-newest <n>] [--threshold <n>]
 
   Calculator
   /calc <expression> [--precision <n>]
@@ -79,14 +71,6 @@ const HELP_TEXT = `Available slash commands:
 
 export async function route(desc: DispatchDescriptor): Promise<unknown> {
   switch (desc.tool) {
-    // ── ECM ───────────────────────────────────────────────────────────────
-    case "ecm": {
-      return post(`${ENDPOINTS.ecm}/tools/ecm`, {
-        action: desc.action,
-        ...desc.params,
-      });
-    }
-
     // ── Calculator ────────────────────────────────────────────────────────
     case "calculator":
       return post(`${ENDPOINTS.calculator}/tools/calculate_engineering`, {
@@ -324,8 +308,6 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         error: `Unknown slash command: "${desc.raw}". Type /help to see all available commands.`,
         availableCommands: [
           "/help",
-          "/compact",
-          "/ecm store|retrieve|list|delete|summarize|clear",
           "/calc <expr>",
           "/browse <url>",
           "/clock",

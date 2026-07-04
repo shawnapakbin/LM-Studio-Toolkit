@@ -17,7 +17,7 @@ export function WelcomePage({ systemInfo, onNext }: Props) {
         <section>
           <h2 className="text-lg font-medium text-slate-100">What gets installed</h2>
           <ul className="mt-3 list-disc list-inside space-y-1 text-sm">
-            <li>12 MCP tools (Terminal, WebBrowser, RAG, ECM, and more)</li>
+            <li>11 MCP tools (Terminal, WebBrowser, RAG, Skills, and more)</li>
             <li>Node.js {systemInfo?.elevated !== undefined ? "(downloaded if not present)" : ""}</li>
             <li>LM Studio MCP configuration (~/.lmstudio/mcp.json)</li>
           </ul>

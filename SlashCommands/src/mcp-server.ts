@@ -20,15 +20,6 @@ dotenv.config();
 const COMMAND_REFERENCE = `
 Supported slash commands:
   /help
-  /compact [--session <id>] [--keep-newest <n>]
-  /ecm store <text> [--session <id>] [--type <type>] [--importance <0-1>]
-  /ecm retrieve <query> [--session <id>] [--top-k <n>]
-  /ecm list [--session <id>]
-  /ecm summarize [--session <id>] [--keep-newest <n>]
-  /ecm clear [--session <id>]
-  /ecm continuous on [--session <id>] [--keep-newest <n>]
-  /ecm continuous off [--session <id>]
-  /ecm policy [--session <id>]
   /calc <expression> [--precision <n>]
   /browse <url> [--format text|markdown|html] [--screenshot] [--wait-selector <css>]
   /clock [--timezone <iana-tz>]

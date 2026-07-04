@@ -1,6 +1,6 @@
 {
   "summary": {
-    "runAt": "2026-05-29T02:34:32.773Z",
+    "runAt": "2026-07-04T21:22:11.515Z",
     "totalTasks": 10,
     "passedTasks": 10,
     "failedTasks": 0,
@@ -42,9 +42,9 @@
       "name": "File Edit Simulation",
       "category": "file-edit",
       "success": true,
-      "durationMs": 1,
+      "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072766-5y0dpxj8"
+      "traceId": "1783200131506-3dls39sc"
     },
     {
       "expectedSuccess": false,
@@ -55,7 +55,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072767-ylesw88e",
+      "traceId": "1783200131507-l5wbe7sl",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -67,7 +67,7 @@
       "success": true,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072768-0zf1cb5i"
+      "traceId": "1783200131508-j69qe4sj"
     },
     {
       "expectedSuccess": false,
@@ -78,7 +78,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072768-wfuswl3u",
+      "traceId": "1783200131508-0v51xr1n",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -90,7 +90,7 @@
       "success": true,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072769-qr2omkva"
+      "traceId": "1783200131509-mrw6hz5d"
     },
     {
       "expectedSuccess": false,
@@ -101,7 +101,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072770-r7f1d2fl",
+      "traceId": "1783200131510-2m802hg7",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -113,7 +113,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072771-s8qkql7c",
+      "traceId": "1783200131511-ej846gc6",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -125,7 +125,7 @@
       "success": true,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072772-tvf8y7sd"
+      "traceId": "1783200131512-21ucu2a9"
     },
     {
       "expectedSuccess": false,
@@ -136,7 +136,7 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072772-fdglp5t2",
+      "traceId": "1783200131513-mv1p134h",
       "error": "Workflow failed: 1 step(s)"
     },
     {
@@ -148,40 +148,40 @@
       "success": false,
       "durationMs": 0,
       "retries": 0,
-      "traceId": "1780022072773-ljpiwfm0",
+      "traceId": "1783200131514-2088i7ao",
       "error": "Workflow failed: 1 step(s)"
     }
   ],
   "traces": {
     "eval-file-edit-1": {
-      "traceId": "1780022072766-5y0dpxj8"
+      "traceId": "1783200131506-3dls39sc"
     },
     "eval-file-edit-2-negative-empty-command": {
-      "traceId": "1780022072767-ylesw88e"
+      "traceId": "1783200131507-l5wbe7sl"
     },
     "eval-shell-build-1": {
-      "traceId": "1780022072768-0zf1cb5i"
+      "traceId": "1783200131508-j69qe4sj"
     },
     "eval-shell-build-2-negative-invalid-input": {
-      "traceId": "1780022072768-wfuswl3u"
+      "traceId": "1783200131508-0v51xr1n"
     },
     "eval-web-summary-1": {
-      "traceId": "1780022072769-qr2omkva"
+      "traceId": "1783200131509-mrw6hz5d"
     },
     "eval-web-summary-2-negative-invalid-url": {
-      "traceId": "1780022072770-r7f1d2fl"
+      "traceId": "1783200131510-2m802hg7"
     },
     "eval-web-summary-3-negative-missing-url": {
-      "traceId": "1780022072771-s8qkql7c"
+      "traceId": "1783200131511-ej846gc6"
     },
     "eval-math-1": {
-      "traceId": "1780022072772-tvf8y7sd"
+      "traceId": "1783200131512-21ucu2a9"
     },
     "eval-math-2-negative-empty-expression": {
-      "traceId": "1780022072772-fdglp5t2"
+      "traceId": "1783200131513-mv1p134h"
     },
     "eval-math-3-negative-missing-expression": {
-      "traceId": "1780022072773-ljpiwfm0"
+      "traceId": "1783200131514-2088i7ao"
     }
   },
   "gate": {

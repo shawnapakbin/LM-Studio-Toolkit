@@ -103,28 +103,6 @@ npx tsx CLI/src/index.ts <command>
 | `llm memory clear` | Wipe all run history (prompts for confirmation) |
 | `llm memory clear --confirm` | Skip confirmation |
 
-### ECM (Enhanced Context Memory)
-
-| Command | Description |
-|---|---|
-| `llm ecm store -c "<text>"` | Store a memory segment |
-| `llm ecm status` | Show segment count and estimated token usage |
-| `llm ecm clear` | Clear all segments in a session |
-| `llm ecm compact` | **Compact context** — manually trigger `on_user_turn` compaction |
-
-### /compact (top-level shortcut)
-
-```bash
-llm compact
-llm compact --session my-session
-llm compact --used 5000 --limit 8000
-llm compact --keep-newest 4 --threshold 0.5
-```
-
-Manually triggers ECM `on_user_turn` for the session. By default forces the
-threshold check (`--used` defaults to `--limit`). Pass real token counts to
-respect the natural ratio gate.
-
 ### RAG
 
 | Command | Description |
@@ -176,8 +154,8 @@ These are identified as useful additions for future implementation:
 - `llm observe logs` — tail Observability logs
 - `llm observe metrics` — dump current metrics snapshot
 - `llm observe trace <traceId>` — look up a trace by ID
-- `llm session new` — create a new named ECM session
-- `llm session list` — list active ECM sessions
+- `llm session new` — create a new named session
+- `llm session list` — list active sessions
 - `llm session switch <id>` — set the default session for subsequent commands
 - `llm config show` — print current CLI config (ports, session, etc.)
 - `llm config set <key> <value>` — override a config value

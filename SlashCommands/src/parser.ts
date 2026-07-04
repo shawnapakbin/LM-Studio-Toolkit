@@ -6,7 +6,6 @@
  */
 
 export type DispatchDescriptor =
-  | { tool: "ecm"; action: string; params: Record<string, unknown> }
   | { tool: "calculator"; expression: string; precision?: number }
   | {
       tool: "webbrowser";
@@ -104,74 +103,6 @@ export function parseSlashCommand(raw: string): DispatchDescriptor {
   const { flags, positional } = extractFlags([sub, ...rest].filter(Boolean));
 
   switch (cmd.toLowerCase()) {
-    // ── /compact ──────────────────────────────────────────────────────────
-    case "compact": {
-      const sessionId = flag(flags, "session") ?? "default";
-      const limit = flag(flags, "limit") ? Number(flag(flags, "limit")) : 8192;
-      const used = flag(flags, "used") ? Number(flag(flags, "used")) : limit;
-      const keepNewest = flag(flags, "keep-newest")
-        ? Number(flag(flags, "keep-newest"))
-        : undefined;
-      const threshold = flag(flags, "threshold") ? Number(flag(flags, "threshold")) : undefined;
-      return {
-        tool: "ecm",
-        action: "on_user_turn",
-        params: {
-          sessionId,
-          currentUsedTokens: used,
-          contextLimit: limit,
-          ...(keepNewest !== undefined && { keepNewest }),
-          ...(threshold !== undefined && { threshold }),
-        },
-      };
-    }
-
-    // ── /ecm <action> ─────────────────────────────────────────────────────
-    case "ecm": {
-      const sessionId = flag(flags, "session") ?? "default";
-      // For ecm subcommands, `sub` is the action keyword — exclude it from
-      // positional/content tokens.
-      const ecmContentTokens = positional.slice(1);
-      switch ((sub ?? "").toLowerCase()) {
-        case "store":
-          return {
-            tool: "ecm",
-            action: "store_segment",
-            params: {
-              sessionId,
-              content: ecmContentTokens.join(" ") || flag(flags, "content") || "",
-              type: flag(flags, "type") ?? "conversation_turn",
-              importance: flag(flags, "importance") ? Number(flag(flags, "importance")) : undefined,
-            },
-          };
-        case "status":
-          return { tool: "ecm", action: "get_status", params: { sessionId } };
-        case "clear":
-          return { tool: "ecm", action: "clear_session", params: { sessionId } };
-        case "compact": {
-          const limit = flag(flags, "limit") ? Number(flag(flags, "limit")) : 8192;
-          const used = flag(flags, "used") ? Number(flag(flags, "used")) : limit;
-          const keepNewest = flag(flags, "keep-newest")
-            ? Number(flag(flags, "keep-newest"))
-            : undefined;
-          const threshold = flag(flags, "threshold") ? Number(flag(flags, "threshold")) : undefined;
-          return {
-            tool: "ecm",
-            action: "on_user_turn",
-            params: {
-              sessionId,
-              currentUsedTokens: used,
-              contextLimit: limit,
-              ...(keepNewest !== undefined && { keepNewest }),
-              ...(threshold !== undefined && { threshold }),
-            },
-          };
-        }
-        default:
-          return { tool: "unknown", raw };
-      }
-    }
-
     // ── /calc <expression> ────────────────────────────────────────────────
     case "calc":
     case "calculate": {

@@ -1,5 +1,5 @@
 {
-  "traceId": "1780022072770-r7f1d2fl",
+  "traceId": "1783200131510-2m802hg7",
   "workflowId": "eval-web-summary-2-negative",
   "workflowName": "Web Retrieval - Negative Test",
   "status": "error",
@@ -15,5 +15,5 @@
       "errorMessage": "invalid url"
     }
   ],
-  "generatedAt": "2026-05-29T02:34:32.770Z"
+  "generatedAt": "2026-07-04T21:22:11.510Z"
 }

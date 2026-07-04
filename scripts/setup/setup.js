@@ -276,6 +276,16 @@ async function runSetup({ send, repair }) {
   }
 
   send("info", `LM Studio sync: ${synced} updated, ${skipped} skipped (not installed).`);
+
+  // ── Remove deprecated ECM plugin from host ────────────────────────────────
+  const deprecatedPlugins = ["ecm"];
+  for (const depName of deprecatedPlugins) {
+    const depDir = path.join(pluginRoot, depName);
+    if (fs.existsSync(depDir)) {
+      fs.rmSync(depDir, { recursive: true, force: true });
+      send("ok", `Removed deprecated plugin: ${depName}`);
+    }
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

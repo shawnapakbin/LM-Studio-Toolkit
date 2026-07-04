@@ -185,6 +185,16 @@ function main() {
   }
 
   console.log(`\nLM Studio bridge sync complete: ${updated} updated.`);
+
+  // Remove deprecated plugins
+  const deprecated = ["ecm"];
+  for (const name of deprecated) {
+    const depDir = path.join(pluginRoot, name);
+    if (fs.existsSync(depDir)) {
+      fs.rmSync(depDir, { recursive: true, force: true });
+      console.log(`✓ removed deprecated plugin: ${name}`);
+    }
+  }
 }
 
 main();

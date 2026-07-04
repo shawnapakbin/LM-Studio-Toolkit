@@ -65,12 +65,6 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     srcFile: "3DTool/src/mcp-server.ts",
   },
   {
-    name: "ECM",
-    serverName: "ecm",
-    distFile: "ECM/dist/mcp-server.js",
-    srcFile: "ECM/src/mcp-server.ts",
-  },
-  {
     name: "PythonShell",
     serverName: "python-shell",
     distFile: "PythonShell/dist/mcp-server.js",

@@ -11,20 +11,19 @@
 
 /** Default HTTP port for each tool, keyed by lowercase tool name. */
 export const TOOL_PORTS: Record<string, number> = {
-  terminal:        Number(process.env.TERMINAL_PORT        ?? 3333),
-  webbrowser:      Number(process.env.WEBBROWSER_PORT      ?? 3334),
-  calculator:      Number(process.env.CALCULATOR_PORT      ?? 3335),
+  terminal: Number(process.env.TERMINAL_PORT ?? 3333),
+  webbrowser: Number(process.env.WEBBROWSER_PORT ?? 3334),
+  calculator: Number(process.env.CALCULATOR_PORT ?? 3335),
   documentscraper: Number(process.env.DOCUMENTSCRAPER_PORT ?? 3336),
-  clock:           Number(process.env.CLOCK_PORT           ?? 3337),
-  askuser:         Number(process.env.ASKUSER_PORT         ?? 3338),
-  rag:             Number(process.env.RAG_PORT             ?? 3339),
-  csvexporter:     Number(process.env.CSVEXPORTER_PORT     ?? 3340),
-  skills:          Number(process.env.SKILLS_PORT          ?? 3341),
-  ecm:             Number(process.env.ECM_PORT             ?? 3342),
-  pythonshell:     Number(process.env.PYTHONSHELL_PORT     ?? 3343),
-  "3dtool":        Number(process.env.TOOL_3DTOOL_PORT     ?? 3344),
-  browserless:     Number(process.env.BROWSERLESS_PORT     ?? 3003),
-  git:             Number(process.env.GIT_PORT             ?? 3011),
+  clock: Number(process.env.CLOCK_PORT ?? 3337),
+  askuser: Number(process.env.ASKUSER_PORT ?? 3338),
+  rag: Number(process.env.RAG_PORT ?? 3339),
+  csvexporter: Number(process.env.CSVEXPORTER_PORT ?? 3340),
+  skills: Number(process.env.SKILLS_PORT ?? 3341),
+  pythonshell: Number(process.env.PYTHONSHELL_PORT ?? 3343),
+  "3dtool": Number(process.env.TOOL_3DTOOL_PORT ?? 3344),
+  browserless: Number(process.env.BROWSERLESS_PORT ?? 3003),
+  git: Number(process.env.GIT_PORT ?? 3011),
 };
 
 /**

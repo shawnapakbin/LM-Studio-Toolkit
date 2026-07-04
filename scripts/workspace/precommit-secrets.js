@@ -48,13 +48,7 @@ function isPlaceholder(value) {
   );
 }
 
-const lineAllowList = [
-  /estimated_used_tokens/i,
-  /summaryTokenCount/i,
-  /token_count/i,
-  /ECM_AUTO_COMPACT_SUMMARY_MAX_TOKENS/i,
-  /ECM_MODEL_CONTEXT_LIMIT/i,
-];
+const lineAllowList = [/estimated_used_tokens/i, /summaryTokenCount/i, /token_count/i];
 
 const checks = [
   {

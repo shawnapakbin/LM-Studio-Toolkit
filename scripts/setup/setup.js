@@ -311,7 +311,7 @@ function buildBridgeConfig(tool, distScript) {
     Browserless: { BROWSERLESS_API_KEY: readEnvKey("BROWSERLESS_API_KEY"), BROWSERLESS_DEFAULT_REGION: "production-sfo", BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000", BROWSERLESS_MAX_TIMEOUT_MS: "120000", BROWSERLESS_CONCURRENCY_LIMIT: "5" },
     RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/interview_user" },
     "3DTool": {},
-    ECM: { ECM_DB_PATH: path.join(REPO_ROOT, "ECM", "ecm.db"), ECM_EMBEDDINGS_MODE: "lmstudio", ECM_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5" },
+
     PythonShell: { PYTHON_SHELL_DEFAULT_TIMEOUT_MS: "60000", PYTHON_SHELL_MAX_TIMEOUT_MS: "120000", PYTHON_SHELL_MAX_OUTPUT_CHARS: "50000", PYTHON_SHELL_WORKSPACE_ROOT: REPO_ROOT },
     Skills: { SKILLS_DB_PATH: path.join(REPO_ROOT, "Skills", "skills.db") },
     SlashCommands: { SLASH_DEFAULT_SESSION: "default" },

@@ -81,14 +81,7 @@ const servers = {
       SKILLS_DB_PATH: "./skills.db",
     },
   },
-  ecm: {
-    relativeScript: "ECM/dist/mcp-server.js",
-    env: {
-      ECM_DB_PATH: "./ecm.db",
-      ECM_EMBEDDINGS_MODE: "lmstudio",
-      ECM_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5",
-    },
-  },
+
   "slash-commands": {
     relativeScript: "SlashCommands/dist/mcp-server.js",
     env: {

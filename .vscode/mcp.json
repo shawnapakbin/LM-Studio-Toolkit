@@ -1,0 +1,48 @@
+{
+  "servers": {
+    "browser-tools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/servers/browser.js"],
+      "env": {
+        "MCP_USE_PLAYWRIGHT": "1",
+        "MCP_INSECURE_TLS": "1"
+      }
+    },
+    "terminal-tools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/servers/terminal.js"],
+      "env": {
+        "TERMINAL_PUNCHOUT": "1",
+        "TERMINAL_CAPTURE_WITH_PUNCHOUT": "1",
+        "TERMINAL_PUNCHOUT_WAIT_FOR_EXIT": "1"
+      }
+    },
+    "filesystem-tools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/servers/filesystem.js"]
+    },
+    "calculator-tools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/servers/calculator.js"]
+    },
+    "calendar-tools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/servers/calendar.js"]
+    },
+    "rag-tools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/servers/rag.js"],
+      "env": {
+        "LM_STUDIO_URL": "http://localhost:1234",
+        "RAG_DATA_DIR": "rag-data",
+        "MCP_INSECURE_TLS": "1"
+      }
+    }
+  }
+}

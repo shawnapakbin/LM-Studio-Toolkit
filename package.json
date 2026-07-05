@@ -9,6 +9,7 @@
     "setup": "node scripts/setup/setup.js",
     "setup:repair": "node scripts/setup/setup.js --repair",
     "setup:gui": "node scripts/setup/setup.js --gui",
+    "setup:blender": "node BlenderBridge/scripts/verify-blender-setup.js",
     "installer:dev": "npm run -w Installer dev",
     "installer:build": "npm run -w Installer build",
     "installer:dist": "npm run -w Installer dist",
@@ -39,7 +40,7 @@
     "build": "npm run build:shared && npm run build:observability && npm run build:tools && npm run build:memory",
     "build:shared": "npm run -w shared build",
     "build:observability": "npm run -w Observability build",
-    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w PythonShell build && npm run -w Skills build && npm run -w SlashCommands build && npm run -w CSVExporter build && npm run -w Git build && npm run -w FileEditor build && npm run -w PackageManager build",
+    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w Browserless build && npm run -w AskUser build && npm run -w RAG build && npm run -w PythonShell build && npm run -w Skills build && npm run -w SlashCommands build && npm run -w CSVExporter build && npm run -w Git build && npm run -w FileEditor build && npm run -w PackageManager build && npm run -w BlenderBridge build",
     "build:memory": "npm run -w Memory build",
     "build:cli": "npm run -w CLI build",
     "cli": "node CLI/dist/index.js",
@@ -105,6 +106,7 @@
     "Git",
     "PackageManager",
     "Observability",
-    "AgentRunner"
+    "AgentRunner",
+    "BlenderBridge"
   ]
 }

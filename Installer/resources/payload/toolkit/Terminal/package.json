@@ -20,7 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "llm-toolkit-observability": "^1.0.0",
+    "llm-toolkit-observability": "*",
     "zod": "^3.25.76"
   }
 }

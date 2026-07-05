@@ -1,16 +1,20 @@
 {
   "schemaVersion": 1,
-  "lastCheckedAt": "2026-04-12T00:58:52.273Z",
+  "lastCheckedAt": "2026-07-05T06:18:06.890Z",
   "latest": {
-    "checkedAt": "2026-04-12T00:58:52.273Z",
+    "checkedAt": "2026-07-05T06:18:06.890Z",
     "installed": true,
     "source": "py -3",
     "command": "py",
-    "args": ["-3"],
-    "version": "3.14.0",
+    "args": [
+      "-3"
+    ],
+    "version": "3.14.5",
     "executablePath": "C:\\Windows\\py.exe",
-    "checked": ["py -3 --version"],
-    "message": "Detected Python 3.14.0 via 'py -3'."
+    "checked": [
+      "py -3 --version"
+    ],
+    "message": "Detected Python 3.14.5 via 'py -3'."
   },
   "history": [
     {
@@ -18,10 +22,14 @@
       "installed": true,
       "source": "py -3",
       "command": "py",
-      "args": ["-3"],
+      "args": [
+        "-3"
+      ],
       "version": "3.14.0",
       "executablePath": "C:\\Windows\\py.exe",
-      "checked": ["py -3 --version"],
+      "checked": [
+        "py -3 --version"
+      ],
       "message": "Detected Python 3.14.0 via 'py -3'."
     },
     {
@@ -29,10 +37,14 @@
       "installed": true,
       "source": "py -3",
       "command": "py",
-      "args": ["-3"],
+      "args": [
+        "-3"
+      ],
       "version": "3.14.0",
       "executablePath": "C:\\Windows\\py.exe",
-      "checked": ["py -3 --version"],
+      "checked": [
+        "py -3 --version"
+      ],
       "message": "Detected Python 3.14.0 via 'py -3'."
     },
     {
@@ -40,11 +52,435 @@
       "installed": true,
       "source": "py -3",
       "command": "py",
-      "args": ["-3"],
+      "args": [
+        "-3"
+      ],
       "version": "3.14.0",
       "executablePath": "C:\\Windows\\py.exe",
-      "checked": ["py -3 --version"],
+      "checked": [
+        "py -3 --version"
+      ],
       "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:09:36.071Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:10:05.447Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:10:48.272Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:11:54.236Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:15:16.330Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:50:46.008Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T04:51:17.384Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-14T05:03:26.646Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-15T03:22:48.124Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-18T22:26:18.599Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-18T22:29:49.671Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-18T23:06:25.184Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-21T23:42:22.542Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-21T23:44:22.065Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-21T23:47:38.724Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-21T23:48:45.744Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-24T01:04:38.692Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-24T06:27:38.988Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-24T06:36:05.743Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-25T05:55:20.269Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-25T05:56:13.502Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-04-25T07:01:13.824Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.0",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.0 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-05-21T00:01:00.820Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.5",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.5 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-05-21T04:22:14.198Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.5",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.5 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-07-04T20:17:45.211Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.5",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.5 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-07-04T20:47:31.369Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.5",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.5 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-07-04T21:19:19.465Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.5",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.5 via 'py -3'."
+    },
+    {
+      "checkedAt": "2026-07-05T06:18:06.890Z",
+      "installed": true,
+      "source": "py -3",
+      "command": "py",
+      "args": [
+        "-3"
+      ],
+      "version": "3.14.5",
+      "executablePath": "C:\\Windows\\py.exe",
+      "checked": [
+        "py -3 --version"
+      ],
+      "message": "Detected Python 3.14.5 via 'py -3'."
     }
   ]
 }

@@ -15,6 +15,6 @@
   "license": "LicenseRef-Shawna-NonCommercial",
   "dependencies": {
     "better-sqlite3": "^12.6.2",
-    "llm-toolkit-observability": "^1.0.0"
+    "llm-toolkit-observability": "*"
   }
 }

@@ -110,21 +110,22 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
     },
   },
   {
-    id: "ecm",
-    displayName: "ECM",
-    relativeScript: "ECM/dist/mcp-server.js",
-    env: {
-      ECM_DB_PATH: "./ecm.db",
-      ECM_EMBEDDINGS_MODE: "lmstudio",
-      ECM_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5",
-    },
-  },
-  {
     id: "slash-commands",
     displayName: "SlashCommands",
     relativeScript: "SlashCommands/dist/mcp-server.js",
     env: {
       SLASH_DEFAULT_SESSION: "default",
+    },
+  },
+  {
+    id: "blender-bridge",
+    displayName: "BlenderBridge",
+    relativeScript: "BlenderBridge/dist/mcp-server.js",
+    env: {
+      BLENDER_MCP_HOST: "127.0.0.1",
+      BLENDER_MCP_PORT: "9876",
+      BLENDER_MCP_COMMAND: "blender-mcp",
+      BLENDER_MCP_ARGS: "",
     },
   },
 ];

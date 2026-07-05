@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -105,10 +106,34 @@ const servers = {
       SLASH_DEFAULT_SESSION: "default",
     },
   },
+  "blender-mcp": {
+    command: process.env.BLENDER_MCP_COMMAND || "blender-mcp",
+    args: (process.env.BLENDER_MCP_ARGS || "").split(/\s+/).filter(Boolean),
+    env: {
+      BLENDER_MCP_HOST: process.env.BLENDER_MCP_HOST || "127.0.0.1",
+      BLENDER_MCP_PORT: process.env.BLENDER_MCP_PORT || "9876",
+    },
+    external: true,
+  },
 };
 
 function normalizeForJson(value) {
   return value.replace(/\\/g, "/");
+}
+
+function isBinaryOnPath(command) {
+  try {
+    const cmd = process.platform === "win32" ? `where ${command}` : `which ${command}`;
+    const result = execSync(cmd, { stdio: "pipe", encoding: "utf-8" }).trim();
+    if (process.platform !== "win32") {
+      // On Unix, `which` confirms existence on PATH but we must also verify executability
+      const resolvedPath = result.split("\n")[0].trim();
+      fs.accessSync(resolvedPath, fs.constants.X_OK);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function buildMcpServers() {
@@ -116,6 +141,22 @@ function buildMcpServers() {
   const missingBuilds = [];
 
   for (const [serverName, serverConfig] of Object.entries(servers)) {
+    if (serverConfig.external) {
+      if (!isBinaryOnPath(serverConfig.command)) {
+        console.warn(
+          `[mcp-config] Warning: "${serverConfig.command}" missing or non-executable — skipping "${serverName}" entry`
+        );
+        continue;
+      }
+
+      mcpServers[serverName] = {
+        command: serverConfig.command,
+        args: serverConfig.args,
+        env: serverConfig.env,
+      };
+      continue;
+    }
+
     const fullPath = path.join(repoRoot, serverConfig.relativeScript);
     if (!fs.existsSync(fullPath)) {
       missingBuilds.push(serverConfig.relativeScript);

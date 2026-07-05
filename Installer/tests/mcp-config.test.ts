@@ -33,9 +33,10 @@ describe("TOOL_DESCRIPTORS completeness", () => {
     "browserless",
     "ask-user",
     "rag",
+    "python-shell",
     "skills",
-    "ecm",
     "slash-commands",
+    "blender-bridge",
   ];
 
   test("all expected tools are registered", () => {

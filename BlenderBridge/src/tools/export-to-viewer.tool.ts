@@ -6,13 +6,13 @@
  * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
  */
 
-import { z } from "zod";
+import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fs from "fs";
-import { BlenderBridgeConfig } from "../types";
+import { z } from "zod";
 import { BlenderClient } from "../blender-client";
 import { generateExportObjCode } from "../codegen/export-obj.py";
+import { BlenderBridgeConfig } from "../types";
 
 export interface ToolResult {
   isError: boolean;
@@ -44,10 +44,7 @@ const defaultHttpClient: HttpClient = {
  *
  * Requirement 8.2: 3DTool /health probe on port 3344 within 3s.
  */
-async function probe3DToolHealth(
-  threeDToolHost: string,
-  httpClient: HttpClient,
-): Promise<boolean> {
+async function probe3DToolHealth(threeDToolHost: string, httpClient: HttpClient): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
@@ -144,7 +141,8 @@ export function createExportToViewerTool(
                   success: false,
                   error: {
                     code: "NO_ACTIVE_OBJECT",
-                    message: "No active object selected in the Blender scene. Select an object before exporting.",
+                    message:
+                      "No active object selected in the Blender scene. Select an object before exporting.",
                   },
                 },
                 null,

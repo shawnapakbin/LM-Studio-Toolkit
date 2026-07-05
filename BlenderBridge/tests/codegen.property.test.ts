@@ -51,9 +51,9 @@ describe("codegen property tests", () => {
     // Generator: name with 1-63 chars from [a-zA-Z0-9_]
     const nameArb = fc.stringOf(
       fc.constantFrom(
-        ...("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_".split(""))
+        ..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_".split(""),
       ),
-      { minLength: 1, maxLength: 63 }
+      { minLength: 1, maxLength: 63 },
     );
 
     // Generator: one of the 9 allowed geometry types
@@ -63,22 +63,22 @@ describe("codegen property tests", () => {
     const floatTripleArb = fc.tuple(
       fc.double({ noNaN: true, noDefaultInfinity: true }),
       fc.double({ noNaN: true, noDefaultInfinity: true }),
-      fc.double({ noNaN: true, noDefaultInfinity: true })
+      fc.double({ noNaN: true, noDefaultInfinity: true }),
     ) as fc.Arbitrary<[number, number, number]>;
 
     // Generator: float triple for scale (positive floats > 0)
-    const positiveFloat = fc.double({
-      min: Number.MIN_VALUE,
-      max: 1e10,
-      noNaN: true,
-      noDefaultInfinity: true,
-    }).filter((v) => v > 0);
+    const positiveFloat = fc
+      .double({
+        min: Number.MIN_VALUE,
+        max: 1e10,
+        noNaN: true,
+        noDefaultInfinity: true,
+      })
+      .filter((v) => v > 0);
 
-    const scaleTripleArb = fc.tuple(
-      positiveFloat,
-      positiveFloat,
-      positiveFloat
-    ) as fc.Arbitrary<[number, number, number]>;
+    const scaleTripleArb = fc.tuple(positiveFloat, positiveFloat, positiveFloat) as fc.Arbitrary<
+      [number, number, number]
+    >;
 
     // Generator: full valid CreateObjectParams
     const createObjectParamsArb = fc.record({
@@ -105,7 +105,7 @@ describe("codegen property tests", () => {
           const expectedOps = GEOMETRY_OPS_MAP[params.geometryType];
           expect(code).toContain(expectedOps);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -115,7 +115,7 @@ describe("codegen property tests", () => {
           const code = generateCreateObjectCode(params);
           expect(code).toContain(`obj.name = "${params.name}"`);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -127,7 +127,7 @@ describe("codegen property tests", () => {
           const expectedTuple = `(${toPythonFloat(x)}, ${toPythonFloat(y)}, ${toPythonFloat(z)})`;
           expect(code).toContain(`location=${expectedTuple}`);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -139,7 +139,7 @@ describe("codegen property tests", () => {
           const expectedTuple = `(${toPythonFloat(x)}, ${toPythonFloat(y)}, ${toPythonFloat(z)})`;
           expect(code).toContain(`rotation=${expectedTuple}`);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -151,7 +151,7 @@ describe("codegen property tests", () => {
           const expectedTuple = `(${toPythonFloat(x)}, ${toPythonFloat(y)}, ${toPythonFloat(z)})`;
           expect(code).toContain(`scale=${expectedTuple}`);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -161,17 +161,17 @@ describe("codegen property tests", () => {
           const code = generateCreateObjectCode(params);
           expect(code.startsWith("import bpy")).toBe(true);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
-    it('contains result = at the end', () => {
+    it("contains result = at the end", () => {
       fc.assert(
         fc.property(createObjectParamsArb, (params) => {
           const code = generateCreateObjectCode(params);
           expect(code).toContain("result = ");
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });

@@ -4,8 +4,8 @@
  * Validates: Requirements 1.1, 1.2
  */
 
-import * as fc from "fast-check";
 import { execSync } from "child_process";
+import * as fc from "fast-check";
 
 /**
  * Since mcp-config.js reads process.env at module load time AND uses child_process.execSync
@@ -88,13 +88,13 @@ describe("mcp-config property tests", () => {
     // Generator: non-empty command string (no whitespace, no null bytes)
     const commandArb = fc.stringOf(
       fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
-      { minLength: 1, maxLength: 30 }
+      { minLength: 1, maxLength: 30 },
     );
 
     // Generator: whitespace-separated args tokens
     const argsTokenArb = fc.stringOf(
       fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
-      { minLength: 1, maxLength: 15 }
+      { minLength: 1, maxLength: 15 },
     );
     const argsArb = fc
       .array(argsTokenArb, { minLength: 0, maxLength: 8 })
@@ -103,7 +103,7 @@ describe("mcp-config property tests", () => {
     // Generator: non-empty host string (no whitespace, no null bytes)
     const hostArb = fc.stringOf(
       fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
-      { minLength: 1, maxLength: 30 }
+      { minLength: 1, maxLength: 30 },
     );
 
     // Generator: valid port as string
@@ -149,9 +149,7 @@ describe("mcp-config property tests", () => {
             expect(entry.command).toBe(expectedCommand);
 
             // Args array equals whitespace-split tokens of env value or empty array
-            const expectedArgs = presence.argsSet
-              ? argsStr.split(/\s+/).filter(Boolean)
-              : [];
+            const expectedArgs = presence.argsSet ? argsStr.split(/\s+/).filter(Boolean) : [];
             expect(entry.args).toEqual(expectedArgs);
 
             // Env object contains host (or default "127.0.0.1") and port (or default "9876")
@@ -162,9 +160,9 @@ describe("mcp-config property tests", () => {
 
             // Entry has external: true flag
             expect(entry.external).toBe(true);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -186,7 +184,7 @@ describe("mcp-config property tests", () => {
       if (binaryExists) {
         expect(mcpServers["blender-mcp"]).toBeDefined();
         expect(mcpServers["blender-mcp"].command).toBe(
-          process.env.BLENDER_MCP_COMMAND || "blender-mcp"
+          process.env.BLENDER_MCP_COMMAND || "blender-mcp",
         );
       } else {
         expect(mcpServers["blender-mcp"]).toBeUndefined();
@@ -197,58 +195,48 @@ describe("mcp-config property tests", () => {
 
     it("config entry defaults are correct when no env vars are set", () => {
       fc.assert(
-        fc.property(
-          fc.constant(undefined),
-          () => {
-            // No env vars set — all should use defaults
-            const entry = generateBlenderMcpConfig({});
+        fc.property(fc.constant(undefined), () => {
+          // No env vars set — all should use defaults
+          const entry = generateBlenderMcpConfig({});
 
-            expect(entry.command).toBe("blender-mcp");
-            expect(entry.args).toEqual([]);
-            expect(entry.env.BLENDER_MCP_HOST).toBe("127.0.0.1");
-            expect(entry.env.BLENDER_MCP_PORT).toBe("9876");
-          }
-        ),
-        { numRuns: 100 }
+          expect(entry.command).toBe("blender-mcp");
+          expect(entry.args).toEqual([]);
+          expect(entry.env.BLENDER_MCP_HOST).toBe("127.0.0.1");
+          expect(entry.env.BLENDER_MCP_PORT).toBe("9876");
+        }),
+        { numRuns: 100 },
       );
     });
 
     it("empty command env var falls back to default 'blender-mcp'", () => {
       fc.assert(
-        fc.property(
-          hostArb,
-          portArb,
-          (host, port) => {
-            // Empty string command should fall back to default (|| operator)
-            const entry = generateBlenderMcpConfig({
-              BLENDER_MCP_COMMAND: "",
-              BLENDER_MCP_HOST: host,
-              BLENDER_MCP_PORT: port,
-            });
+        fc.property(hostArb, portArb, (host, port) => {
+          // Empty string command should fall back to default (|| operator)
+          const entry = generateBlenderMcpConfig({
+            BLENDER_MCP_COMMAND: "",
+            BLENDER_MCP_HOST: host,
+            BLENDER_MCP_PORT: port,
+          });
 
-            expect(entry.command).toBe("blender-mcp");
-            expect(entry.env.BLENDER_MCP_HOST).toBe(host);
-            expect(entry.env.BLENDER_MCP_PORT).toBe(port);
-          }
-        ),
-        { numRuns: 100 }
+          expect(entry.command).toBe("blender-mcp");
+          expect(entry.env.BLENDER_MCP_HOST).toBe(host);
+          expect(entry.env.BLENDER_MCP_PORT).toBe(port);
+        }),
+        { numRuns: 100 },
       );
     });
 
     it("empty args env var produces empty array", () => {
       fc.assert(
-        fc.property(
-          commandArb,
-          (command) => {
-            const entry = generateBlenderMcpConfig({
-              BLENDER_MCP_COMMAND: command,
-              BLENDER_MCP_ARGS: "",
-            });
+        fc.property(commandArb, (command) => {
+          const entry = generateBlenderMcpConfig({
+            BLENDER_MCP_COMMAND: command,
+            BLENDER_MCP_ARGS: "",
+          });
 
-            expect(entry.args).toEqual([]);
-          }
-        ),
-        { numRuns: 100 }
+          expect(entry.args).toEqual([]);
+        }),
+        { numRuns: 100 },
       );
     });
 
@@ -256,34 +244,28 @@ describe("mcp-config property tests", () => {
       // Verify our test logic matches the actual module by cross-checking
       // with the module's servers object (which reads process.env at load time)
       fc.assert(
-        fc.property(
-          commandArb,
-          argsArb,
-          hostArb,
-          portArb,
-          (command, argsStr, host, port) => {
-            // Set env vars BEFORE requiring fresh module
-            process.env.BLENDER_MCP_COMMAND = command;
-            process.env.BLENDER_MCP_ARGS = argsStr;
-            process.env.BLENDER_MCP_HOST = host;
-            process.env.BLENDER_MCP_PORT = port;
+        fc.property(commandArb, argsArb, hostArb, portArb, (command, argsStr, host, port) => {
+          // Set env vars BEFORE requiring fresh module
+          process.env.BLENDER_MCP_COMMAND = command;
+          process.env.BLENDER_MCP_ARGS = argsStr;
+          process.env.BLENDER_MCP_HOST = host;
+          process.env.BLENDER_MCP_PORT = port;
 
-            // Generate expected config using our reference implementation
-            const expected = generateBlenderMcpConfig({
-              BLENDER_MCP_COMMAND: command,
-              BLENDER_MCP_ARGS: argsStr,
-              BLENDER_MCP_HOST: host,
-              BLENDER_MCP_PORT: port,
-            });
+          // Generate expected config using our reference implementation
+          const expected = generateBlenderMcpConfig({
+            BLENDER_MCP_COMMAND: command,
+            BLENDER_MCP_ARGS: argsStr,
+            BLENDER_MCP_HOST: host,
+            BLENDER_MCP_PORT: port,
+          });
 
-            // Verify the reference implementation produces expected values
-            expect(expected.command).toBe(command);
-            expect(expected.args).toEqual(argsStr.split(/\s+/).filter(Boolean));
-            expect(expected.env.BLENDER_MCP_HOST).toBe(host);
-            expect(expected.env.BLENDER_MCP_PORT).toBe(port);
-          }
-        ),
-        { numRuns: 100 }
+          // Verify the reference implementation produces expected values
+          expect(expected.command).toBe(command);
+          expect(expected.args).toEqual(argsStr.split(/\s+/).filter(Boolean));
+          expect(expected.env.BLENDER_MCP_HOST).toBe(host);
+          expect(expected.env.BLENDER_MCP_PORT).toBe(port);
+        }),
+        { numRuns: 100 },
       );
     });
   });

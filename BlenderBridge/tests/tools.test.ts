@@ -4,11 +4,11 @@
  * Validates: Requirements 4.2, 4.6, 8.2, 8.3, 8.4
  */
 
-import { validateCreateObjectInput } from "../src/tools/create-object.tool";
-import { createExportToViewerTool, HttpClient } from "../src/tools/export-to-viewer.tool";
-import { createBlenderClient, BlenderClient, ExecuteBlenderCodeFn } from "../src/blender-client";
-import { BlenderBridgeConfig } from "../src/types";
 import * as fs from "fs";
+import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
+import { validateCreateObjectInput } from "../src/tools/create-object.tool";
+import { HttpClient, createExportToViewerTool } from "../src/tools/export-to-viewer.tool";
+import { BlenderBridgeConfig } from "../src/types";
 
 // Mock fs module for existsSync
 jest.mock("fs");
@@ -204,7 +204,7 @@ describe("export-to-viewer", () => {
     loadResponse?: { ok: boolean } | "reject",
   ): HttpClient {
     return {
-      fetch: jest.fn(async (url: string, options?: RequestInit) => {
+      fetch: jest.fn(async (url: string, _options?: RequestInit) => {
         if (url.includes("/health")) {
           if (healthResponse === "reject") throw new Error("Connection refused");
           return { ok: healthResponse?.ok ?? false } as Response;
@@ -393,7 +393,7 @@ describe("export-to-viewer", () => {
         return JSON.stringify({ filePath: "/tmp/MyCube.obj", objectName: "MyCube" });
       };
       const client = createMockClient(delegate);
-      const mockFetch = jest.fn(async (url: string, options?: RequestInit) => {
+      const mockFetch = jest.fn(async (_url: string, _options?: RequestInit) => {
         return { ok: true } as Response;
       });
       const httpClient: HttpClient = { fetch: mockFetch };
@@ -404,9 +404,7 @@ describe("export-to-viewer", () => {
       await tool.handler({});
 
       // Verify /api/load was called with correct body
-      const loadCall = mockFetch.mock.calls.find(([url]) =>
-        (url as string).includes("/api/load"),
-      );
+      const loadCall = mockFetch.mock.calls.find(([url]) => (url as string).includes("/api/load"));
       expect(loadCall).toBeDefined();
       const loadOptions = loadCall![1] as unknown as RequestInit;
       expect(loadOptions.method).toBe("POST");

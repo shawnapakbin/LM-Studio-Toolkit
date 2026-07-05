@@ -19,9 +19,7 @@ export function loadConfig(): BlenderBridgeConfig {
 
   const port = Number(portStr);
 
-  const args = argsRaw
-    .split(/\s+/)
-    .filter((s) => s.length > 0);
+  const args = argsRaw.split(/\s+/).filter((s) => s.length > 0);
 
   const config: BlenderBridgeConfig = {
     blenderMcpHost: host,

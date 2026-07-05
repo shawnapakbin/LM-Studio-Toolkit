@@ -6,8 +6,8 @@
  */
 
 import * as fc from "fast-check";
-import { validateCreateObjectInput } from "../src/tools/create-object.tool";
 import { formatExecutionError } from "../src/blender-client";
+import { validateCreateObjectInput } from "../src/tools/create-object.tool";
 
 /** The 9 allowed geometry types. */
 const VALID_GEOMETRY_TYPES = [
@@ -37,48 +37,50 @@ describe("tools property tests", () => {
   describe("Property 5: Invalid create-object parameters are rejected without code generation", () => {
     // --- Generators for valid base inputs (used to construct partially-invalid inputs) ---
 
-    const validNameArb = fc.stringOf(
-      fc.constantFrom(...VALID_NAME_CHARS.split("")),
-      { minLength: 1, maxLength: 63 }
-    );
+    const validNameArb = fc.stringOf(fc.constantFrom(...VALID_NAME_CHARS.split("")), {
+      minLength: 1,
+      maxLength: 63,
+    });
 
     const validGeometryTypeArb = fc.constantFrom(...VALID_GEOMETRY_TYPES);
 
     const validFloatTripleArb = fc.tuple(
       fc.double({ noNaN: true, noDefaultInfinity: true }),
       fc.double({ noNaN: true, noDefaultInfinity: true }),
-      fc.double({ noNaN: true, noDefaultInfinity: true })
+      fc.double({ noNaN: true, noDefaultInfinity: true }),
     );
 
     const validScaleTripleArb = fc.tuple(
       fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
       fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true })
+      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
     );
 
     // --- Generators for invalid inputs ---
 
     // Names that are too long (64+ chars)
-    const tooLongNameArb = fc.stringOf(
-      fc.constantFrom(...VALID_NAME_CHARS.split("")),
-      { minLength: 64, maxLength: 200 }
-    );
+    const tooLongNameArb = fc.stringOf(fc.constantFrom(...VALID_NAME_CHARS.split("")), {
+      minLength: 64,
+      maxLength: 200,
+    });
 
     // Names containing invalid characters
-    const nameWithInvalidCharsArb = fc.tuple(
-      fc.stringOf(
-        fc.constantFrom(...VALID_NAME_CHARS.split("")),
-        { minLength: 0, maxLength: 30 }
-      ),
-      fc.stringOf(
-        fc.constantFrom(...INVALID_NAME_CHARS.split("")),
-        { minLength: 1, maxLength: 5 }
-      ),
-      fc.stringOf(
-        fc.constantFrom(...VALID_NAME_CHARS.split("")),
-        { minLength: 0, maxLength: 30 }
+    const nameWithInvalidCharsArb = fc
+      .tuple(
+        fc.stringOf(fc.constantFrom(...VALID_NAME_CHARS.split("")), {
+          minLength: 0,
+          maxLength: 30,
+        }),
+        fc.stringOf(fc.constantFrom(...INVALID_NAME_CHARS.split("")), {
+          minLength: 1,
+          maxLength: 5,
+        }),
+        fc.stringOf(fc.constantFrom(...VALID_NAME_CHARS.split("")), {
+          minLength: 0,
+          maxLength: 30,
+        }),
       )
-    ).map(([prefix, invalid, suffix]) => prefix + invalid + suffix);
+      .map(([prefix, invalid, suffix]) => prefix + invalid + suffix);
 
     // Invalid geometry types (random strings not in allowed set)
     const invalidGeometryTypeArb = fc
@@ -86,95 +88,99 @@ describe("tools property tests", () => {
       .filter((s) => !VALID_GEOMETRY_TYPES.includes(s));
 
     // Float triples with NaN values
-    const tripleWithNaNArb = fc.tuple(
-      fc.constantFrom(0, 1, 2),
-      fc.double({ noNaN: true, noDefaultInfinity: true }),
-      fc.double({ noNaN: true, noDefaultInfinity: true })
-    ).map(([nanIndex, a, b]) => {
-      const arr: [number, number, number] = [a, b, a];
-      arr[nanIndex] = NaN;
-      return arr;
-    });
+    const tripleWithNaNArb = fc
+      .tuple(
+        fc.constantFrom(0, 1, 2),
+        fc.double({ noNaN: true, noDefaultInfinity: true }),
+        fc.double({ noNaN: true, noDefaultInfinity: true }),
+      )
+      .map(([nanIndex, a, b]) => {
+        const arr: [number, number, number] = [a, b, a];
+        arr[nanIndex] = NaN;
+        return arr;
+      });
 
     // Float triples with Infinity values
-    const tripleWithInfinityArb = fc.tuple(
-      fc.constantFrom(0, 1, 2),
-      fc.constantFrom(Infinity, -Infinity),
-      fc.double({ noNaN: true, noDefaultInfinity: true }),
-      fc.double({ noNaN: true, noDefaultInfinity: true })
-    ).map(([infIndex, infValue, a, b]) => {
-      const arr: [number, number, number] = [a, b, a];
-      arr[infIndex as number] = infValue;
-      return arr;
-    });
+    const tripleWithInfinityArb = fc
+      .tuple(
+        fc.constantFrom(0, 1, 2),
+        fc.constantFrom(Infinity, -Infinity),
+        fc.double({ noNaN: true, noDefaultInfinity: true }),
+        fc.double({ noNaN: true, noDefaultInfinity: true }),
+      )
+      .map(([infIndex, infValue, a, b]) => {
+        const arr: [number, number, number] = [a, b, a];
+        arr[infIndex as number] = infValue;
+        return arr;
+      });
 
     // Scale triples with zero or negative values
-    const scaleWithNonPositiveArb = fc.tuple(
-      fc.constantFrom(0, 1, 2),
-      fc.oneof(
-        fc.constant(0),
-        fc.double({ min: -1e10, max: 0, noNaN: true, noDefaultInfinity: true }).filter((v) => v <= 0)
-      ),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true })
-    ).map(([badIndex, badValue, a, b]) => {
-      const arr: [number, number, number] = [a, b, a];
-      arr[badIndex as number] = badValue;
-      return arr;
-    });
+    const scaleWithNonPositiveArb = fc
+      .tuple(
+        fc.constantFrom(0, 1, 2),
+        fc.oneof(
+          fc.constant(0),
+          fc
+            .double({ min: -1e10, max: 0, noNaN: true, noDefaultInfinity: true })
+            .filter((v) => v <= 0),
+        ),
+        fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
+        fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
+      )
+      .map(([badIndex, badValue, a, b]) => {
+        const arr: [number, number, number] = [a, b, a];
+        arr[badIndex as number] = badValue;
+        return arr;
+      });
 
     // Scale triples with NaN
-    const scaleWithNaNArb = fc.tuple(
-      fc.constantFrom(0, 1, 2),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true })
-    ).map(([nanIndex, a, b]) => {
-      const arr: [number, number, number] = [a, b, a];
-      arr[nanIndex as number] = NaN;
-      return arr;
-    });
+    const scaleWithNaNArb = fc
+      .tuple(
+        fc.constantFrom(0, 1, 2),
+        fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
+        fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
+      )
+      .map(([nanIndex, a, b]) => {
+        const arr: [number, number, number] = [a, b, a];
+        arr[nanIndex as number] = NaN;
+        return arr;
+      });
 
     // Scale triples with Infinity
-    const scaleWithInfinityArb = fc.tuple(
-      fc.constantFrom(0, 1, 2),
-      fc.constantFrom(Infinity, -Infinity),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
-      fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true })
-    ).map(([infIndex, infValue, a, b]) => {
-      const arr: [number, number, number] = [a, b, a];
-      arr[infIndex as number] = infValue;
-      return arr;
-    });
+    const scaleWithInfinityArb = fc
+      .tuple(
+        fc.constantFrom(0, 1, 2),
+        fc.constantFrom(Infinity, -Infinity),
+        fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
+        fc.double({ min: 0.001, max: 1e6, noNaN: true, noDefaultInfinity: true }),
+      )
+      .map(([infIndex, infValue, a, b]) => {
+        const arr: [number, number, number] = [a, b, a];
+        arr[infIndex as number] = infValue;
+        return arr;
+      });
 
     // --- Property Tests ---
 
     it("rejects names exceeding 63 characters", () => {
       fc.assert(
-        fc.property(
-          tooLongNameArb,
-          validGeometryTypeArb,
-          (name, geometryType) => {
-            const result = validateCreateObjectInput({ name, geometryType });
-            expect(result).not.toBeNull();
-            expect(result).toContain("name");
-          }
-        ),
-        { numRuns: 100 }
+        fc.property(tooLongNameArb, validGeometryTypeArb, (name, geometryType) => {
+          const result = validateCreateObjectInput({ name, geometryType });
+          expect(result).not.toBeNull();
+          expect(result).toContain("name");
+        }),
+        { numRuns: 100 },
       );
     });
 
     it("rejects names with characters outside [a-zA-Z0-9_]", () => {
       fc.assert(
-        fc.property(
-          nameWithInvalidCharsArb,
-          validGeometryTypeArb,
-          (name, geometryType) => {
-            const result = validateCreateObjectInput({ name, geometryType });
-            expect(result).not.toBeNull();
-            expect(result).toContain("name");
-          }
-        ),
-        { numRuns: 100 }
+        fc.property(nameWithInvalidCharsArb, validGeometryTypeArb, (name, geometryType) => {
+          const result = validateCreateObjectInput({ name, geometryType });
+          expect(result).not.toBeNull();
+          expect(result).toContain("name");
+        }),
+        { numRuns: 100 },
       );
     });
 
@@ -185,22 +191,18 @@ describe("tools property tests", () => {
           expect(result).not.toBeNull();
           expect(result).toContain("name");
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     it("rejects geometry types not in the allowed set", () => {
       fc.assert(
-        fc.property(
-          validNameArb,
-          invalidGeometryTypeArb,
-          (name, geometryType) => {
-            const result = validateCreateObjectInput({ name, geometryType });
-            expect(result).not.toBeNull();
-            expect(result).toContain("geometryType");
-          }
-        ),
-        { numRuns: 100 }
+        fc.property(validNameArb, invalidGeometryTypeArb, (name, geometryType) => {
+          const result = validateCreateObjectInput({ name, geometryType });
+          expect(result).not.toBeNull();
+          expect(result).toContain("geometryType");
+        }),
+        { numRuns: 100 },
       );
     });
 
@@ -218,9 +220,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("location");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -238,9 +240,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("location");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -258,9 +260,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("rotation");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -278,9 +280,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("rotation");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -298,9 +300,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("scale");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -318,9 +320,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("scale");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -338,9 +340,9 @@ describe("tools property tests", () => {
             });
             expect(result).not.toBeNull();
             expect(result).toContain("scale");
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -361,9 +363,9 @@ describe("tools property tests", () => {
               scale,
             });
             expect(result).toBeNull();
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -404,7 +406,7 @@ describe("tools property tests", () => {
           minLength: 1,
           maxLength: 10,
         }),
-        { minLength: 1, maxLength: 4 }
+        { minLength: 1, maxLength: 4 },
       )
       .map((parts) => `/usr/lib/python3.11/${parts.join("/")}.py`);
 
@@ -416,11 +418,11 @@ describe("tools property tests", () => {
       .tuple(
         pythonFilePathArb,
         lineNumberArb,
-        fc.constantFrom("in <module>", "in execute", "in run_code", "in main")
+        fc.constantFrom("in <module>", "in execute", "in run_code", "in main"),
       )
       .map(
         ([file, line, context]) =>
-          `  File "${file}", line ${line}, ${context}\n    some_function_call()`
+          `  File "${file}", line ${line}, ${context}\n    some_function_call()`,
       );
 
     /** Generator: a random Python error type */
@@ -429,9 +431,9 @@ describe("tools property tests", () => {
     /** Generator: a random error detail message */
     const errorDetailArb = fc.stringOf(
       fc.constantFrom(
-        ..."abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.'\"()[]{}".split("")
+        ..."abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.'\"()[]{}".split(""),
       ),
-      { minLength: 1, maxLength: 80 }
+      { minLength: 1, maxLength: 80 },
     );
 
     /** Generator: a full Python traceback string */
@@ -439,7 +441,7 @@ describe("tools property tests", () => {
       .tuple(
         fc.array(tracebackFrameArb, { minLength: 1, maxLength: 5 }),
         errorTypeArb,
-        errorDetailArb
+        errorDetailArb,
       )
       .map(([frames, errorType, detail]) => {
         const header = "Traceback (most recent call last):";
@@ -451,10 +453,12 @@ describe("tools property tests", () => {
     /** Generator: optional prefix text before the traceback */
     const prefixArb = fc.oneof(
       fc.constant(""),
-      fc.stringOf(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz :".split("")), {
-        minLength: 1,
-        maxLength: 40,
-      }).map((s) => s + "\n")
+      fc
+        .stringOf(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz :".split("")), {
+          minLength: 1,
+          maxLength: 40,
+        })
+        .map((s) => s + "\n"),
     );
 
     /** Generator: a full error message containing a traceback */
@@ -469,7 +473,7 @@ describe("tools property tests", () => {
           const result = formatExecutionError(error);
           expect(result.success).toBe(false);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -480,29 +484,24 @@ describe("tools property tests", () => {
           const result = formatExecutionError(error);
           expect(result.error).toBeDefined();
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     it("result.error.traceback contains the original traceback text", () => {
       fc.assert(
-        fc.property(
-          fc.tuple(prefixArb, tracebackArb),
-          ([prefix, traceback]) => {
-            const errorMsg = prefix + traceback;
-            const error = new Error(errorMsg);
-            const result = formatExecutionError(error);
+        fc.property(fc.tuple(prefixArb, tracebackArb), ([prefix, traceback]) => {
+          const errorMsg = prefix + traceback;
+          const error = new Error(errorMsg);
+          const result = formatExecutionError(error);
 
-            // The traceback field must contain the full traceback starting from "Traceback..."
-            expect(result.error!.traceback).toBeDefined();
-            expect(result.error!.traceback).toContain(
-              "Traceback (most recent call last):"
-            );
-            // The extracted traceback should equal the original traceback
-            expect(result.error!.traceback).toBe(traceback);
-          }
-        ),
-        { numRuns: 100 }
+          // The traceback field must contain the full traceback starting from "Traceback..."
+          expect(result.error!.traceback).toBeDefined();
+          expect(result.error!.traceback).toContain("Traceback (most recent call last):");
+          // The extracted traceback should equal the original traceback
+          expect(result.error!.traceback).toBe(traceback);
+        }),
+        { numRuns: 100 },
       );
     });
 
@@ -514,7 +513,7 @@ describe("tools property tests", () => {
           expect(typeof result.error!.suggestion).toBe("string");
           expect(result.error!.suggestion!.length).toBeGreaterThan(0);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -526,7 +525,7 @@ describe("tools property tests", () => {
           expect(typeof result.error!.message).toBe("string");
           expect(result.error!.message.length).toBeGreaterThan(0);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -538,32 +537,27 @@ describe("tools property tests", () => {
           expect(result.success).toBe(false);
           expect(result.error).toBeDefined();
           expect(result.error!.traceback).toBeDefined();
-          expect(result.error!.traceback).toContain(
-            "Traceback (most recent call last):"
-          );
+          expect(result.error!.traceback).toContain("Traceback (most recent call last):");
           expect(result.error!.suggestion).toBeDefined();
           expect(result.error!.suggestion!.length).toBeGreaterThan(0);
           expect(result.error!.message.length).toBeGreaterThan(0);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     it("result.error.traceback preserves the full traceback content from the error", () => {
       fc.assert(
-        fc.property(
-          fc.tuple(prefixArb, tracebackArb),
-          ([prefix, traceback]) => {
-            const errorMsg = prefix + traceback;
-            const error = new Error(errorMsg);
-            const result = formatExecutionError(error);
+        fc.property(fc.tuple(prefixArb, tracebackArb), ([prefix, traceback]) => {
+          const errorMsg = prefix + traceback;
+          const error = new Error(errorMsg);
+          const result = formatExecutionError(error);
 
-            // The traceback field should equal the original traceback
-            // (formatExecutionError extracts from "Traceback..." onwards)
-            expect(result.error!.traceback).toBe(traceback);
-          }
-        ),
-        { numRuns: 100 }
+          // The traceback field should equal the original traceback
+          // (formatExecutionError extracts from "Traceback..." onwards)
+          expect(result.error!.traceback).toBe(traceback);
+        }),
+        { numRuns: 100 },
       );
     });
   });

@@ -92,4 +92,15 @@ shared/toolCallNormalizer.js.map
 # Installer build artifacts
 Installer/release/
 Installer/resources/runtime/
-compact instructions
+Installer/target/
+Installer/tauri-build.log
+
+# Scratch / temp files
+compact instructions*
+tmp/
+.history/
+*.obj
+
+# Linter & test output artifacts
+biome_output.txt
+verify_output.txt

@@ -8,8 +8,10 @@ import { BlenderClient } from "../../blender-client";
 import { BlenderBridgeConfig } from "../../types";
 import { ToolHandler, ToolResult } from "../health-check.tool";
 import {
+  buildDiagnosticError,
   connectionError,
   formatPassthroughResult,
+  normalizeCodeParam,
   validateStringParam,
   validationError,
 } from "./passthrough-helpers";
@@ -31,12 +33,30 @@ export function createCodeExecutionTools(
       description:
         "Executes arbitrary Python code directly in the running Blender instance via the Blender MCP server. " +
         "The code runs in Blender's Python environment with full access to bpy. " +
-        "To return data, assign a JSON-serialisable dict to a variable named `result`.",
+        "To return data, assign a JSON-serialisable dict to a variable named `result`. " +
+        "IMPORTANT: The code parameter must be a single JSON string, not an array of lines. " +
+        "Multi-line code must use \\n escape sequences for newlines in the JSON string value. " +
+        "Do NOT use raw/literal newline characters inside the JSON string.",
       inputSchema: z.object({
-        code: z.string().describe("Python code to execute in Blender"),
+        code: z
+          .any()
+          .optional()
+          .describe("Python code to execute in Blender. MUST use this parameter name."),
+        command: z
+          .any()
+          .optional()
+          .describe("Alias for code — Python code to execute (use 'code' preferably)."),
       }),
       handler: async (input: unknown): Promise<ToolResult> => {
-        const { code } = input as { code: string };
+        const args = input as Record<string, unknown>;
+        // LLMs sometimes use alternative parameter names (e.g., "command", "script", "python")
+        // instead of the expected "code". Try the canonical name first, then fall back to aliases.
+        const rawCode = args.code ?? args.command ?? args.script ?? args.python ?? args.text;
+        const code = normalizeCodeParam(rawCode);
+
+        if (code === null) {
+          return validationError(buildDiagnosticError(rawCode, "code"));
+        }
 
         const codeError = validateStringParam(code, "code", 100000);
         if (codeError) {

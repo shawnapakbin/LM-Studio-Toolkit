@@ -73,6 +73,77 @@ export function validateEnum(
   return null;
 }
 
+// --- Code Parameter Normalization ---
+
+/**
+ * Attempts to normalize a raw code parameter value into a valid code string.
+ * Handles common LLM serialization mistakes: arrays of lines, objects with code fields, etc.
+ * Returns null if the value is unrecoverable (null, undefined, empty).
+ */
+export function normalizeCodeParam(rawCode: unknown): string | null {
+  // Check for null/undefined FIRST
+  if (rawCode === null || rawCode === undefined) {
+    return null;
+  }
+
+  // If already a string, return as-is if non-empty, null if empty
+  if (typeof rawCode === "string") {
+    return rawCode.length > 0 ? rawCode : null;
+  }
+
+  // If array of strings, join with newlines
+  if (Array.isArray(rawCode)) {
+    if (rawCode.length > 0 && rawCode.every((item) => typeof item === "string")) {
+      return rawCode.join("\n");
+    }
+    return null;
+  }
+
+  // If object (not null, not array) with a code-like string field
+  if (typeof rawCode === "object") {
+    const obj = rawCode as Record<string, unknown>;
+    // Check fields in priority order: python, code, text
+    for (const field of ["python", "code", "text"]) {
+      if (typeof obj[field] === "string" && (obj[field] as string).length > 0) {
+        return obj[field] as string;
+      }
+    }
+    return null;
+  }
+
+  // If number or boolean, convert to string representation
+  if (typeof rawCode === "number" || typeof rawCode === "boolean") {
+    return String(rawCode);
+  }
+
+  return null;
+}
+
+/**
+ * Builds a diagnostic error message for a code parameter that could not be normalized.
+ * Includes type information, length (for strings), a truncated preview, and formatting guidance.
+ */
+export function buildDiagnosticError(rawValue: unknown, paramName: string): string {
+  const actualType = rawValue === null ? "null" : typeof rawValue;
+  const lengthInfo = typeof rawValue === "string" ? ` (length: ${rawValue.length})` : "";
+
+  let preview: string;
+  try {
+    const serialized = JSON.stringify(rawValue);
+    preview = serialized.length > 200 ? serialized.slice(0, 200) + "..." : serialized;
+  } catch {
+    preview = String(rawValue);
+  }
+
+  return (
+    `${paramName} could not be normalized to a valid code string. ` +
+    `Received type: ${actualType}${lengthInfo}. ` +
+    `Preview: ${preview}. ` +
+    `Hint: Multi-line code must use \\n escape sequences within a single JSON string value. ` +
+    `Do not send an array of lines or a nested object.`
+  );
+}
+
 // --- Result Formatting ---
 
 /**

@@ -194,7 +194,15 @@ export function createBlenderBridgeMcpServer(
 
     for (const tool of tools) {
       try {
-        registerTool(tool.name, tool.description, tool.inputSchema, async (input) => {
+        // Extract the raw shape from ZodObject instances so the MCP SDK properly
+        // recognizes the inputSchema. The SDK's tool() method only accepts raw shapes
+        // (plain objects whose values are Zod schemas) via isZodRawShapeCompat check.
+        // ZodObject instances get misidentified as annotations, leaving inputSchema undefined.
+        const rawShape =
+          tool.inputSchema && "shape" in tool.inputSchema
+            ? (tool.inputSchema as z.ZodObject<z.ZodRawShape>).shape
+            : tool.inputSchema;
+        registerTool(tool.name, tool.description, rawShape, async (input) => {
           const result = await tool.handler(input);
           return { content: result.content, isError: result.isError };
         });

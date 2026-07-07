@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * blender_create_object orchestration tool.
  * Validates input parameters, generates Python code for object creation,
  * and executes it via the BlenderClient.

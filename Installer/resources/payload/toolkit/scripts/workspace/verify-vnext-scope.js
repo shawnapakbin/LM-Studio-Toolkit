@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");

@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Python code generator for scene summary extraction.
  * Produces code that iterates through the Blender scene to build
  * a hierarchy of objects, captures the active object, and gathers

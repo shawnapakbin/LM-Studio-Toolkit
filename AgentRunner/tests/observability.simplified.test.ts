@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 import { type LogEntry, Logger, setLogger } from "llm-toolkit-observability";
 import { MetricsRegistry, setRegistry } from "llm-toolkit-observability";
 import { Tracer, setTracer } from "llm-toolkit-observability";

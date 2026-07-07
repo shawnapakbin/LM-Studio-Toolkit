@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 // Must be set before any import that triggers the store/embeddings singletons
 process.env.ECM_DB_PATH = ":memory:";
 process.env.ECM_EMBEDDINGS_MODE = "mock";

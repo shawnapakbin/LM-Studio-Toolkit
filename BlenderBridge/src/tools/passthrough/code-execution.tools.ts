@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Passthrough tools for executing Python code in Blender.
  * Provides blender_execute_code (interactive) and blender_cli_execute_code (background/CLI).
  */

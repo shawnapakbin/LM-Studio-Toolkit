@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { type BrowserWindow, dialog, ipcMain, shell } from "electron";

@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 /**
  * MCP server smoke test — spawns each compiled MCP binary and verifies it
  * starts without crashing within a short window. The process must still be

@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 // toolCallNormalizer.ts
 // Normalizes tool call payloads from various formats to the canonical ToolCall format.
 // Place in a shared location (e.g., shared/).

@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Preservation Property Tests — Registry Tool Configurations
  *
  * **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6**

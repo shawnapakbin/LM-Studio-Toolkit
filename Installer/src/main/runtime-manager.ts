@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 import { spawn } from "node:child_process";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";

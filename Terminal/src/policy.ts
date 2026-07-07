@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 import path from "path";
 
 export const DEFAULT_MAX_OUTPUT_CHARS = Number(process.env.TERMINAL_MAX_OUTPUT_CHARS ?? 50000);

@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * CLI file-info passthrough tools.
  * These tools forward file-information queries to the upstream Blender MCP server
  * in background (CLI) mode, requiring a `blend_file` path parameter.

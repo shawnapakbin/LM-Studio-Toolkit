@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Navigation passthrough tools.
  * These tools forward workspace/viewport navigation commands to the upstream Blender MCP server,
  * allowing programmatic switching of workspace tabs, space types, and viewport focus.

@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Property-based tests for Skills Tool v2.1.0
  */
 process.env.SKILLS_DB_PATH = ":memory:";

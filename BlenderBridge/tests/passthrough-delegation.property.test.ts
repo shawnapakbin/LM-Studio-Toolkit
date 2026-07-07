@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Feature: blender-mcp-full-integration, Property 1: Passthrough delegation preserves upstream responses
  *
  * For randomly generated valid inputs and mock delegate responses, verify

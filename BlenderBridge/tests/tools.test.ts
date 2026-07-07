@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Unit tests for BlenderBridge orchestration tools.
  *
  * Validates: Requirements 4.2, 4.6, 8.2, 8.3, 8.4

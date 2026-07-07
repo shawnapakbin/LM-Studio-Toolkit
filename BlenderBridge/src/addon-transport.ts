@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Direct TCP socket transport to the Blender MCP add-on.
  *
  * The official Blender Lab MCP add-on (v1.0.0) uses a null-byte-delimited

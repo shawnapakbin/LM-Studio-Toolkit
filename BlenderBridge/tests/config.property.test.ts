@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Feature: blender-mcp-integration, Property 2: Config loading produces correctly typed values from environment
  * Feature: blender-mcp-integration, Property 3: Invalid configuration is rejected with identifying error
  *

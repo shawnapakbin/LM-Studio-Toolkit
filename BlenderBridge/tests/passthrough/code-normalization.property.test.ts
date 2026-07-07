@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Bug Condition Exploration Property Test - Code Parameter Normalization Failure
  *
  * **Validates: Requirements 1.1, 1.2, 1.4, 2.1, 2.2, 2.4**

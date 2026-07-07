@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * blender_scene_summary orchestration tool.
  * Generates Python code to extract scene hierarchy, active object,
  * and render settings, then executes via BlenderClient.

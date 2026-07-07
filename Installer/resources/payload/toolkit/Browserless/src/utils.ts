@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Returns the fully-qualified Browserless base URL for a given region name or URL.
  * Accepts short region names ("production-sfo", "production-lon", "production-ams"),
  * full URLs (passed through unchanged), or arbitrary region names (auto-prefixed).

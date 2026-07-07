@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Feature: blender-mcp-full-integration, Property 6: CallToolFn argument forwarding preserves parameter names and values
  *
  * For randomly generated valid arguments, verify the delegate receives exactly the expected

@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Feature: blender-mcp-integration, Property 1: Config registry entry reflects environment variables with correct defaults
  *
  * Validates: Requirements 1.1, 1.2

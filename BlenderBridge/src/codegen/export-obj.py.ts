@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Python code generator for OBJ export.
  * Produces code that exports the active object as an OBJ file
  * using the Blender 4.0+ wm.obj_export operator.

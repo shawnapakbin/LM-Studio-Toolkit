@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 import { execSync, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";

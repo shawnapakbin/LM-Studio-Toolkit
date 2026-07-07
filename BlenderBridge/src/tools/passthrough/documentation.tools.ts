@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Documentation lookup passthrough tools.
  * These tools forward API documentation and manual search queries to the upstream
  * Blender MCP server, enabling lookup of Python API references and user manual content.

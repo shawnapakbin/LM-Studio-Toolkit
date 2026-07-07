@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Unit tests for navigation passthrough tools.
  * Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7
  */

@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Feature: blender-mcp-integration, Property 5: Invalid create-object parameters are rejected without code generation
  * Feature: blender-mcp-integration, Property 6: Execution errors always produce structured responses with traceback
  *

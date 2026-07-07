@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * blender_export_to_viewer orchestration tool.
  * Exports the active Blender object as OBJ, probes 3DTool /health,
  * and POSTs to /api/load if the viewer is available.

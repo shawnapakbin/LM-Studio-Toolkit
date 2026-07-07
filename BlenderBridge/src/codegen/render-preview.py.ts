@@ -1,4 +1,11 @@
 /**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
+/**
  * Python code generator for rendering a low-resolution preview.
  * Produces code that configures Blender's render settings and
  * outputs a PNG thumbnail at the specified path.

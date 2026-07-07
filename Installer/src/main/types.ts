@@ -1,3 +1,10 @@
+/**
+ * LLM Toolkit
+ * Copyright 2026 Shawna Pakbin
+ * Licensed under the Apache License, Version 2.0
+ * See LICENSE file in the project root for full license text.
+ */
+
 export type ProgressLevel = "info" | "ok" | "warn" | "error" | "section";
 
 export type SetupPhase = "bootstrap" | "env" | "install" | "build" | "verify" | "lmstudio";

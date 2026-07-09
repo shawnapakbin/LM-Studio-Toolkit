@@ -37,7 +37,6 @@ const validConfig: BlenderBridgeConfig = {
   blenderMcpPort: 9876,
   blenderMcpCommand: "blender-mcp",
   blenderMcpArgs: [],
-  threeDToolHost: "http://localhost:3344",
   healthCheckTimeoutMs: 5000,
   operationTimeoutMs: 30000,
 };
@@ -129,8 +128,7 @@ describe("config validation on startup (Req 7.5)", () => {
         blenderMcpPort: 9876,
         blenderMcpCommand: "blender-mcp",
         blenderMcpArgs: [],
-        threeDToolHost: "http://localhost:3344",
-        healthCheckTimeoutMs: 5000,
+              healthCheckTimeoutMs: 5000,
         operationTimeoutMs: 30000,
       }),
     ).toThrow(/BLENDER_MCP_HOST/);

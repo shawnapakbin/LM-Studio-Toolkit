@@ -59,7 +59,7 @@
     "orchestration"
   ],
   "author": "Shawna Pakbin",
-  "license": "LicenseRef-Shawna-NonCommercial",
+  "license": "Apache-2.0",
   "dependencies": {
     "uuid": "^9.0.1"
   },

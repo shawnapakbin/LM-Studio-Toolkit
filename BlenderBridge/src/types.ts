@@ -16,7 +16,6 @@ export interface BlenderBridgeConfig {
   blenderMcpPort: number; // default 9876, range 1-65535
   blenderMcpCommand: string; // default "blender-mcp"
   blenderMcpArgs: string[]; // default [], max combined 1024 chars
-  threeDToolHost: string; // default "http://localhost:3344"
   healthCheckTimeoutMs: number; // default 5000
   operationTimeoutMs: number; // default 30000; timeout triggers at elapsed >= 30.0s
 }
@@ -79,10 +78,6 @@ export interface RenderPreviewParams {
   height?: number; // default 270
 }
 
-export interface ExportObjParams {
-  outputPath: string;
-}
-
 // --- Tool Response Types ---
 
 export interface CreateObjectSuccessResponse {
@@ -94,13 +89,6 @@ export interface CreateObjectSuccessResponse {
     rotation: [number, number, number];
     scale: [number, number, number];
   };
-}
-
-export interface ExportToViewerSuccessResponse {
-  success: true;
-  filePath: string;
-  viewerTriggered: boolean;
-  message?: string;
 }
 
 export interface OrchestrationErrorResponse {

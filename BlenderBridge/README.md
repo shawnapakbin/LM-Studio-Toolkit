@@ -45,7 +45,6 @@ This checks the TCP connection to the Blender add-on and outputs a configuration
 | `blender_create_object` | Creates a named object with geometry type and transforms |
 | `blender_scene_summary` | Returns scene hierarchy, active object, and render settings |
 | `blender_render_preview` | Renders a 480×270 PNG preview thumbnail |
-| `blender_export_to_viewer` | Exports active object as OBJ and triggers the 3DTool viewer |
 
 ### Environment Variables
 

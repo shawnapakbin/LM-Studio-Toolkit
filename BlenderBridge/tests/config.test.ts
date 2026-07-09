@@ -31,7 +31,6 @@ describe("config", () => {
       expect(config.blenderMcpPort).toBe(9876);
       expect(config.blenderMcpCommand).toBe("blender-mcp");
       expect(config.blenderMcpArgs).toEqual([]);
-      expect(config.threeDToolHost).toBe("http://localhost:3344");
       expect(config.healthCheckTimeoutMs).toBe(5000);
       expect(config.operationTimeoutMs).toBe(30000);
     });
@@ -155,8 +154,7 @@ describe("config", () => {
       blenderMcpPort: 9876,
       blenderMcpCommand: "blender-mcp",
       blenderMcpArgs: [],
-      threeDToolHost: "http://localhost:3344",
-      healthCheckTimeoutMs: 5000,
+          healthCheckTimeoutMs: 5000,
       operationTimeoutMs: 30000,
     };
 

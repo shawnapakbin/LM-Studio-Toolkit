@@ -27,7 +27,6 @@ const defaultConfig: BlenderBridgeConfig = {
   blenderMcpPort: 9876,
   blenderMcpCommand: "blender-mcp",
   blenderMcpArgs: [],
-  threeDToolHost: "http://localhost:3344",
   healthCheckTimeoutMs: 5000,
   operationTimeoutMs: 30000,
 };

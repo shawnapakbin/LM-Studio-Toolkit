@@ -13,7 +13,6 @@
  */
 
 export type DispatchDescriptor =
-  | { tool: "ecm"; action: string; params: Record<string, unknown> }
   | { tool: "calculator"; expression: string; precision?: number }
   | {
       tool: "webbrowser";
@@ -111,116 +110,6 @@ export function parseSlashCommand(raw: string): DispatchDescriptor {
   const { flags, positional } = extractFlags([sub, ...rest].filter(Boolean));
 
   switch (cmd.toLowerCase()) {
-    // ── /compact ──────────────────────────────────────────────────────────
-    case "compact": {
-      const keepNewest = flag(flags, "keep-newest") ? Number(flag(flags, "keep-newest")) : 5;
-      const sessionId = flag(flags, "session") ?? "default";
-      return { tool: "ecm", action: "compact", params: { sessionId, keepNewest } };
-    }
-
-    // ── /ecm <action> ─────────────────────────────────────────────────────
-    case "ecm": {
-      const sessionId = flag(flags, "session") ?? "default";
-      switch ((sub ?? "").toLowerCase()) {
-        case "store":
-          return {
-            tool: "ecm",
-            action: "store_segment",
-            params: {
-              sessionId,
-              content: positional.join(" ") || flag(flags, "content") || "",
-              type: flag(flags, "type") ?? "conversation_turn",
-              importance: flag(flags, "importance") ? Number(flag(flags, "importance")) : undefined,
-            },
-          };
-        case "retrieve":
-          return {
-            tool: "ecm",
-            action: "retrieve_context",
-            params: {
-              sessionId,
-              query: positional.join(" ") || flag(flags, "query") || "",
-              topK: flag(flags, "top-k") ? Number(flag(flags, "top-k")) : undefined,
-              maxTokens: flag(flags, "max-tokens") ? Number(flag(flags, "max-tokens")) : undefined,
-              minScore: flag(flags, "min-score") ? Number(flag(flags, "min-score")) : undefined,
-            },
-          };
-        case "list":
-          return {
-            tool: "ecm",
-            action: "list_segments",
-            params: {
-              sessionId,
-              limit: flag(flags, "limit") ? Number(flag(flags, "limit")) : undefined,
-              offset: flag(flags, "offset") ? Number(flag(flags, "offset")) : undefined,
-            },
-          };
-        case "delete":
-          return {
-            tool: "ecm",
-            action: "delete_segment",
-            params: { sessionId, segmentId: positional[0] ?? flag(flags, "id") ?? "" },
-          };
-        case "summarize":
-          return {
-            tool: "ecm",
-            action: "summarize_session",
-            params: {
-              sessionId,
-              keepNewest: flag(flags, "keep-newest")
-                ? Number(flag(flags, "keep-newest"))
-                : undefined,
-            },
-          };
-        case "clear":
-          return { tool: "ecm", action: "clear_session", params: { sessionId } };
-        case "compact":
-          return {
-            tool: "ecm",
-            action: "compact",
-            params: {
-              sessionId,
-              keepNewest: flag(flags, "keep-newest") ? Number(flag(flags, "keep-newest")) : 5,
-            },
-          };
-        case "continuous": {
-          const mode = (rest[0] ?? flag(flags, "mode") ?? "").toLowerCase();
-          if (["on", "enable", "enabled", "true", "1"].includes(mode)) {
-            return {
-              tool: "ecm",
-              action: "set_continuous_compact",
-              params: {
-                sessionId,
-                enabled: true,
-                keepNewest: flag(flags, "keep-newest")
-                  ? Number(flag(flags, "keep-newest"))
-                  : undefined,
-              },
-            };
-          }
-          if (["off", "disable", "disabled", "false", "0"].includes(mode)) {
-            return {
-              tool: "ecm",
-              action: "set_continuous_compact",
-              params: {
-                sessionId,
-                enabled: false,
-              },
-            };
-          }
-          return { tool: "unknown", raw };
-        }
-        case "policy":
-          return {
-            tool: "ecm",
-            action: "get_session_policy",
-            params: { sessionId },
-          };
-        default:
-          return { tool: "unknown", raw };
-      }
-    }
-
     // ── /calc <expression> ────────────────────────────────────────────────
     case "calc":
     case "calculate": {

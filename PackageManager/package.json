@@ -23,7 +23,7 @@
     "multi-ecosystem"
   ],
   "author": "Shawna Pakbin",
-  "license": "LicenseRef-Shawna-NonCommercial",
+  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@shared/types": "file:../shared",

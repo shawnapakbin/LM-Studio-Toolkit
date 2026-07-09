@@ -14,7 +14,7 @@
  *          completes initialize handshake, reports registered tools.
  *          Fails initialization with error if zero tools are registered.
  *   7.5 — Fails to start with clear error on invalid config.
- *   9.1 — Registers all 31 tools (5 orchestration + 26 passthrough).
+ *   9.1 — Registers all 30 tools (4 orchestration + 26 passthrough).
  *   9.5 — Fails initialization if any tool fails to register.
  */
 
@@ -26,7 +26,6 @@ import { createAddonCallToolDelegate, createAddonExecuteCodeDelegate } from "./a
 import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "./blender-client";
 import { loadConfig } from "./config";
 import { createCreateObjectTool } from "./tools/create-object.tool";
-import { createExportToViewerTool } from "./tools/export-to-viewer.tool";
 import { createHealthCheckTool } from "./tools/health-check.tool";
 import { createCliFileInfoTools } from "./tools/passthrough/cli-file-info.tools";
 import { createCodeExecutionTools } from "./tools/passthrough/code-execution.tools";
@@ -166,14 +165,6 @@ export function createBlenderBridgeMcpServer(
       return { content: result.content, isError: result.isError };
     },
   );
-  toolCount++;
-
-  // 5. blender_export_to_viewer
-  const exportToViewerTool = createExportToViewerTool(config, client);
-  registerTool(exportToViewerTool.name, exportToViewerTool.description, {}, async () => {
-    const result = await exportToViewerTool.handler({});
-    return { content: result.content, isError: result.isError };
-  });
   toolCount++;
 
   // --- Register passthrough tools (Req 9.1, 9.2, 9.5) ---

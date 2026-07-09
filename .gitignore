@@ -101,6 +101,9 @@ tmp/
 .history/
 *.obj
 
+# Graphify cache output
+graphify-out/
+
 # Linter & test output artifacts
 biome_output.txt
 verify_output.txt

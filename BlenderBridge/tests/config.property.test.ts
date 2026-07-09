@@ -184,8 +184,7 @@ describe("config property tests", () => {
             blenderMcpPort: 9876,
             blenderMcpCommand: "blender-mcp",
             blenderMcpArgs: [],
-            threeDToolHost: "http://localhost:3344",
-            healthCheckTimeoutMs: 5000,
+                      healthCheckTimeoutMs: 5000,
             operationTimeoutMs: 30000,
           };
 

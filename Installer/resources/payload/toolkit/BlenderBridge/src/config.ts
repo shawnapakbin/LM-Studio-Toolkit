@@ -17,27 +17,32 @@ import { BlenderBridgeConfig } from "./types";
  * - BLENDER_MCP_PORT: default "9876", integer 1-65535
  * - BLENDER_MCP_COMMAND: default "blender-mcp"
  * - BLENDER_MCP_ARGS: default "", whitespace-separated, max 1024 chars total
+ * - BLENDER_RENDER_TIMEOUT_MS: default "90000", timeout for render operations
+ * - BLENDER_EXPORT_TIMEOUT_MS: default "90000", timeout for export operations
  */
 export function loadConfig(): BlenderBridgeConfig {
   const host = process.env.BLENDER_MCP_HOST || "127.0.0.1";
   const portStr = process.env.BLENDER_MCP_PORT || "9876";
   const command = process.env.BLENDER_MCP_COMMAND || "blender-mcp";
   const argsRaw = process.env.BLENDER_MCP_ARGS || "";
+  const renderTimeoutStr = process.env.BLENDER_RENDER_TIMEOUT_MS || "90000";
+  const exportTimeoutStr = process.env.BLENDER_EXPORT_TIMEOUT_MS || "90000";
 
   const port = Number(portStr);
+  const renderTimeoutMs = Number(renderTimeoutStr);
+  const exportTimeoutMs = Number(exportTimeoutStr);
 
-  const args = argsRaw
-    .split(/\s+/)
-    .filter((s) => s.length > 0);
+  const args = argsRaw.split(/\s+/).filter((s) => s.length > 0);
 
   const config: BlenderBridgeConfig = {
     blenderMcpHost: host,
     blenderMcpPort: port,
     blenderMcpCommand: command,
     blenderMcpArgs: args,
-    threeDToolHost: "http://localhost:3344",
     healthCheckTimeoutMs: 5000,
     operationTimeoutMs: 30000,
+    renderTimeoutMs,
+    exportTimeoutMs,
   };
 
   validateConfig(config);

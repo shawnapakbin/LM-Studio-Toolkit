@@ -18,6 +18,10 @@ export interface BlenderBridgeConfig {
   blenderMcpArgs: string[]; // default [], max combined 1024 chars
   healthCheckTimeoutMs: number; // default 5000
   operationTimeoutMs: number; // default 30000; timeout triggers at elapsed >= 30.0s
+  /** Timeout for render operations (ms). Defaults to 90000 if not set. */
+  renderTimeoutMs?: number;
+  /** Timeout for export operations (ms). Defaults to 90000 if not set. */
+  exportTimeoutMs?: number;
 }
 
 // --- Health Check ---
@@ -50,7 +54,38 @@ export interface BlenderExecutionResult {
     traceback?: string;
     message: string;
     suggestion?: string;
+    operationType?: string;
+    timeoutMs?: number;
+    operatorName?: string;
+    requiredContext?: string;
+    availableEnums?: string[];
+    suggestions?: string[];
   };
+}
+
+/** Structured timeout error information for enhanced error reporting. */
+export interface TimeoutErrorInfo {
+  operationType: string;
+  timeoutMs: number;
+  suggestion: string;
+}
+
+/** Structured operator error information for enhanced error reporting. */
+export interface OperatorErrorInfo {
+  operatorName?: string;
+  requiredContext?: string;
+  availableEnums?: string[];
+  suggestions?: string[];
+}
+
+// --- Mesh Validation ---
+
+export interface MeshValidationResult {
+  invertedFaces: number;
+  nonManifoldEdges: number;
+  looseVertices: number;
+  faceOrientationIssues: number;
+  isValid: boolean;
 }
 
 // --- Code Generation Parameters ---

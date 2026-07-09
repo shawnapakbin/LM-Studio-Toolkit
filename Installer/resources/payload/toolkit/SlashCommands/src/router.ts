@@ -12,7 +12,7 @@
 import path from "path";
 import fs from "fs";
 import Database from "better-sqlite3";
-import { DEFAULT_SESSION, ENDPOINTS } from "./config";
+import { ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
 import type { DispatchDescriptor } from "./parser";
 
@@ -25,23 +25,11 @@ const TOOL_NAMES: Record<string, string> = {
   askuser: "AskUser",
   rag: "RAG",
   skills: "Skills",
-  ecm: "ECM",
 };
 
 const HELP_TEXT = `Available slash commands:
 
   /help                                  Show this help message
-
-  Context Memory (ECM)
-  /compact [--session <id>] [--keep-newest <n>]
-  /ecm store <text> [--session <id>] [--type <type>] [--importance <0-1>]
-  /ecm retrieve <query> [--session <id>] [--top-k <n>]
-  /ecm list [--session <id>]
-  /ecm summarize [--session <id>] [--keep-newest <n>]
-  /ecm clear [--session <id>]
-  /ecm continuous on [--session <id>] [--keep-newest <n>]
-  /ecm continuous off [--session <id>]
-  /ecm policy [--session <id>]
 
   Calculator
   /calc <expression> [--precision <n>]
@@ -90,38 +78,6 @@ const HELP_TEXT = `Available slash commands:
 
 export async function route(desc: DispatchDescriptor): Promise<unknown> {
   switch (desc.tool) {
-    // ── ECM ───────────────────────────────────────────────────────────────
-    case "ecm": {
-      if (desc.action === "compact") {
-        // Two-step: summarize then report remaining count
-        const { sessionId = DEFAULT_SESSION, keepNewest = 5 } = desc.params;
-        const summary = await post(`${ENDPOINTS.ecm}/tools/ecm`, {
-          action: "summarize_session",
-          sessionId,
-          keepNewest,
-        });
-        const list = (await post(`${ENDPOINTS.ecm}/tools/ecm`, {
-          action: "list_segments",
-          sessionId,
-          limit: 1,
-        })) as Record<string, unknown>;
-        const data = list.data as Record<string, unknown> | undefined;
-        return {
-          success: true,
-          action: "compact",
-          sessionId,
-          keepNewest,
-          summary,
-          segmentsRemaining: data?.total ?? "unknown",
-          message: `Context compacted. Session "${sessionId}" summarized, ${data?.total ?? "?"} segments remaining.`,
-        };
-      }
-      return post(`${ENDPOINTS.ecm}/tools/ecm`, {
-        action: desc.action,
-        ...desc.params,
-      });
-    }
-
     // ── Calculator ────────────────────────────────────────────────────────
     case "calculator":
       return post(`${ENDPOINTS.calculator}/tools/calculate_engineering`, {
@@ -359,8 +315,6 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         error: `Unknown slash command: "${desc.raw}". Type /help to see all available commands.`,
         availableCommands: [
           "/help",
-          "/compact",
-          "/ecm store|retrieve|list|delete|summarize|clear",
           "/calc <expr>",
           "/browse <url>",
           "/clock",

@@ -18,6 +18,8 @@ describe("config", () => {
     delete process.env.BLENDER_MCP_PORT;
     delete process.env.BLENDER_MCP_COMMAND;
     delete process.env.BLENDER_MCP_ARGS;
+    delete process.env.BLENDER_RENDER_TIMEOUT_MS;
+    delete process.env.BLENDER_EXPORT_TIMEOUT_MS;
   });
 
   afterAll(() => {
@@ -33,6 +35,8 @@ describe("config", () => {
       expect(config.blenderMcpArgs).toEqual([]);
       expect(config.healthCheckTimeoutMs).toBe(5000);
       expect(config.operationTimeoutMs).toBe(30000);
+      expect(config.renderTimeoutMs).toBe(90000);
+      expect(config.exportTimeoutMs).toBe(90000);
     });
 
     it("reads BLENDER_MCP_HOST from environment", () => {
@@ -57,6 +61,18 @@ describe("config", () => {
       process.env.BLENDER_MCP_ARGS = "--verbose  --port 9876  ";
       const config = loadConfig();
       expect(config.blenderMcpArgs).toEqual(["--verbose", "--port", "9876"]);
+    });
+
+    it("reads BLENDER_RENDER_TIMEOUT_MS from environment", () => {
+      process.env.BLENDER_RENDER_TIMEOUT_MS = "120000";
+      const config = loadConfig();
+      expect(config.renderTimeoutMs).toBe(120000);
+    });
+
+    it("reads BLENDER_EXPORT_TIMEOUT_MS from environment", () => {
+      process.env.BLENDER_EXPORT_TIMEOUT_MS = "60000";
+      const config = loadConfig();
+      expect(config.exportTimeoutMs).toBe(60000);
     });
 
     it("accepts valid port boundary value 1", () => {
@@ -154,8 +170,10 @@ describe("config", () => {
       blenderMcpPort: 9876,
       blenderMcpCommand: "blender-mcp",
       blenderMcpArgs: [],
-          healthCheckTimeoutMs: 5000,
+      healthCheckTimeoutMs: 5000,
       operationTimeoutMs: 30000,
+      renderTimeoutMs: 90000,
+      exportTimeoutMs: 90000,
     };
 
     it("does not throw for valid config", () => {

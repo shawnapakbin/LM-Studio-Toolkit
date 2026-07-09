@@ -39,13 +39,30 @@ This checks the TCP connection to the Blender add-on and outputs a configuration
 
 ### Available Tools
 
+#### Orchestration Tools
+
 | Tool | Description |
 |------|-------------|
 | `blender_health_check` | Verifies Blender add-on connectivity and MCP server process |
 | `blender_create_object` | Creates a named object with geometry type and transforms |
 | `blender_scene_summary` | Returns scene hierarchy, active object, and render settings |
-| `blender_render_preview` | Renders a 480×270 PNG preview thumbnail |
-| `blender_export_to_viewer` | Exports active object as OBJ and triggers the 3DTool viewer |
+| `blender_render_preview` | Renders a 480×270 PNG preview with inline base64 image return |
+| `blender_mesh_validate` | Validates mesh geometry (normals, manifold edges, loose verts) before export |
+
+#### Passthrough Tools (26 tools)
+
+These tools proxy operations to Blender via the add-on's TCP protocol:
+
+| Category | Tools |
+|----------|-------|
+| Code Execution | `blender_execute_code`, `blender_cli_execute_code` |
+| Scene Inspection | `blender_objects_list`, `blender_object_detail` |
+| File Info | `blender_file_datablocks`, `blender_file_missing_refs`, `blender_file_linked_libraries`, `blender_file_path_info`, `blender_file_usage_guess` |
+| CLI File Info | `blender_cli_file_datablocks`, `blender_cli_file_missing_refs`, `blender_cli_file_linked_libraries`, `blender_cli_file_path_info`, `blender_cli_file_usage_guess` |
+| Screenshots | `blender_screenshot_area`, `blender_screenshot_window`, `blender_window_layout` |
+| Navigation | `blender_switch_tab`, `blender_switch_workspace`, `blender_focus_object`, `blender_focus_object_data` |
+| Documentation | `blender_api_docs`, `blender_search_api`, `blender_search_manual` |
+| Rendering | `blender_render_thumbnail`, `blender_render_full` |
 
 ### Environment Variables
 
@@ -55,6 +72,18 @@ This checks the TCP connection to the Blender add-on and outputs a configuration
 | `BLENDER_MCP_PORT` | `9876` | Blender add-on TCP port |
 | `BLENDER_MCP_COMMAND` | `blender-mcp` | MCP server binary name/path |
 | `BLENDER_MCP_ARGS` | _(empty)_ | Additional arguments for the MCP server binary |
+| `BLENDER_RENDER_TIMEOUT_MS` | `90000` | Timeout for render operations (ms) |
+| `BLENDER_EXPORT_TIMEOUT_MS` | `90000` | Timeout for export operations (ms) |
+
+### Features
+
+- **Per-operation timeouts** — Renders and exports use 90s timeout (configurable), other operations use 30s
+- **Structured error messages** — Timeout and operator errors include operation type, context, and recovery suggestions
+- **Blender 5.x API compatibility** — Automatic version detection and API remapping for breaking changes between 4.x and 5.x
+- **"Did you mean?" suggestions** — Levenshtein-based fuzzy matching for misspelled operator names and enum values
+- **Inline image return** — Render results include base64-encoded PNG data for direct viewing
+- **Mesh validation** — Pre-export geometry checks for inverted normals, non-manifold edges, and loose vertices
+- **Robust code parameter handling** — Normalizes malformed inputs (arrays, objects, alternative field names) with actionable diagnostic errors
 
 ## Troubleshooting
 

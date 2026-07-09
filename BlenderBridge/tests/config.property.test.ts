@@ -184,8 +184,10 @@ describe("config property tests", () => {
             blenderMcpPort: 9876,
             blenderMcpCommand: "blender-mcp",
             blenderMcpArgs: [],
-                      healthCheckTimeoutMs: 5000,
+            healthCheckTimeoutMs: 5000,
             operationTimeoutMs: 30000,
+            renderTimeoutMs: 90000,
+            exportTimeoutMs: 90000,
           };
 
           let threw = false;

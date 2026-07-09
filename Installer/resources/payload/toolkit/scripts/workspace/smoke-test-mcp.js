@@ -33,8 +33,8 @@ const tools = [
   { name: "RAG", dist: "RAG/dist/mcp-server.js" },
   { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js" },
   { name: "Skills", dist: "Skills/dist/mcp-server.js" },
-  { name: "ECM", dist: "ECM/dist/mcp-server.js" },
   { name: "SlashCommands", dist: "SlashCommands/dist/mcp-server.js" },
+  { name: "BlenderBridge", dist: "BlenderBridge/dist/mcp-server.js" },
 ];
 
 function smokeTest(tool) {

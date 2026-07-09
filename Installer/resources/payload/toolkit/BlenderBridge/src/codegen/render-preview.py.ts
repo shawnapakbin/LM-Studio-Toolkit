@@ -28,6 +28,8 @@ export function generateRenderPreviewCode(params: RenderPreviewParams): string {
   const outputPath = params.outputPath.replace(/\\/g, "/");
 
   return `import bpy
+import base64
+import os
 
 render = bpy.context.scene.render
 
@@ -45,8 +47,15 @@ render.filepath = "${outputPath}"
 # Render
 bpy.ops.render.render(write_still=True)
 
+# Read and encode the rendered file
+imageData = ""
+if os.path.exists("${outputPath}"):
+    with open("${outputPath}", "rb") as f:
+        imageData = base64.b64encode(f.read()).decode("ascii")
+
 result = {
-    "filePath": "${outputPath}"
+    "filePath": "${outputPath}",
+    "imageData": imageData
 }
 `;
 }

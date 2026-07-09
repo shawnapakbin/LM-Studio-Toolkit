@@ -99,28 +99,20 @@ const servers = {
       SKILLS_DB_PATH: "./skills.db",
     },
   },
-  ecm: {
-    relativeScript: "ECM/dist/mcp-server.js",
-    env: {
-      ECM_DB_PATH: "./ecm.db",
-      ECM_EMBEDDINGS_MODE: "lmstudio",
-      ECM_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5",
-    },
-  },
   "slash-commands": {
     relativeScript: "SlashCommands/dist/mcp-server.js",
     env: {
       SLASH_DEFAULT_SESSION: "default",
     },
   },
-  "blender-mcp": {
-    command: process.env.BLENDER_MCP_COMMAND || "blender-mcp",
-    args: (process.env.BLENDER_MCP_ARGS || "").split(/\s+/).filter(Boolean),
+  "blender-bridge": {
+    relativeScript: "BlenderBridge/dist/mcp-server.js",
     env: {
-      BLENDER_MCP_HOST: process.env.BLENDER_MCP_HOST || "127.0.0.1",
-      BLENDER_MCP_PORT: process.env.BLENDER_MCP_PORT || "9876",
+      BLENDER_MCP_HOST: "127.0.0.1",
+      BLENDER_MCP_PORT: "9876",
+      BLENDER_MCP_COMMAND: "blender-mcp",
+      BLENDER_MCP_ARGS: "",
     },
-    external: true,
   },
 };
 

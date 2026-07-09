@@ -6,9 +6,9 @@
  */
 
 import { generateCreateObjectCode } from "../src/codegen/create-object.py";
-import { generateSceneSummaryCode } from "../src/codegen/scene-summary.py";
-import { generateRenderPreviewCode } from "../src/codegen/render-preview.py";
 import { generateExportObjCode } from "../src/codegen/export-obj.py";
+import { generateRenderPreviewCode } from "../src/codegen/render-preview.py";
+import { generateSceneSummaryCode } from "../src/codegen/scene-summary.py";
 import { CreateObjectParams } from "../src/types";
 
 // Note: Files are named *.py.ts — the ".py" suffix denotes Python code generators.
@@ -31,16 +31,13 @@ describe("codegen/create-object.py.ts", () => {
       { type: "empty", expectedOp: "bpy.ops.object.empty_add" },
     ];
 
-    it.each(geometryOpsMapping)(
-      "$type → $expectedOp",
-      ({ type, expectedOp }) => {
-        const code = generateCreateObjectCode({
-          name: "TestObj",
-          geometryType: type,
-        });
-        expect(code).toContain(expectedOp);
-      }
-    );
+    it.each(geometryOpsMapping)("$type → $expectedOp", ({ type, expectedOp }) => {
+      const code = generateCreateObjectCode({
+        name: "TestObj",
+        geometryType: type,
+      });
+      expect(code).toContain(expectedOp);
+    });
   });
 
   describe("transform values", () => {

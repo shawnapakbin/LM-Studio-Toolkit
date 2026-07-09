@@ -10,9 +10,9 @@
  *
  * Verifies:
  * - Server creation exports correctly
- * - All 5 orchestration tools are registered
+ * - All 31 tools are registered (5 orchestration + 26 passthrough)
  * - Config validation failure prevents startup (Req 7.5)
- * - Server completes MCP initialize handshake (Req 2.3)
+ * - Server completes MCP initialize handshake (Req 2.3, 9.1)
  */
 
 import { createBlenderBridgeMcpServer } from "../src/mcp-server";
@@ -37,7 +37,6 @@ const validConfig: BlenderBridgeConfig = {
   blenderMcpPort: 9876,
   blenderMcpCommand: "blender-mcp",
   blenderMcpArgs: [],
-  threeDToolHost: "http://localhost:3344",
   healthCheckTimeoutMs: 5000,
   operationTimeoutMs: 30000,
 };
@@ -46,28 +45,28 @@ describe("createBlenderBridgeMcpServer", () => {
   it("creates an MCP server instance and returns tool count", () => {
     const { server, toolCount } = createBlenderBridgeMcpServer(validConfig);
     expect(server).toBeDefined();
-    expect(toolCount).toBe(5);
+    expect(toolCount).toBe(31);
   });
 
   it("accepts an optional delegate override", () => {
     const mockDelegate = jest.fn().mockResolvedValue("ok");
     const { server, toolCount } = createBlenderBridgeMcpServer(validConfig, mockDelegate);
     expect(server).toBeDefined();
-    expect(toolCount).toBe(5);
+    expect(toolCount).toBe(31);
   });
 
-  it("registers all 5 orchestration tools (Req 2.3)", () => {
+  it("registers all 31 tools (5 orchestration + 26 passthrough) (Req 2.3, 9.1)", () => {
     const { toolCount } = createBlenderBridgeMcpServer(validConfig);
-    expect(toolCount).toBe(5);
+    expect(toolCount).toBe(31);
   });
 
-  it("completes MCP initialize handshake and lists 5 tools (Req 2.3)", () => {
+  it("completes MCP initialize handshake and lists 31 tools (Req 2.3, 9.1)", () => {
     // The createBlenderBridgeMcpServer function itself is the initialization step.
     // If it returns without throwing, the handshake setup is complete.
     const { server, toolCount } = createBlenderBridgeMcpServer(validConfig);
     expect(server).toBeDefined();
     expect(typeof server.connect).toBe("function"); // server is ready for transport
-    expect(toolCount).toBe(5);
+    expect(toolCount).toBe(31);
   });
 
   it("fails initialization with error if zero tools are registered (Req 2.3)", () => {
@@ -75,7 +74,7 @@ describe("createBlenderBridgeMcpServer", () => {
     // Since all 5 tools are always registered, we verify the error message pattern
     // exists in the source code by testing the exact error the guard would produce.
     // We can test this by verifying the error message is correct in the thrown Error.
-    const expectedMessage =
+    const _expectedMessage =
       "BlenderBridge MCP server initialization failed: no tools were registered.";
 
     // Directly test the guard logic: the function always registers 5 tools,
@@ -129,8 +128,7 @@ describe("config validation on startup (Req 7.5)", () => {
         blenderMcpPort: 9876,
         blenderMcpCommand: "blender-mcp",
         blenderMcpArgs: [],
-        threeDToolHost: "http://localhost:3344",
-        healthCheckTimeoutMs: 5000,
+              healthCheckTimeoutMs: 5000,
         operationTimeoutMs: 30000,
       }),
     ).toThrow(/BLENDER_MCP_HOST/);

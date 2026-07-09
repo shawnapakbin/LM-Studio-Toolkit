@@ -14,7 +14,7 @@
  *          completes initialize handshake, reports registered tools.
  *          Fails initialization with error if zero tools are registered.
  *   7.5 — Fails to start with clear error on invalid config.
- *   9.1 — Registers all 30 tools (4 orchestration + 26 passthrough).
+ *   9.1 — Registers all 31 tools (5 orchestration + 26 passthrough).
  *   9.5 — Fails initialization if any tool fails to register.
  */
 
@@ -35,6 +35,7 @@ import { createNavigationTools } from "./tools/passthrough/navigation.tools";
 import { createRenderingTools } from "./tools/passthrough/rendering.tools";
 import { createSceneInspectionTools } from "./tools/passthrough/scene-inspection.tools";
 import { createScreenshotTools } from "./tools/passthrough/screenshot.tools";
+import { createMeshValidateTool } from "./tools/mesh-validate.tool";
 import { createRenderPreviewTool } from "./tools/render-preview.tool";
 import { createSceneSummaryTool } from "./tools/scene-summary.tool";
 import { BlenderBridgeConfig, CallToolFn } from "./types";
@@ -162,6 +163,21 @@ export function createBlenderBridgeMcpServer(
     },
     async (input) => {
       const result = await renderPreviewTool.handler(input);
+      return { content: result.content, isError: result.isError };
+    },
+  );
+  toolCount++;
+
+  // 5. blender_mesh_validate
+  const meshValidateTool = createMeshValidateTool(config, client);
+  registerTool(
+    meshValidateTool.name,
+    meshValidateTool.description,
+    {
+      objectName: z.string().describe("Name of the Blender mesh object to validate"),
+    },
+    async (input) => {
+      const result = await meshValidateTool.handler(input);
       return { content: result.content, isError: result.isError };
     },
   );

@@ -14,9 +14,9 @@
  */
 
 import { z } from "zod";
-import { BlenderBridgeConfig, CreateObjectParams } from "../types";
 import { BlenderClient } from "../blender-client";
 import { generateCreateObjectCode } from "../codegen/create-object.py";
+import { BlenderBridgeConfig, CreateObjectParams } from "../types";
 
 export interface ToolResult {
   isError: boolean;
@@ -125,7 +125,7 @@ export function validateCreateObjectInput(input: unknown): string | null {
  * Validates input, generates Python code, and executes via BlenderClient.
  */
 export function createCreateObjectTool(
-  config: BlenderBridgeConfig,
+  _config: BlenderBridgeConfig,
   client: BlenderClient,
 ): ToolHandler {
   return {
@@ -141,9 +141,7 @@ export function createCreateObjectTool(
         .max(63)
         .regex(/^[a-zA-Z0-9_]+$/)
         .describe("Object name (1-63 chars, alphanumeric + underscore)"),
-      geometryType: z
-        .enum(VALID_GEOMETRY_TYPES)
-        .describe("Type of geometry to create"),
+      geometryType: z.enum(VALID_GEOMETRY_TYPES).describe("Type of geometry to create"),
       location: z
         .tuple([z.number(), z.number(), z.number()])
         .optional()

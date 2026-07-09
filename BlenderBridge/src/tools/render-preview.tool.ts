@@ -22,7 +22,7 @@ import { BlenderBridgeConfig } from "../types";
 
 export interface ToolResult {
   isError: boolean;
-  content: Array<{ type: "text"; text: string }>;
+  content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>;
 }
 
 export interface ToolHandler {
@@ -37,7 +37,7 @@ export interface ToolHandler {
  * Renders a 480×270 PNG preview and returns the file path.
  */
 export function createRenderPreviewTool(
-  _config: BlenderBridgeConfig,
+  config: BlenderBridgeConfig,
   client: BlenderClient,
 ): ToolHandler {
   return {
@@ -65,7 +65,7 @@ export function createRenderPreviewTool(
         height: 270,
       });
 
-      const result = await client.executeCode(pythonCode);
+      const result = await client.executeCode(pythonCode, config.renderTimeoutMs, "render");
 
       if (!result.success) {
         return {
@@ -86,23 +86,37 @@ export function createRenderPreviewTool(
         };
       }
 
-      return {
-        isError: false,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                success: true,
-                filePath: outputPath,
-                resolution: { width: 480, height: 270 },
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
+      // Parse the execution result to extract file path and base64 image data
+      let filePath = outputPath;
+      let imageData = "";
+      try {
+        const parsed = JSON.parse(result.output || "{}");
+        filePath = parsed.filePath || outputPath;
+        imageData = parsed.imageData || "";
+      } catch {
+        /* keep defaults */
+      }
+
+      const content: ToolResult["content"] = [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: true,
+              filePath,
+              resolution: { width: 480, height: 270 },
+            },
+            null,
+            2,
+          ),
+        },
+      ];
+
+      if (imageData) {
+        content.push({ type: "image", data: imageData, mimeType: "image/png" });
+      }
+
+      return { isError: false, content };
     },
   };
 }

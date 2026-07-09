@@ -11,22 +11,15 @@
  * Validates: Requirements 4.2, 4.6, 8.2, 8.3, 8.4
  */
 
+import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
 import { validateCreateObjectInput } from "../src/tools/create-object.tool";
-import { createExportToViewerTool, HttpClient } from "../src/tools/export-to-viewer.tool";
-import { createBlenderClient, BlenderClient, ExecuteBlenderCodeFn } from "../src/blender-client";
 import { BlenderBridgeConfig } from "../src/types";
-import * as fs from "fs";
-
-// Mock fs module for existsSync
-jest.mock("fs");
-const mockExistsSync = fs.existsSync as jest.MockedFunction<typeof fs.existsSync>;
 
 const defaultConfig: BlenderBridgeConfig = {
   blenderMcpHost: "127.0.0.1",
   blenderMcpPort: 9876,
   blenderMcpCommand: "blender-mcp",
   blenderMcpArgs: [],
-  threeDToolHost: "http://localhost:3344",
   healthCheckTimeoutMs: 5000,
   operationTimeoutMs: 30000,
 };
@@ -197,233 +190,6 @@ describe("create-object validation (Req 4.2)", () => {
   });
 });
 
-// --- export-to-viewer tests ---
-
-describe("export-to-viewer", () => {
-  /** Helper to create a mock BlenderClient */
-  function createMockClient(executeCodeFn: ExecuteBlenderCodeFn): BlenderClient {
-    return createBlenderClient(defaultConfig, executeCodeFn);
-  }
-
-  /** Helper to create a mock HttpClient */
-  function createMockHttpClient(
-    healthResponse?: { ok: boolean } | "reject",
-    loadResponse?: { ok: boolean } | "reject",
-  ): HttpClient {
-    return {
-      fetch: jest.fn(async (url: string, options?: RequestInit) => {
-        if (url.includes("/health")) {
-          if (healthResponse === "reject") throw new Error("Connection refused");
-          return { ok: healthResponse?.ok ?? false } as Response;
-        }
-        if (url.includes("/api/load")) {
-          if (loadResponse === "reject") throw new Error("Connection refused");
-          return { ok: loadResponse?.ok ?? false } as Response;
-        }
-        throw new Error(`Unexpected URL: ${url}`);
-      }),
-    };
-  }
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe("NO_ACTIVE_OBJECT (Req 8.4)", () => {
-    it("returns NO_ACTIVE_OBJECT error when no object is active", async () => {
-      // Mock: executeCode returns hasActive: false
-      const delegate: ExecuteBlenderCodeFn = async () =>
-        JSON.stringify({ hasActive: false, name: null });
-      const client = createMockClient(delegate);
-      const httpClient = createMockHttpClient();
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(true);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.error.code).toBe("NO_ACTIVE_OBJECT");
-    });
-
-    it("returns NO_ACTIVE_OBJECT error when active check returns null name", async () => {
-      const delegate: ExecuteBlenderCodeFn = async () =>
-        JSON.stringify({ hasActive: true, name: null });
-      const client = createMockClient(delegate);
-      const httpClient = createMockHttpClient();
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(true);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.error.code).toBe("NO_ACTIVE_OBJECT");
-    });
-  });
-
-  describe("viewer unavailable (Req 8.3)", () => {
-    it("returns success with viewerTriggered: false when viewer /health rejects", async () => {
-      let callCount = 0;
-      const delegate: ExecuteBlenderCodeFn = async () => {
-        callCount++;
-        if (callCount === 1) {
-          // First call: active object check
-          return JSON.stringify({ hasActive: true, name: "Cube" });
-        }
-        // Second call: export
-        return JSON.stringify({ filePath: "/tmp/Cube.obj", objectName: "Cube" });
-      };
-      const client = createMockClient(delegate);
-      const httpClient = createMockHttpClient("reject");
-
-      // File exists on disk
-      mockExistsSync.mockReturnValue(true);
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(false);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.viewerTriggered).toBe(false);
-      expect(response.message).toContain("viewer");
-    });
-
-    it("returns success with message about viewer unavailable when /health times out", async () => {
-      let callCount = 0;
-      const delegate: ExecuteBlenderCodeFn = async () => {
-        callCount++;
-        if (callCount === 1) {
-          return JSON.stringify({ hasActive: true, name: "Sphere" });
-        }
-        return JSON.stringify({ filePath: "/tmp/Sphere.obj", objectName: "Sphere" });
-      };
-      const client = createMockClient(delegate);
-
-      // Simulate timeout by rejecting
-      const httpClient: HttpClient = {
-        fetch: jest.fn(async () => {
-          throw new Error("AbortError: signal timed out");
-        }),
-      };
-
-      mockExistsSync.mockReturnValue(true);
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(false);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.viewerTriggered).toBe(false);
-      expect(response.message).toBeDefined();
-    });
-  });
-
-  describe("dual-condition POST (Req 8.2)", () => {
-    it("does NOT trigger viewer when /health passes but file does NOT exist", async () => {
-      let callCount = 0;
-      const delegate: ExecuteBlenderCodeFn = async () => {
-        callCount++;
-        if (callCount === 1) {
-          return JSON.stringify({ hasActive: true, name: "Cube" });
-        }
-        return JSON.stringify({ filePath: "/tmp/Cube.obj", objectName: "Cube" });
-      };
-      const client = createMockClient(delegate);
-      const httpClient = createMockHttpClient({ ok: true }, { ok: true });
-
-      // File does NOT exist on disk
-      mockExistsSync.mockReturnValue(false);
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(false);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.viewerTriggered).toBe(false);
-    });
-
-    it("does NOT trigger viewer when /health fails but file exists", async () => {
-      let callCount = 0;
-      const delegate: ExecuteBlenderCodeFn = async () => {
-        callCount++;
-        if (callCount === 1) {
-          return JSON.stringify({ hasActive: true, name: "Cube" });
-        }
-        return JSON.stringify({ filePath: "/tmp/Cube.obj", objectName: "Cube" });
-      };
-      const client = createMockClient(delegate);
-      const httpClient = createMockHttpClient("reject");
-
-      // File exists
-      mockExistsSync.mockReturnValue(true);
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(false);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.viewerTriggered).toBe(false);
-    });
-
-    it("triggers viewer when BOTH /health passes AND file exists on disk", async () => {
-      let callCount = 0;
-      const delegate: ExecuteBlenderCodeFn = async () => {
-        callCount++;
-        if (callCount === 1) {
-          return JSON.stringify({ hasActive: true, name: "Cube" });
-        }
-        return JSON.stringify({ filePath: "/tmp/Cube.obj", objectName: "Cube" });
-      };
-      const client = createMockClient(delegate);
-      const httpClient = createMockHttpClient({ ok: true }, { ok: true });
-
-      // File exists
-      mockExistsSync.mockReturnValue(true);
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      const result = await tool.handler({});
-
-      expect(result.isError).toBe(false);
-      const response = JSON.parse(result.content[0].text);
-      expect(response.viewerTriggered).toBe(true);
-    });
-
-    it("POSTs to /api/load with correct payload when both conditions met", async () => {
-      let callCount = 0;
-      const delegate: ExecuteBlenderCodeFn = async () => {
-        callCount++;
-        if (callCount === 1) {
-          return JSON.stringify({ hasActive: true, name: "MyCube" });
-        }
-        return JSON.stringify({ filePath: "/tmp/MyCube.obj", objectName: "MyCube" });
-      };
-      const client = createMockClient(delegate);
-      const mockFetch = jest.fn(async (url: string, options?: RequestInit) => {
-        return { ok: true } as Response;
-      });
-      const httpClient: HttpClient = { fetch: mockFetch };
-
-      mockExistsSync.mockReturnValue(true);
-
-      const tool = createExportToViewerTool(defaultConfig, client, httpClient);
-      await tool.handler({});
-
-      // Verify /api/load was called with correct body
-      const loadCall = mockFetch.mock.calls.find(([url]) =>
-        (url as string).includes("/api/load"),
-      );
-      expect(loadCall).toBeDefined();
-      const loadOptions = loadCall![1] as unknown as RequestInit;
-      expect(loadOptions.method).toBe("POST");
-      const body = JSON.parse(loadOptions.body as string);
-      expect(body.filePath).toContain("MyCube.obj");
-      expect(body.workspace).toBeDefined();
-    });
-  });
-});
-
 // --- Timeout handling tests (Req 4.6) ---
 
 describe("timeout handling (Req 4.6)", () => {
@@ -440,7 +206,7 @@ describe("timeout handling (Req 4.6)", () => {
     expect(result.error?.message).toContain("timed out");
   });
 
-  it("includes suggestion about health check in timeout response", async () => {
+  it("includes structured timeout info with operation type and retry guidance", async () => {
     const delegate: ExecuteBlenderCodeFn = () =>
       new Promise((resolve) => setTimeout(() => resolve("late"), 500));
     const client = createBlenderClient(defaultConfig, delegate);
@@ -448,7 +214,9 @@ describe("timeout handling (Req 4.6)", () => {
     const result = await client.executeCode("import bpy", 50);
 
     expect(result.success).toBe(false);
-    expect(result.error?.suggestion).toContain("health_check");
+    expect(result.error?.operationType).toBe("code_execution");
+    expect(result.error?.timeoutMs).toBe(50);
+    expect(result.error?.suggestion).toContain("Retry with extended timeout");
   });
 
   it("produces timeout at elapsed >= 30s (uses config.operationTimeoutMs)", async () => {

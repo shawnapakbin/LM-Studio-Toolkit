@@ -206,7 +206,7 @@ describe("timeout handling (Req 4.6)", () => {
     expect(result.error?.message).toContain("timed out");
   });
 
-  it("includes suggestion about health check in timeout response", async () => {
+  it("includes structured timeout info with operation type and retry guidance", async () => {
     const delegate: ExecuteBlenderCodeFn = () =>
       new Promise((resolve) => setTimeout(() => resolve("late"), 500));
     const client = createBlenderClient(defaultConfig, delegate);
@@ -214,7 +214,9 @@ describe("timeout handling (Req 4.6)", () => {
     const result = await client.executeCode("import bpy", 50);
 
     expect(result.success).toBe(false);
-    expect(result.error?.suggestion).toContain("health_check");
+    expect(result.error?.operationType).toBe("code_execution");
+    expect(result.error?.timeoutMs).toBe(50);
+    expect(result.error?.suggestion).toContain("Retry with extended timeout");
   });
 
   it("produces timeout at elapsed >= 30s (uses config.operationTimeoutMs)", async () => {

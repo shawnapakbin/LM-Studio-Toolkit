@@ -18,6 +18,8 @@ describe("config", () => {
     delete process.env.BLENDER_MCP_PORT;
     delete process.env.BLENDER_MCP_COMMAND;
     delete process.env.BLENDER_MCP_ARGS;
+    delete process.env.BLENDER_RENDER_TIMEOUT_MS;
+    delete process.env.BLENDER_EXPORT_TIMEOUT_MS;
   });
 
   afterAll(() => {
@@ -31,9 +33,10 @@ describe("config", () => {
       expect(config.blenderMcpPort).toBe(9876);
       expect(config.blenderMcpCommand).toBe("blender-mcp");
       expect(config.blenderMcpArgs).toEqual([]);
-      expect(config.threeDToolHost).toBe("http://localhost:3344");
       expect(config.healthCheckTimeoutMs).toBe(5000);
       expect(config.operationTimeoutMs).toBe(30000);
+      expect(config.renderTimeoutMs).toBe(90000);
+      expect(config.exportTimeoutMs).toBe(90000);
     });
 
     it("reads BLENDER_MCP_HOST from environment", () => {
@@ -58,6 +61,18 @@ describe("config", () => {
       process.env.BLENDER_MCP_ARGS = "--verbose  --port 9876  ";
       const config = loadConfig();
       expect(config.blenderMcpArgs).toEqual(["--verbose", "--port", "9876"]);
+    });
+
+    it("reads BLENDER_RENDER_TIMEOUT_MS from environment", () => {
+      process.env.BLENDER_RENDER_TIMEOUT_MS = "120000";
+      const config = loadConfig();
+      expect(config.renderTimeoutMs).toBe(120000);
+    });
+
+    it("reads BLENDER_EXPORT_TIMEOUT_MS from environment", () => {
+      process.env.BLENDER_EXPORT_TIMEOUT_MS = "60000";
+      const config = loadConfig();
+      expect(config.exportTimeoutMs).toBe(60000);
     });
 
     it("accepts valid port boundary value 1", () => {
@@ -155,9 +170,10 @@ describe("config", () => {
       blenderMcpPort: 9876,
       blenderMcpCommand: "blender-mcp",
       blenderMcpArgs: [],
-      threeDToolHost: "http://localhost:3344",
       healthCheckTimeoutMs: 5000,
       operationTimeoutMs: 30000,
+      renderTimeoutMs: 90000,
+      exportTimeoutMs: 90000,
     };
 
     it("does not throw for valid config", () => {
@@ -165,52 +181,48 @@ describe("config", () => {
     });
 
     it("throws when port is less than 1", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpPort: 0 })
-      ).toThrow(/BLENDER_MCP_PORT.*0/);
+      expect(() => validateConfig({ ...validConfig, blenderMcpPort: 0 })).toThrow(
+        /BLENDER_MCP_PORT.*0/,
+      );
     });
 
     it("throws when port is greater than 65535", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpPort: 99999 })
-      ).toThrow(/BLENDER_MCP_PORT.*99999/);
+      expect(() => validateConfig({ ...validConfig, blenderMcpPort: 99999 })).toThrow(
+        /BLENDER_MCP_PORT.*99999/,
+      );
     });
 
     it("throws when port is NaN", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpPort: NaN })
-      ).toThrow(/BLENDER_MCP_PORT/);
+      expect(() => validateConfig({ ...validConfig, blenderMcpPort: NaN })).toThrow(
+        /BLENDER_MCP_PORT/,
+      );
     });
 
     it("throws when port is a float", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpPort: 80.5 })
-      ).toThrow(/BLENDER_MCP_PORT/);
+      expect(() => validateConfig({ ...validConfig, blenderMcpPort: 80.5 })).toThrow(
+        /BLENDER_MCP_PORT/,
+      );
     });
 
     it("throws when host is empty", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpHost: "" })
-      ).toThrow(/BLENDER_MCP_HOST/);
+      expect(() => validateConfig({ ...validConfig, blenderMcpHost: "" })).toThrow(
+        /BLENDER_MCP_HOST/,
+      );
     });
 
     it("throws when args exceed 1024 chars", () => {
       const longArgs = ["a".repeat(1025)];
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpArgs: longArgs })
-      ).toThrow(/BLENDER_MCP_ARGS.*1025/);
+      expect(() => validateConfig({ ...validConfig, blenderMcpArgs: longArgs })).toThrow(
+        /BLENDER_MCP_ARGS.*1025/,
+      );
     });
 
     it("accepts port at boundary 1", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpPort: 1 })
-      ).not.toThrow();
+      expect(() => validateConfig({ ...validConfig, blenderMcpPort: 1 })).not.toThrow();
     });
 
     it("accepts port at boundary 65535", () => {
-      expect(() =>
-        validateConfig({ ...validConfig, blenderMcpPort: 65535 })
-      ).not.toThrow();
+      expect(() => validateConfig({ ...validConfig, blenderMcpPort: 65535 })).not.toThrow();
     });
 
     it("writes to stderr before throwing on invalid port", () => {
@@ -220,9 +232,7 @@ describe("config", () => {
       } catch {
         // expected
       }
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining("BLENDER_MCP_PORT")
-      );
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("BLENDER_MCP_PORT"));
       stderrSpy.mockRestore();
     });
 
@@ -233,9 +243,7 @@ describe("config", () => {
       } catch {
         // expected
       }
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining("BLENDER_MCP_HOST")
-      );
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("BLENDER_MCP_HOST"));
       stderrSpy.mockRestore();
     });
 
@@ -246,9 +254,7 @@ describe("config", () => {
       } catch {
         // expected
       }
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining("BLENDER_MCP_ARGS")
-      );
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("BLENDER_MCP_ARGS"));
       stderrSpy.mockRestore();
     });
   });

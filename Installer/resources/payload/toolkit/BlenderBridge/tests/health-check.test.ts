@@ -5,13 +5,13 @@
  * See LICENSE file in the project root for full license text.
  */
 
-import * as net from "net";
 import { exec } from "child_process";
+import * as net from "net";
 import {
+  BlenderInfo,
   checkAddonConnectivity,
   checkMcpServerProcess,
   runHealthCheck,
-  BlenderInfo,
 } from "../src/health-check";
 import { BlenderBridgeConfig, HealthCheckError, HealthCheckSuccess } from "../src/types";
 
@@ -30,8 +30,7 @@ function createTestConfig(overrides?: Partial<BlenderBridgeConfig>): BlenderBrid
     blenderMcpPort: 9876,
     blenderMcpCommand: "blender-mcp",
     blenderMcpArgs: [],
-    threeDToolHost: "http://localhost:3344",
-    healthCheckTimeoutMs: 5000,
+      healthCheckTimeoutMs: 5000,
     operationTimeoutMs: 30000,
     ...overrides,
   };
@@ -99,10 +98,7 @@ describe("health-check", () => {
 
       await checkMcpServerProcess("blender-mcp");
 
-      expect(mockedExec).toHaveBeenCalledWith(
-        "where blender-mcp",
-        expect.any(Function),
-      );
+      expect(mockedExec).toHaveBeenCalledWith("where blender-mcp", expect.any(Function));
 
       Object.defineProperty(process, "platform", { value: originalPlatform });
     });
@@ -117,10 +113,7 @@ describe("health-check", () => {
 
       await checkMcpServerProcess("blender-mcp");
 
-      expect(mockedExec).toHaveBeenCalledWith(
-        "which blender-mcp",
-        expect.any(Function),
-      );
+      expect(mockedExec).toHaveBeenCalledWith("which blender-mcp", expect.any(Function));
 
       Object.defineProperty(process, "platform", { value: originalPlatform });
     });
@@ -176,28 +169,8 @@ describe("health-check", () => {
       expect(errorResult.error.code).toBe("BLENDER_ADDON_UNREACHABLE");
     });
 
-    it("returns BLENDER_MCP_NOT_INSTALLED when addon passes but MCP not found", async () => {
+    it("returns success when addon is reachable (no blender info callback)", async () => {
       const config = createTestConfig({ blenderMcpPort: port, healthCheckTimeoutMs: 2000 });
-
-      mockedExec.mockImplementation((_cmd, cb) => {
-        cb(new Error("not found"));
-      });
-
-      const result = await runHealthCheck(config);
-
-      expect(result.status).toBe("error");
-      const errorResult = result as HealthCheckError;
-      expect(errorResult.error.code).toBe("BLENDER_MCP_NOT_INSTALLED");
-      expect(errorResult.error.message).toContain("blender-mcp");
-      expect(errorResult.error.remediation).toContain(".mcpb bundle");
-    });
-
-    it("returns success when both checks pass (no blender info callback)", async () => {
-      const config = createTestConfig({ blenderMcpPort: port, healthCheckTimeoutMs: 2000 });
-
-      mockedExec.mockImplementation((_cmd, cb) => {
-        cb(null);
-      });
 
       const result = await runHealthCheck(config);
 

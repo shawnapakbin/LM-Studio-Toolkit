@@ -12,8 +12,8 @@
  */
 
 import { z } from "zod";
+import { GetBlenderInfoFn, runHealthCheck } from "../health-check";
 import { BlenderBridgeConfig, HealthCheckResult } from "../types";
-import { runHealthCheck, GetBlenderInfoFn } from "../health-check";
 
 export interface ToolResult {
   isError: boolean;

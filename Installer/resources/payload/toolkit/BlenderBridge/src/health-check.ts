@@ -5,8 +5,8 @@
  * See LICENSE file in the project root for full license text.
  */
 
-import * as net from "net";
 import { exec } from "child_process";
+import * as net from "net";
 import { BlenderBridgeConfig, HealthCheckResult, HealthCheckSuccess } from "./types";
 
 /**
@@ -77,12 +77,15 @@ export function checkMcpServerProcess(command: string): Promise<boolean> {
 }
 
 /**
- * Orchestrates both health checks and returns a structured result.
+ * Orchestrates health checks and returns a structured result.
+ *
+ * With direct add-on transport, we only need to verify the add-on TCP
+ * connection is working. The external `blender-mcp` binary is no longer
+ * required since BlenderBridge connects directly to the add-on socket.
  *
  * Priority logic:
- * - If addon TCP fails (regardless of MCP process), return BLENDER_ADDON_UNREACHABLE
- * - If addon TCP passes but MCP process not found, return BLENDER_MCP_NOT_INSTALLED
- * - If both pass, return success with Blender info (when available)
+ * - If addon TCP fails, return BLENDER_ADDON_UNREACHABLE
+ * - If addon TCP passes, return success with Blender info (when available)
  */
 export async function runHealthCheck(
   config: BlenderBridgeConfig,
@@ -94,9 +97,7 @@ export async function runHealthCheck(
     config.healthCheckTimeoutMs,
   );
 
-  const mcpAvailable = await checkMcpServerProcess(config.blenderMcpCommand);
-
-  // Priority: if addon is unreachable, always report that first (Req 3.6)
+  // Priority: if addon is unreachable, report that (Req 3.6)
   if (!addonReachable) {
     return {
       status: "error",
@@ -105,26 +106,12 @@ export async function runHealthCheck(
         message: `Cannot connect to Blender add-on on ${config.blenderMcpHost}:${config.blenderMcpPort}`,
         remediation:
           "Open Blender 5.1+, install the MCP add-on via drag-and-drop from the official release page, " +
-          "and verify 'Listening on 127.0.0.1:9876' status in the N-panel MCP tab.",
+          "and verify 'Server is running' status in Preferences > Add-ons > MCP.",
       },
     };
   }
 
-  // Addon reachable but MCP server binary not found
-  if (!mcpAvailable) {
-    return {
-      status: "error",
-      error: {
-        code: "BLENDER_MCP_NOT_INSTALLED",
-        message: `Blender MCP server binary '${config.blenderMcpCommand}' not found on PATH`,
-        remediation:
-          "Install the Blender MCP server via the .mcpb bundle or from source at " +
-          "projects.blender.org/lab/blender_mcp.",
-      },
-    };
-  }
-
-  // Both checks passed — build success result
+  // Addon reachable — build success result
   const result: HealthCheckSuccess = {
     status: "ok",
     addonListening: true,

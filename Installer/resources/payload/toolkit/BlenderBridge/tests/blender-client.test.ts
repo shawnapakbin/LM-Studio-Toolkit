@@ -6,12 +6,15 @@
  */
 
 import {
-  createBlenderClient,
-  formatExecutionError,
-  TimeoutError,
-  withTimeout,
   ExecuteBlenderCodeFn,
-  BlenderClient,
+  TimeoutError,
+  createBlenderClient,
+  extractOperatorInfo,
+  findClosestMatches,
+  formatExecutionError,
+  levenshteinDistance,
+  similarityRatio,
+  withTimeout,
 } from "../src/blender-client";
 import { BlenderBridgeConfig } from "../src/types";
 
@@ -20,7 +23,6 @@ const defaultConfig: BlenderBridgeConfig = {
   blenderMcpPort: 9876,
   blenderMcpCommand: "blender-mcp",
   blenderMcpArgs: [],
-  threeDToolHost: "http://localhost:3344",
   healthCheckTimeoutMs: 5000,
   operationTimeoutMs: 30000,
 };
@@ -60,7 +62,11 @@ describe("BlenderClient", () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.message).toContain("timed out");
-      expect(result.error?.suggestion).toContain("blender_health_check");
+      expect(result.error?.operationType).toBe("code_execution");
+      expect(result.error?.timeoutMs).toBe(50);
+      expect(result.error?.suggestion).toContain("Retry with extended timeout");
+      expect(result.error?.suggestion).toContain("50ms");
+      expect(result.error?.suggestion).toContain("code_execution");
     });
 
     it("uses config.operationTimeoutMs as default timeout", async () => {
@@ -159,7 +165,7 @@ ModuleNotFoundError: No module named 'numpy'`;
 describe("formatExecutionError", () => {
   it("extracts traceback from error with Python traceback", () => {
     const error = new Error(
-      `Something went wrong\nTraceback (most recent call last):\n  File "<string>", line 2\nNameError: name 'foo' is not defined`
+      `Something went wrong\nTraceback (most recent call last):\n  File "<string>", line 2\nNameError: name 'foo' is not defined`,
     );
 
     const result = formatExecutionError(error);
@@ -171,7 +177,7 @@ describe("formatExecutionError", () => {
 
   it("provides ModuleNotFoundError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nModuleNotFoundError: No module named 'pandas'`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nModuleNotFoundError: No module named 'pandas'`,
     );
 
     const result = formatExecutionError(error);
@@ -181,7 +187,7 @@ describe("formatExecutionError", () => {
 
   it("provides AttributeError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nAttributeError: 'Object' has no attribute 'foo'`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nAttributeError: 'Object' has no attribute 'foo'`,
     );
 
     const result = formatExecutionError(error);
@@ -191,7 +197,7 @@ describe("formatExecutionError", () => {
 
   it("provides TypeError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nTypeError: expected 2 args`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nTypeError: expected 2 args`,
     );
 
     const result = formatExecutionError(error);
@@ -201,7 +207,7 @@ describe("formatExecutionError", () => {
 
   it("provides NameError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nNameError: name 'x' is not defined`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nNameError: name 'x' is not defined`,
     );
 
     const result = formatExecutionError(error);
@@ -211,7 +217,7 @@ describe("formatExecutionError", () => {
 
   it("provides RuntimeError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nRuntimeError: operator not available in this context`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nRuntimeError: operator not available in this context`,
     );
 
     const result = formatExecutionError(error);
@@ -260,5 +266,139 @@ describe("withTimeout", () => {
     const failing = Promise.reject(new Error("original error"));
 
     await expect(withTimeout(failing, 1000)).rejects.toThrow("original error");
+  });
+});
+
+describe("levenshteinDistance", () => {
+  it("returns 0 for identical strings", () => {
+    expect(levenshteinDistance("SUBSURF", "SUBSURF")).toBe(0);
+  });
+
+  it("returns length of other string when one is empty", () => {
+    expect(levenshteinDistance("", "HELLO")).toBe(5);
+    expect(levenshteinDistance("HELLO", "")).toBe(5);
+  });
+
+  it("computes correct distance for single-character changes", () => {
+    expect(levenshteinDistance("cat", "bat")).toBe(1);
+    expect(levenshteinDistance("cat", "cats")).toBe(1);
+    expect(levenshteinDistance("cat", "at")).toBe(1);
+  });
+
+  it("computes correct distance for multi-character differences", () => {
+    expect(levenshteinDistance("MIRROR", "ARRAY")).toBe(4);
+    expect(levenshteinDistance("BEVEL", "BOOLEAN")).toBe(5);
+  });
+});
+
+describe("similarityRatio", () => {
+  it("returns 1 for identical strings", () => {
+    expect(similarityRatio("SUBSURF", "SUBSURF")).toBe(1);
+  });
+
+  it("returns 0 for completely different strings of same length", () => {
+    // "abc" vs "xyz" - distance 3, max length 3, ratio = 0
+    expect(similarityRatio("abc", "xyz")).toBe(0);
+  });
+
+  it("returns correct ratio for partially similar strings", () => {
+    // "SUBSURF" (7) vs "SUBDIVISION" (11) - max len 11
+    const ratio = similarityRatio("SUBSURF", "SUBDIVISION");
+    expect(ratio).toBeGreaterThan(0);
+    expect(ratio).toBeLessThan(1);
+  });
+
+  it("returns 1 for two empty strings", () => {
+    expect(similarityRatio("", "")).toBe(1);
+  });
+});
+
+describe("findClosestMatches", () => {
+  const modifierEnums = ["ARRAY", "BEVEL", "BOOLEAN", "MIRROR", "SUBSURF"];
+
+  it("finds SUBSURF as closest match for SUBDIVISION", () => {
+    const matches = findClosestMatches("SUBDIVISION", modifierEnums);
+    expect(matches).toContain("SUBSURF");
+    expect(matches[0]).toBe("SUBSURF");
+  });
+
+  it("returns exact match when present (distance 0)", () => {
+    const matches = findClosestMatches("ARRAY", modifierEnums);
+    expect(matches[0]).toBe("ARRAY");
+  });
+
+  it("finds close matches within distance 3", () => {
+    // "BOOLEN" is distance 2 from "BOOLEAN"
+    const matches = findClosestMatches("BOOLEN", modifierEnums);
+    expect(matches).toContain("BOOLEAN");
+  });
+
+  it("returns empty when no candidates are close", () => {
+    const matches = findClosestMatches("COMPLETELY_DIFFERENT_VALUE", modifierEnums);
+    expect(matches.length).toBe(0);
+  });
+
+  it("is case-insensitive", () => {
+    const matches = findClosestMatches("subsurf", modifierEnums);
+    expect(matches).toContain("SUBSURF");
+  });
+
+  it("sorts by similarity ratio (best match first)", () => {
+    // "MIRRO" is distance 1 from "MIRROR" and distance 4 from "ARRAY"
+    const matches = findClosestMatches("MIRRO", modifierEnums);
+    expect(matches[0]).toBe("MIRROR");
+  });
+});
+
+describe("extractOperatorInfo - did you mean suggestions", () => {
+  it("suggests closest enum match for SUBDIVISION → SUBSURF", () => {
+    const message = `RuntimeError: bpy.ops.object.modifier_add(): enum "SUBDIVISION" not found in ('ARRAY', 'BEVEL', 'BOOLEAN', 'MIRROR', 'SUBSURF')`;
+
+    const info = extractOperatorInfo(message);
+
+    expect(info).not.toBeNull();
+    expect(info!.operatorName).toBe("object.modifier_add");
+    expect(info!.availableEnums).toEqual(["ARRAY", "BEVEL", "BOOLEAN", "MIRROR", "SUBSURF"]);
+    expect(info!.suggestions).toBeDefined();
+    expect(info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("SUBSURF"))).toBe(true);
+  });
+
+  it("suggests closest enum match for typos", () => {
+    const message = `RuntimeError: bpy.ops.object.modifier_add(): enum "BOOLEN" not found in ('ARRAY', 'BEVEL', 'BOOLEAN', 'MIRROR', 'SUBSURF')`;
+
+    const info = extractOperatorInfo(message);
+
+    expect(info).not.toBeNull();
+    expect(info!.suggestions).toBeDefined();
+    expect(info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("BOOLEAN"))).toBe(true);
+  });
+
+  it("does not suggest when no enum is close enough", () => {
+    const message = `RuntimeError: bpy.ops.object.modifier_add(): enum "ZZZZZ" not found in ('ARRAY', 'BEVEL', 'BOOLEAN', 'MIRROR', 'SUBSURF')`;
+
+    const info = extractOperatorInfo(message);
+
+    expect(info).not.toBeNull();
+    expect(info!.availableEnums).toEqual(["ARRAY", "BEVEL", "BOOLEAN", "MIRROR", "SUBSURF"]);
+    // No "Did you mean" suggestions since nothing is close
+    const didYouMeanSuggestions = (info!.suggestions || []).filter((s) => s.includes("Did you mean"));
+    expect(didYouMeanSuggestions.length).toBe(0);
+  });
+
+  it("preserves context suggestions alongside enum suggestions", () => {
+    const message = `RuntimeError: bpy.ops.object.modifier_add(): context is incorrect; enum "BOOLEN" not found in ('ARRAY', 'BEVEL', 'BOOLEAN', 'MIRROR', 'SUBSURF')`;
+
+    const info = extractOperatorInfo(message);
+
+    expect(info).not.toBeNull();
+    // Should have both context suggestion and did-you-mean suggestion
+    expect(info!.suggestions!.some((s) => s.includes("OBJECT mode"))).toBe(true);
+    expect(info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("BOOLEAN"))).toBe(true);
+  });
+
+  it("returns null for non-operator errors", () => {
+    const message = "Connection refused to localhost:9876";
+    const info = extractOperatorInfo(message);
+    expect(info).toBeNull();
   });
 });

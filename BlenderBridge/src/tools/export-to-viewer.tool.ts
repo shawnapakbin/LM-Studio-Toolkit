@@ -99,7 +99,7 @@ export function createExportToViewerTool(
     handler: async (): Promise<ToolResult> => {
       // First, check for active object by running a quick query
       const checkResult = await client.executeCode(
-        `import bpy\nimport json\nobj = bpy.context.active_object\nresult = json.dumps({"hasActive": obj is not None, "name": obj.name if obj else None})`,
+        `import bpy\nobj = bpy.context.active_object\nresult = {"hasActive": obj is not None, "name": obj.name if obj else None}`,
       );
 
       if (!checkResult.success) {

@@ -514,14 +514,15 @@ try:
         obj = getattr(obj, p)
     with contextlib.redirect_stdout(f):
         help(obj)
-    result = {"identifier": identifier, "found": True, "content": f.getvalue()[:5000]}
+    doc_text = f.getvalue()[:5000]
+    result = {"identifier": identifier, "found": True, "content": doc_text}
 except Exception as e:
     result = {"identifier": identifier, "found": False, "error": str(e)}
 `.trim();
 
     case "search_api_docs":
       return `
-import pkgutil, inspect, importlib
+import inspect, importlib
 query = ${JSON.stringify(args.query)}.lower()
 results = []
 modules_to_search = ["bpy", "bpy.types", "bpy.ops", "bpy.props", "bpy.utils", "mathutils", "bmesh", "gpu", "bgl", "aud", "bl_math", "freestyle", "idprop"]
@@ -531,7 +532,11 @@ for mod_name in modules_to_search:
     except ImportError:
         continue
     if query in mod_name.lower():
-        doc = (mod.__doc__ or "")[:200]
+        doc = ""
+        try:
+            doc = (mod.__doc__ or "")[:200]
+        except Exception:
+            pass
         results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100})
     for attr_name in dir(mod):
         if attr_name.startswith("_"):
@@ -541,18 +546,24 @@ for mod_name in modules_to_search:
             obj = getattr(mod, attr_name)
         except Exception:
             continue
-        obj_doc = getattr(obj, "__doc__", "") or ""
+        try:
+            obj_doc = str(getattr(obj, "__doc__", None) or "")
+        except Exception:
+            obj_doc = ""
         name_match = query in attr_name.lower()
         doc_match = query in obj_doc[:500].lower()
         if name_match or doc_match:
             score = 90 if name_match else 50
-            if inspect.isclass(obj):
-                obj_type = "class"
-            elif inspect.isfunction(obj) or inspect.isbuiltin(obj):
-                obj_type = "function"
-            elif inspect.ismodule(obj):
-                obj_type = "module"
-            else:
+            try:
+                if inspect.isclass(obj):
+                    obj_type = "class"
+                elif inspect.isfunction(obj) or inspect.isbuiltin(obj):
+                    obj_type = "function"
+                elif inspect.ismodule(obj):
+                    obj_type = "module"
+                else:
+                    obj_type = "attribute"
+            except Exception:
                 obj_type = "attribute"
             results.append({"module_path": mod_name, "name": attr_name, "type": obj_type, "docstring": obj_doc[:200], "score": score})
 results.sort(key=lambda x: x["score"], reverse=True)
@@ -562,7 +573,7 @@ result = {"query": ${JSON.stringify(args.query)}, "results": results}
 
     case "search_manual_docs":
       return `
-import pkgutil, inspect, importlib
+import inspect, importlib
 query = ${JSON.stringify(args.query)}.lower()
 results = []
 modules_to_search = ["bpy", "bpy.types", "bpy.ops", "bpy.props", "bpy.utils", "bpy.path", "bpy.app", "mathutils", "bmesh", "gpu", "bgl", "aud", "bl_math", "freestyle", "idprop"]
@@ -572,7 +583,11 @@ for mod_name in modules_to_search:
     except ImportError:
         continue
     if query in mod_name.lower():
-        doc = (mod.__doc__ or "")[:200]
+        doc = ""
+        try:
+            doc = (mod.__doc__ or "")[:200]
+        except Exception:
+            pass
         results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100})
     for attr_name in dir(mod):
         if attr_name.startswith("_"):
@@ -582,18 +597,24 @@ for mod_name in modules_to_search:
             obj = getattr(mod, attr_name)
         except Exception:
             continue
-        obj_doc = getattr(obj, "__doc__", "") or ""
+        try:
+            obj_doc = str(getattr(obj, "__doc__", None) or "")
+        except Exception:
+            obj_doc = ""
         name_match = query in attr_name.lower()
         doc_match = query in obj_doc[:500].lower()
         if name_match or doc_match:
             score = 90 if name_match else 50
-            if inspect.isclass(obj):
-                obj_type = "class"
-            elif inspect.isfunction(obj) or inspect.isbuiltin(obj):
-                obj_type = "function"
-            elif inspect.ismodule(obj):
-                obj_type = "module"
-            else:
+            try:
+                if inspect.isclass(obj):
+                    obj_type = "class"
+                elif inspect.isfunction(obj) or inspect.isbuiltin(obj):
+                    obj_type = "function"
+                elif inspect.ismodule(obj):
+                    obj_type = "module"
+                else:
+                    obj_type = "attribute"
+            except Exception:
                 obj_type = "attribute"
             results.append({"module_path": mod_name, "name": attr_name, "type": obj_type, "docstring": obj_doc[:200], "score": score})
 results.sort(key=lambda x: x["score"], reverse=True)

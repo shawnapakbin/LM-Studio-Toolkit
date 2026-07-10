@@ -95,6 +95,9 @@ Installer/resources/runtime/
 Installer/target/
 Installer/tauri-build.log
 
+# Graphify knowledge graph output
+graphify-out/
+
 # Scratch / temp files
 compact instructions*
 tmp/

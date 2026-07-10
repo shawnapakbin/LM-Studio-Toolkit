@@ -5,13 +5,13 @@
 // --- Configuration ---
 
 export interface BlenderBridgeConfig {
-  blenderMcpHost: string;       // default "127.0.0.1"
-  blenderMcpPort: number;       // default 9876, range 1-65535
-  blenderMcpCommand: string;    // default "blender-mcp"
-  blenderMcpArgs: string[];     // default [], max combined 1024 chars
-  threeDToolHost: string;       // default "http://localhost:3344"
+  blenderMcpHost: string; // default "127.0.0.1"
+  blenderMcpPort: number; // default 9876, range 1-65535
+  blenderMcpCommand: string; // default "blender-mcp"
+  blenderMcpArgs: string[]; // default [], max combined 1024 chars
+  threeDToolHost: string; // default "http://localhost:3344"
   healthCheckTimeoutMs: number; // default 5000
-  operationTimeoutMs: number;   // default 30000; timeout triggers at elapsed >= 30.0s
+  operationTimeoutMs: number; // default 30000; timeout triggers at elapsed >= 30.0s
 }
 
 // --- Health Check ---
@@ -50,7 +50,7 @@ export interface BlenderExecutionResult {
 // --- Code Generation Parameters ---
 
 export interface CreateObjectParams {
-  name: string;          // 1-63 chars, alphanumeric + underscore
+  name: string; // 1-63 chars, alphanumeric + underscore
   geometryType:
     | "cube"
     | "sphere"
@@ -62,14 +62,14 @@ export interface CreateObjectParams {
     | "curve"
     | "empty";
   location?: [number, number, number];
-  rotation?: [number, number, number];  // Euler radians
-  scale?: [number, number, number];     // positive floats
+  rotation?: [number, number, number]; // Euler radians
+  scale?: [number, number, number]; // positive floats
 }
 
 export interface RenderPreviewParams {
   outputPath: string;
-  width?: number;   // default 480
-  height?: number;  // default 270
+  width?: number; // default 480
+  height?: number; // default 270
 }
 
 export interface ExportObjParams {
@@ -105,4 +105,30 @@ export interface OrchestrationErrorResponse {
     traceback?: string;
     remediation?: string;
   };
+}
+
+// --- Passthrough Delegate Types ---
+
+/**
+ * A single content item from a CallToolResult (matches MCP SDK structure).
+ */
+export type CallToolContent =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
+/**
+ * Delegate function type for calling any tool on the Blender MCP server by name.
+ * Generalizes ExecuteBlenderCodeFn to support arbitrary tool invocations.
+ */
+export type CallToolFn = (
+  toolName: string,
+  args: Record<string, unknown>,
+) => Promise<CallToolContent[]>;
+
+/**
+ * Result of a passthrough tool call, wrapping content with an error indicator.
+ */
+export interface CallToolResult {
+  isError: boolean;
+  content: CallToolContent[];
 }

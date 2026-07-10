@@ -1,4 +1,4 @@
-import { BlenderBridgeConfig, BlenderExecutionResult } from "./types";
+import { BlenderBridgeConfig, BlenderExecutionResult, CallToolFn, CallToolResult } from "./types";
 
 /**
  * Delegate function type for executing Python code on the Blender MCP server.
@@ -18,6 +18,7 @@ export interface BlenderClient {
   executeCode(pythonCode: string, timeoutMs?: number): Promise<BlenderExecutionResult>;
   getSceneSummary(): Promise<BlenderExecutionResult>;
   getBlenderVersion(): Promise<BlenderExecutionResult>;
+  callTool(toolName: string, args: Record<string, unknown>): Promise<CallToolResult>;
 }
 
 /**
@@ -31,17 +32,24 @@ export interface BlenderClient {
 export function createBlenderClient(
   config: BlenderBridgeConfig,
   delegate: ExecuteBlenderCodeFn,
+  callToolDelegate?: CallToolFn,
 ): BlenderClient {
-  return new BlenderClientImpl(config, delegate);
+  return new BlenderClientImpl(config, delegate, callToolDelegate);
 }
 
 class BlenderClientImpl implements BlenderClient {
   private config: BlenderBridgeConfig;
   private delegate: ExecuteBlenderCodeFn;
+  private callToolDelegate?: CallToolFn;
 
-  constructor(config: BlenderBridgeConfig, delegate: ExecuteBlenderCodeFn) {
+  constructor(
+    config: BlenderBridgeConfig,
+    delegate: ExecuteBlenderCodeFn,
+    callToolDelegate?: CallToolFn,
+  ) {
     this.config = config;
     this.delegate = delegate;
+    this.callToolDelegate = callToolDelegate;
   }
 
   /**
@@ -56,10 +64,7 @@ class BlenderClientImpl implements BlenderClient {
     const timeout = timeoutMs ?? this.config.operationTimeoutMs;
 
     try {
-      const output = await withTimeout(
-        this.delegate(pythonCode),
-        timeout,
-      );
+      const output = await withTimeout(this.delegate(pythonCode), timeout);
 
       return {
         success: true,
@@ -127,6 +132,58 @@ result = bpy.app.version_string
 `.trim();
 
     return this.executeCode(code);
+  }
+
+  /**
+   * Invokes a named tool on the Blender MCP server via the CallToolFn delegate.
+   * Used by passthrough tools to forward invocations to the upstream server.
+   *
+   * @param toolName - The upstream tool name to invoke
+   * @param args - The arguments to pass to the upstream tool
+   * @returns CallToolResult with content and isError flag
+   */
+  async callTool(toolName: string, args: Record<string, unknown>): Promise<CallToolResult> {
+    if (!this.callToolDelegate) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: "Full delegate not configured. The CallToolFn delegate is required for passthrough tool invocations.",
+          },
+        ],
+      };
+    }
+
+    try {
+      const resultContent = await withTimeout(
+        this.callToolDelegate(toolName, args),
+        this.config.operationTimeoutMs,
+      );
+
+      return {
+        isError: false,
+        content: resultContent,
+      };
+    } catch (error: unknown) {
+      if (error instanceof TimeoutError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: `Operation timed out after ${Math.round(this.config.operationTimeoutMs / 1000)} seconds while calling tool '${toolName}'.`,
+            },
+          ],
+        };
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        isError: true,
+        content: [{ type: "text", text: message }],
+      };
+    }
   }
 }
 

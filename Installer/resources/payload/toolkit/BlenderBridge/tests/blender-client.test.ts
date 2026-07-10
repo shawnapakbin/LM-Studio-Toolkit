@@ -1,10 +1,9 @@
 import {
+  ExecuteBlenderCodeFn,
+  TimeoutError,
   createBlenderClient,
   formatExecutionError,
-  TimeoutError,
   withTimeout,
-  ExecuteBlenderCodeFn,
-  BlenderClient,
 } from "../src/blender-client";
 import { BlenderBridgeConfig } from "../src/types";
 
@@ -152,7 +151,7 @@ ModuleNotFoundError: No module named 'numpy'`;
 describe("formatExecutionError", () => {
   it("extracts traceback from error with Python traceback", () => {
     const error = new Error(
-      `Something went wrong\nTraceback (most recent call last):\n  File "<string>", line 2\nNameError: name 'foo' is not defined`
+      `Something went wrong\nTraceback (most recent call last):\n  File "<string>", line 2\nNameError: name 'foo' is not defined`,
     );
 
     const result = formatExecutionError(error);
@@ -164,7 +163,7 @@ describe("formatExecutionError", () => {
 
   it("provides ModuleNotFoundError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nModuleNotFoundError: No module named 'pandas'`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nModuleNotFoundError: No module named 'pandas'`,
     );
 
     const result = formatExecutionError(error);
@@ -174,7 +173,7 @@ describe("formatExecutionError", () => {
 
   it("provides AttributeError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nAttributeError: 'Object' has no attribute 'foo'`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nAttributeError: 'Object' has no attribute 'foo'`,
     );
 
     const result = formatExecutionError(error);
@@ -184,7 +183,7 @@ describe("formatExecutionError", () => {
 
   it("provides TypeError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nTypeError: expected 2 args`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nTypeError: expected 2 args`,
     );
 
     const result = formatExecutionError(error);
@@ -194,7 +193,7 @@ describe("formatExecutionError", () => {
 
   it("provides NameError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nNameError: name 'x' is not defined`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nNameError: name 'x' is not defined`,
     );
 
     const result = formatExecutionError(error);
@@ -204,7 +203,7 @@ describe("formatExecutionError", () => {
 
   it("provides RuntimeError suggestion", () => {
     const error = new Error(
-      `Traceback (most recent call last):\n  File "<string>", line 1\nRuntimeError: operator not available in this context`
+      `Traceback (most recent call last):\n  File "<string>", line 1\nRuntimeError: operator not available in this context`,
     );
 
     const result = formatExecutionError(error);

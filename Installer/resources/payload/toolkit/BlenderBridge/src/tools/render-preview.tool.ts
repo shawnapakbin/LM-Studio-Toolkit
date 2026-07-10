@@ -6,12 +6,12 @@
  * Requirement 4.4: Configures 480×270, renders PNG, returns file path.
  */
 
-import { z } from "zod";
 import * as os from "os";
 import * as path from "path";
-import { BlenderBridgeConfig } from "../types";
+import { z } from "zod";
 import { BlenderClient } from "../blender-client";
 import { generateRenderPreviewCode } from "../codegen/render-preview.py";
+import { BlenderBridgeConfig } from "../types";
 
 export interface ToolResult {
   isError: boolean;
@@ -30,7 +30,7 @@ export interface ToolHandler {
  * Renders a 480×270 PNG preview and returns the file path.
  */
 export function createRenderPreviewTool(
-  config: BlenderBridgeConfig,
+  _config: BlenderBridgeConfig,
   client: BlenderClient,
 ): ToolHandler {
   return {
@@ -42,7 +42,9 @@ export function createRenderPreviewTool(
       outputDir: z
         .string()
         .optional()
-        .describe("Optional output directory for the rendered image. Defaults to system temp directory."),
+        .describe(
+          "Optional output directory for the rendered image. Defaults to system temp directory.",
+        ),
     }),
     handler: async (input: unknown): Promise<ToolResult> => {
       const params = (input || {}) as { outputDir?: string };

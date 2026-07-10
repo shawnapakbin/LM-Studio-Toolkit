@@ -8,9 +8,9 @@
  */
 
 import { z } from "zod";
-import { BlenderBridgeConfig } from "../types";
 import { BlenderClient } from "../blender-client";
 import { generateSceneSummaryCode } from "../codegen/scene-summary.py";
+import { BlenderBridgeConfig } from "../types";
 
 export interface ToolResult {
   isError: boolean;
@@ -29,7 +29,7 @@ export interface ToolHandler {
  * Retrieves the current scene hierarchy, active object, and render settings.
  */
 export function createSceneSummaryTool(
-  config: BlenderBridgeConfig,
+  _config: BlenderBridgeConfig,
   client: BlenderClient,
 ): ToolHandler {
   return {

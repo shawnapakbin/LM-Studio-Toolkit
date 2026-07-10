@@ -40,7 +40,7 @@ describe("config property tests", () => {
     // Generator: non-empty string without whitespace for host
     const hostArb = fc.stringOf(
       fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
-      { minLength: 1, maxLength: 50 }
+      { minLength: 1, maxLength: 50 },
     );
 
     // Generator: valid port integer in range 1-65535
@@ -49,13 +49,13 @@ describe("config property tests", () => {
     // Generator: non-empty string for command
     const commandArb = fc.stringOf(
       fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
-      { minLength: 1, maxLength: 50 }
+      { minLength: 1, maxLength: 50 },
     );
 
     // Generator: whitespace-separated tokens, total at most 1024 chars
     const argsTokenArb = fc.stringOf(
       fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
-      { minLength: 1, maxLength: 20 }
+      { minLength: 1, maxLength: 20 },
     );
 
     const argsArb = fc
@@ -65,43 +65,35 @@ describe("config property tests", () => {
 
     it("loadConfig produces correctly typed values from valid env vars", () => {
       fc.assert(
-        fc.property(
-          hostArb,
-          portArb,
-          commandArb,
-          argsArb,
-          (host, port, command, argsStr) => {
-            process.env.BLENDER_MCP_HOST = host;
-            process.env.BLENDER_MCP_PORT = String(port);
-            process.env.BLENDER_MCP_COMMAND = command;
-            process.env.BLENDER_MCP_ARGS = argsStr;
+        fc.property(hostArb, portArb, commandArb, argsArb, (host, port, command, argsStr) => {
+          process.env.BLENDER_MCP_HOST = host;
+          process.env.BLENDER_MCP_PORT = String(port);
+          process.env.BLENDER_MCP_COMMAND = command;
+          process.env.BLENDER_MCP_ARGS = argsStr;
 
-            const config = loadConfig();
+          const config = loadConfig();
 
-            // Port is a number equal to the parsed integer
-            expect(config.blenderMcpPort).toBe(port);
-            expect(typeof config.blenderMcpPort).toBe("number");
+          // Port is a number equal to the parsed integer
+          expect(config.blenderMcpPort).toBe(port);
+          expect(typeof config.blenderMcpPort).toBe("number");
 
-            // Host equals the host string
-            expect(config.blenderMcpHost).toBe(host);
+          // Host equals the host string
+          expect(config.blenderMcpHost).toBe(host);
 
-            // Command equals the command string
-            expect(config.blenderMcpCommand).toBe(command);
+          // Command equals the command string
+          expect(config.blenderMcpCommand).toBe(command);
 
-            // Args is an array of non-empty strings produced by splitting on whitespace
-            const expectedArgs = argsStr
-              .split(/\s+/)
-              .filter((s) => s.length > 0);
-            expect(config.blenderMcpArgs).toEqual(expectedArgs);
+          // Args is an array of non-empty strings produced by splitting on whitespace
+          const expectedArgs = argsStr.split(/\s+/).filter((s) => s.length > 0);
+          expect(config.blenderMcpArgs).toEqual(expectedArgs);
 
-            // All args elements are non-empty strings
-            for (const arg of config.blenderMcpArgs) {
-              expect(typeof arg).toBe("string");
-              expect(arg.length).toBeGreaterThan(0);
-            }
+          // All args elements are non-empty strings
+          for (const arg of config.blenderMcpArgs) {
+            expect(typeof arg).toBe("string");
+            expect(arg.length).toBeGreaterThan(0);
           }
-        ),
-        { numRuns: 100 }
+        }),
+        { numRuns: 100 },
       );
     });
   });
@@ -121,21 +113,20 @@ describe("config property tests", () => {
     const zeroPortArb = fc.constant("0");
 
     // Generator: negative port integers
-    const negativePortArb = fc
-      .integer({ min: -100000, max: -1 })
-      .map(String);
+    const negativePortArb = fc.integer({ min: -100000, max: -1 }).map(String);
 
     // Generator: port values > 65535
-    const highPortArb = fc
-      .integer({ min: 65536, max: 200000 })
-      .map(String);
+    const highPortArb = fc.integer({ min: 65536, max: 200000 }).map(String);
 
     // Generator: non-numeric strings (not parseable as integer)
     const nonNumericPortArb = fc
-      .stringOf(fc.char().filter((c) => !/[0-9\-]/.test(c) && c !== "\0"), {
-        minLength: 1,
-        maxLength: 10,
-      })
+      .stringOf(
+        fc.char().filter((c) => !/[0-9\-]/.test(c) && c !== "\0"),
+        {
+          minLength: 1,
+          maxLength: 10,
+        },
+      )
       .filter((s) => Number.isNaN(Number(s)) || !Number.isInteger(Number(s)));
 
     // Generator: float strings (parseable as number but not integer)
@@ -151,7 +142,7 @@ describe("config property tests", () => {
       negativePortArb,
       highPortArb,
       nonNumericPortArb,
-      floatPortArb
+      floatPortArb,
     );
 
     it("loadConfig throws with error mentioning BLENDER_MCP_PORT for invalid port values", () => {
@@ -174,7 +165,7 @@ describe("config property tests", () => {
 
           expect(threw).toBe(true);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -203,7 +194,7 @@ describe("config property tests", () => {
 
           expect(threw).toBe(true);
         }),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });

@@ -46,15 +46,17 @@ describe("TOOL_DESCRIPTORS completeness", () => {
     }
   });
 
-  test("each descriptor has a non-empty relativeScript", () => {
-    for (const tool of TOOL_DESCRIPTORS) {
-      expect(tool.relativeScript.length).toBeGreaterThan(0);
+  test("each node-based descriptor has a non-empty relativeScript", () => {
+    const nodeBasedTools = TOOL_DESCRIPTORS.filter((t) => !t.command);
+    for (const tool of nodeBasedTools) {
+      expect(tool.relativeScript!.length).toBeGreaterThan(0);
       expect(tool.relativeScript).toMatch(/\.js$/);
     }
   });
 
-  test("relativeScript ends with mcp-server.js", () => {
-    for (const tool of TOOL_DESCRIPTORS) {
+  test("relativeScript ends with mcp-server.js for node-based tools", () => {
+    const nodeBasedTools = TOOL_DESCRIPTORS.filter((t) => !t.command);
+    for (const tool of nodeBasedTools) {
       expect(tool.relativeScript).toMatch(/mcp-server\.js$/);
     }
   });
@@ -102,15 +104,31 @@ describe("buildBridgeConfig — node path regression", () => {
     expect(config.env).not.toBeNull();
   });
 
-  test("all tools produce a config with command, args, cwd, env", () => {
+  test("all tools produce a config with command, args, env", () => {
     for (const tool of TOOL_DESCRIPTORS) {
       const config = buildBridgeConfig(INSTALL_ROOT, tool, FAKE_NODE_PATH);
       expect(config).toHaveProperty("command");
       expect(config).toHaveProperty("args");
-      expect(config).toHaveProperty("cwd");
       expect(config).toHaveProperty("env");
       expect(Array.isArray(config.args)).toBe(true);
       expect(config.args.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("node-based tools produce a config with cwd", () => {
+    const nodeBasedTools = TOOL_DESCRIPTORS.filter((t) => !t.command);
+    for (const tool of nodeBasedTools) {
+      const config = buildBridgeConfig(INSTALL_ROOT, tool, FAKE_NODE_PATH);
+      expect(config).toHaveProperty("cwd");
+    }
+  });
+
+  test("command-based tools do not produce cwd", () => {
+    const commandBasedTools = TOOL_DESCRIPTORS.filter((t) => !!t.command);
+    expect(commandBasedTools.length).toBeGreaterThan(0);
+    for (const tool of commandBasedTools) {
+      const config = buildBridgeConfig(INSTALL_ROOT, tool, FAKE_NODE_PATH);
+      expect(config).not.toHaveProperty("cwd");
     }
   });
 
@@ -118,5 +136,46 @@ describe("buildBridgeConfig — node path regression", () => {
     // Ensure the function signature is backward-compatible
     const config = buildBridgeConfig(INSTALL_ROOT, TOOL_DESCRIPTORS[0]);
     expect(config.command).toBe("node");
+  });
+});
+
+describe("Browserless descriptor — command-based pattern", () => {
+  const browserlessTool = TOOL_DESCRIPTORS.find((t) => t.id === "browserless")!;
+
+  test("descriptor uses command: npx with correct args", () => {
+    expect(browserlessTool.command).toBe("npx");
+    expect(browserlessTool.args).toEqual(["-y", "@browserless.io/mcp"]);
+  });
+
+  test("descriptor does not have relativeScript", () => {
+    expect(browserlessTool.relativeScript).toBeUndefined();
+  });
+
+  test("env contains BROWSERLESS_TOKEN and BROWSERLESS_API_URL", () => {
+    expect(browserlessTool.env).toHaveProperty("BROWSERLESS_TOKEN");
+    expect(browserlessTool.env).toHaveProperty("BROWSERLESS_API_URL");
+  });
+
+  test("env does not contain BROWSERLESS_API_KEY", () => {
+    expect(browserlessTool.env).not.toHaveProperty("BROWSERLESS_API_KEY");
+  });
+
+  test("buildBridgeConfig returns command: npx with no cwd for Browserless", () => {
+    const config = buildBridgeConfig(INSTALL_ROOT, browserlessTool, FAKE_NODE_PATH);
+    expect(config.command).toBe("npx");
+    expect(config.args).toEqual(["-y", "@browserless.io/mcp"]);
+    expect(config.env).toEqual({
+      BROWSERLESS_TOKEN: "",
+      BROWSERLESS_API_URL: "",
+    });
+    expect(config).not.toHaveProperty("cwd");
+  });
+
+  test("buildBridgeConfig does not construct file-path-based args for Browserless", () => {
+    const config = buildBridgeConfig(INSTALL_ROOT, browserlessTool, FAKE_NODE_PATH);
+    for (const arg of config.args) {
+      expect(arg).not.toContain(INSTALL_ROOT.replace(/\\/g, "/"));
+      expect(arg).not.toMatch(/\.(js|exe)$/);
+    }
   });
 });

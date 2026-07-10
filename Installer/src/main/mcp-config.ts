@@ -55,13 +55,11 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
   {
     id: "browserless",
     displayName: "Browserless",
-    relativeScript: "Browserless/dist/mcp-server.js",
+    command: "npx",
+    args: ["-y", "@browserless.io/mcp"],
     env: {
-      BROWSERLESS_API_KEY: "",
-      BROWSERLESS_DEFAULT_REGION: "production-sfo",
-      BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000",
-      BROWSERLESS_MAX_TIMEOUT_MS: "120000",
-      BROWSERLESS_CONCURRENCY_LIMIT: "5",
+      BROWSERLESS_TOKEN: "",
+      BROWSERLESS_API_URL: "",
     },
   },
   {
@@ -131,6 +129,16 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
 ];
 
 export function buildBridgeConfig(installRoot: string, tool: ToolDescriptor, nodePath = "node") {
+  // Command-based descriptors (e.g., npx tools) — return command/args directly
+  if (tool.command && tool.args && !tool.relativeScript) {
+    return {
+      command: tool.command,
+      args: tool.args,
+      env: tool.env,
+    };
+  }
+
+  // Node-based descriptors — resolve script path with forward-slash normalization
   const { resolvedPath } = resolveToolScriptPath(installRoot, tool);
 
   return {

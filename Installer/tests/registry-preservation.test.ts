@@ -21,7 +21,9 @@ import type { ToolDescriptor } from "../src/main/types";
 const PRESERVED_DESCRIPTORS: Array<{
   id: string;
   displayName: string;
-  relativeScript: string;
+  relativeScript?: string;
+  command?: string;
+  args?: string[];
   env: Record<string, string>;
 }> = [
   {
@@ -77,13 +79,11 @@ const PRESERVED_DESCRIPTORS: Array<{
   {
     id: "browserless",
     displayName: "Browserless",
-    relativeScript: "Browserless/dist/mcp-server.js",
+    command: "npx",
+    args: ["-y", "@browserless.io/mcp"],
     env: {
-      BROWSERLESS_API_KEY: "",
-      BROWSERLESS_DEFAULT_REGION: "production-sfo",
-      BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000",
-      BROWSERLESS_MAX_TIMEOUT_MS: "120000",
-      BROWSERLESS_CONCURRENCY_LIMIT: "5",
+      BROWSERLESS_TOKEN: "",
+      BROWSERLESS_API_URL: "",
     },
   },
   {
@@ -200,13 +200,20 @@ describe("Property 2: Preservation — Descriptor Identity", () => {
   });
 
   test.each(PRESERVED_DESCRIPTORS)(
-    "descriptor '$id' retains exact id, displayName, relativeScript, and env",
+    "descriptor '$id' retains exact id, displayName, script/command, and env",
     (expected) => {
       const actual = TOOL_DESCRIPTORS.find((t) => t.id === expected.id);
       expect(actual).toBeDefined();
       expect(actual!.id).toBe(expected.id);
       expect(actual!.displayName).toBe(expected.displayName);
-      expect(actual!.relativeScript).toBe(expected.relativeScript);
+      if (expected.command) {
+        // Command-based descriptor
+        expect(actual!.command).toBe(expected.command);
+        expect(actual!.args).toEqual(expected.args);
+      } else {
+        // Node-based descriptor
+        expect(actual!.relativeScript).toBe(expected.relativeScript);
+      }
       expect(actual!.env).toEqual(expected.env);
     },
   );
@@ -226,9 +233,12 @@ describe("Property 2: Preservation — buildBridgeConfig forward slashes", () =>
     (t) => t.id !== "ecm" && t.id !== "blender-bridge",
   );
 
+  const nodeBasedTools = preservedTools.filter((t) => t.relativeScript);
+  const commandBasedTools = preservedTools.filter((t) => t.command && !t.relativeScript);
+
   describe.each(VARIED_INSTALL_ROOTS)("installRoot = %s", (installRoot) => {
-    test.each(preservedTools.map((t) => [t.id, t] as [string, ToolDescriptor]))(
-      "tool '%s' → command, args[0], cwd have no backslashes",
+    test.each(nodeBasedTools.map((t) => [t.id, t] as [string, ToolDescriptor]))(
+      "node-based tool '%s' → command, args[0], cwd have no backslashes",
       (_id, tool) => {
         const config = buildBridgeConfig(installRoot, tool, FAKE_NODE_PATH);
 
@@ -240,10 +250,22 @@ describe("Property 2: Preservation — buildBridgeConfig forward slashes", () =>
         expect(config.cwd).not.toContain("\\");
       },
     );
+
+    test.each(commandBasedTools.map((t) => [t.id, t] as [string, ToolDescriptor]))(
+      "command-based tool '%s' → returns command, args, env without cwd",
+      (_id, tool) => {
+        const config = buildBridgeConfig(installRoot, tool, FAKE_NODE_PATH);
+
+        expect(config.command).toBe(tool.command);
+        expect(config.args).toEqual(tool.args);
+        expect(config.env).toEqual(tool.env);
+        expect(config).not.toHaveProperty("cwd");
+      },
+    );
   });
 
-  test("buildBridgeConfig returns valid structure for all preserved tools", () => {
-    for (const tool of preservedTools) {
+  test("buildBridgeConfig returns valid structure for all node-based preserved tools", () => {
+    for (const tool of nodeBasedTools) {
       for (const installRoot of VARIED_INSTALL_ROOTS) {
         const config = buildBridgeConfig(installRoot, tool, FAKE_NODE_PATH);
         expect(config).toHaveProperty("command");
@@ -254,6 +276,21 @@ describe("Property 2: Preservation — buildBridgeConfig forward slashes", () =>
         expect(config.args.length).toBe(1);
         expect(typeof config.command).toBe("string");
         expect(typeof config.cwd).toBe("string");
+        expect(typeof config.env).toBe("object");
+      }
+    }
+  });
+
+  test("buildBridgeConfig returns valid structure for all command-based preserved tools", () => {
+    for (const tool of commandBasedTools) {
+      for (const installRoot of VARIED_INSTALL_ROOTS) {
+        const config = buildBridgeConfig(installRoot, tool, FAKE_NODE_PATH);
+        expect(config).toHaveProperty("command");
+        expect(config).toHaveProperty("args");
+        expect(config).not.toHaveProperty("cwd");
+        expect(config).toHaveProperty("env");
+        expect(typeof config.command).toBe("string");
+        expect(Array.isArray(config.args)).toBe(true);
         expect(typeof config.env).toBe("object");
       }
     }
@@ -315,7 +352,6 @@ const EXPECTED_SMOKE_TEST_TOOLS = [
   { name: "Calculator", dist: "Calculator/dist/mcp-server.js" },
   { name: "DocumentScraper", dist: "DocumentScraper/dist/mcp-server.js" },
   { name: "Clock", dist: "Clock/dist/mcp-server.js" },
-  { name: "Browserless", dist: "Browserless/dist/mcp-server.js" },
   { name: "AskUser", dist: "AskUser/dist/mcp-server.js" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js" },
   { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js" },
@@ -331,7 +367,6 @@ const EXPECTED_VERIFY_TOOLS = [
   { name: "Calculator", dist: "Calculator/dist/mcp-server.js", src: "Calculator/src/mcp-server.ts" },
   { name: "DocumentScraper", dist: "DocumentScraper/dist/mcp-server.js", src: "DocumentScraper/src/mcp-server.ts" },
   { name: "Clock", dist: "Clock/dist/mcp-server.js", src: "Clock/src/mcp-server.ts" },
-  { name: "Browserless", dist: "Browserless/dist/mcp-server.js", src: "Browserless/src/mcp-server.ts" },
   { name: "AskUser", dist: "AskUser/dist/mcp-server.js", src: "AskUser/src/mcp-server.ts" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js", src: "RAG/src/mcp-server.ts" },
   { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js", src: "PythonShell/src/mcp-server.ts" },

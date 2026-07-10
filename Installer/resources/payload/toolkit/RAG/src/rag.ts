@@ -349,36 +349,46 @@ class RAGService {
           }
         })();
         if (dynamicDomains.some((d) => urlHost.endsWith(d))) {
-          // Use Browserless content extraction
+          // Token resolution: BROWSERLESS_TOKEN with BROWSERLESS_API_KEY fallback
+          const browserlessToken = (
+            process.env.BROWSERLESS_TOKEN ||
+            process.env.BROWSERLESS_API_KEY ||
+            ""
+          ).trim();
+
+          // Endpoint resolution: BROWSERLESS_MCP_ENDPOINT > BROWSERLESS_API_URL + /smartscraper > default
           const browserlessEndpoint =
             process.env.BROWSERLESS_MCP_ENDPOINT ||
-            "http://localhost:3340/tools/browserless_content";
-          const browserlessPayload = {
-            url: document.url,
-            waitForTimeout: 2000,
-          };
+            `${process.env.BROWSERLESS_API_URL || "https://production-sfo.browserless.io"}/smartscraper`;
+
           const browserlessResp = await fetch(browserlessEndpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(browserlessPayload),
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${browserlessToken}`,
+            },
+            body: JSON.stringify({ url: document.url, formats: ["markdown"] }),
+            signal: AbortSignal.timeout(30_000),
           });
+
           type BrowserlessResult = {
-            success?: boolean;
-            text?: string;
-            error?: string;
+            data?: Array<{ markdown?: string }>;
+            markdown?: string;
           };
           const browserlessResult = (await browserlessResp.json()) as BrowserlessResult;
-          if (
-            browserlessResult.success &&
-            browserlessResult.text &&
-            browserlessResult.text.trim()
-          ) {
-            return { content: browserlessResult.text, title: document.title };
-          } else {
-            throw new Error(
-              `Browserless fallback failed: ${browserlessResult.error || "No content extracted."} (status: ${browserlessResp.status})`,
-            );
+
+          // Extract markdown from response (smartscraper returns data array or top-level markdown)
+          const markdownContent =
+            browserlessResult.data?.[0]?.markdown ||
+            browserlessResult.markdown ||
+            "";
+
+          if (markdownContent.trim()) {
+            return { content: markdownContent, title: document.title };
           }
+          throw new Error(
+            `Browserless fallback returned no content (status: ${browserlessResp.status})`,
+          );
         }
       } catch (err) {
         // If Browserless fallback fails, propagate error below

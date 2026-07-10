@@ -4,9 +4,10 @@ import { basename, join } from "node:path";
 import type { ToolDescriptor } from "./types";
 
 export function getToolScriptCandidates(installRoot: string, tool: ToolDescriptor): string[] {
-  const expectedPath = join(installRoot, tool.relativeScript);
-  const [toolRoot] = tool.relativeScript.split("/");
-  const scriptFile = basename(tool.relativeScript);
+  const relativeScript = tool.relativeScript!;
+  const expectedPath = join(installRoot, relativeScript);
+  const [toolRoot] = relativeScript.split("/");
+  const scriptFile = basename(relativeScript);
 
   const candidates = [
     expectedPath,

@@ -29,11 +29,16 @@ const TOOLS = [
   "Calculator",
   "DocumentScraper",
   "Clock",
-  "Browserless",
   "AskUser",
   "RAG",
   "BlenderBridge",
 ];
+
+// Tools that use npx command-based MCP (no local binary to verify)
+const COMMAND_BASED_TOOLS = ["Browserless"];
+
+// All tools for LM Studio sync (includes command-based)
+const ALL_TOOLS = [...TOOLS, ...COMMAND_BASED_TOOLS];
 
 // ─── Colour helpers (no deps) ─────────────────────────────────────────────────
 
@@ -129,7 +134,7 @@ runSetup({ send: consoleSend, repair: IS_REPAIR }).then(() => {
   section("Setup complete!");
   console.log(`\n${c.bold}Next steps:${c.reset}`);
   console.log("  1. Open LM Studio and restart the MCP plugin.");
-  console.log("  2. If Browserless tools are needed, ensure BROWSERLESS_API_KEY is set in .env");
+  console.log("  2. If Browserless tools are needed, ensure BROWSERLESS_TOKEN is set in .env");
   console.log("  3. Run: npm run startup:check\n");
 }).catch((err) => {
   fail(`Setup failed: ${err.message}`);
@@ -178,26 +183,27 @@ async function runSetup({ send, repair }) {
     if (fs.existsSync(ENV_EXAMPLE)) {
       fs.copyFileSync(ENV_EXAMPLE, ENV_FILE);
       send("ok", ".env created from .env.example");
-      send("info", "Edit .env and set BROWSERLESS_API_KEY before using Browserless tools.");
+      send("info", "Edit .env and set BROWSERLESS_TOKEN before using Browserless tools.");
     } else {
       // Write a minimal .env
       const minimal = [
         "# LLM Toolkit environment variables",
-        "# Get your Browserless API key at https://browserless.io/account/",
-        "BROWSERLESS_API_KEY=",
-        "BROWSERLESS_DEFAULT_REGION=production-sfo",
-        "BROWSERLESS_DEFAULT_TIMEOUT_MS=30000",
+        "# Get your Browserless API token at https://browserless.io/account/",
+        "BROWSERLESS_TOKEN=",
+        "# BROWSERLESS_API_URL=",
       ].join(os.EOL);
       fs.writeFileSync(ENV_FILE, minimal, "utf8");
       send("ok", ".env created with defaults");
-      send("info", "Set BROWSERLESS_API_KEY in .env before using Browserless tools.");
+      send("info", "Set BROWSERLESS_TOKEN in .env before using Browserless tools.");
     }
   } else {
     send("ok", ".env already exists — skipping (use --repair to overwrite)");
-    // Validate key is not placeholder
+    // Validate token is not placeholder or empty
     const envContent = fs.readFileSync(ENV_FILE, "utf8");
-    if (envContent.includes("your-browserless-api-token-here") || envContent.match(/BROWSERLESS_API_KEY=\s*$/m)) {
-      send("warn", "BROWSERLESS_API_KEY is not set in .env — Browserless tools will not work.");
+    const hasToken = envContent.match(/BROWSERLESS_TOKEN=\s*\S+/m) && !envContent.includes("your-browserless-api-token-here");
+    const hasLegacyKey = envContent.match(/BROWSERLESS_API_KEY=\s*\S+/m);
+    if (!hasToken && !hasLegacyKey) {
+      send("warn", "BROWSERLESS_TOKEN is not set in .env — Browserless tools will not authenticate.");
     }
   }
 
@@ -258,7 +264,7 @@ async function runSetup({ send, repair }) {
   let synced = 0;
   let skipped = 0;
 
-  for (const tool of TOOLS) {
+  for (const tool of ALL_TOOLS) {
     const serverName = toolToServerName(tool);
     const pluginDir = path.join(pluginRoot, serverName);
     const targetFile = path.join(pluginDir, "mcp-bridge-config.json");
@@ -269,8 +275,7 @@ async function runSetup({ send, repair }) {
       continue;
     }
 
-    const distScript = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
-    const config = buildBridgeConfig(tool, distScript);
+    const config = buildBridgeConfig(tool);
     fs.writeFileSync(targetFile, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     send("ok", `Synced ${serverName}`);
     synced++;
@@ -302,14 +307,29 @@ function toolToServerName(tool) {
   return map[tool] || tool.toLowerCase();
 }
 
-function buildBridgeConfig(tool, distScript) {
+function buildBridgeConfig(tool) {
+  // Command-based tools (no local binary)
+  if (COMMAND_BASED_TOOLS.includes(tool)) {
+    const commandEnvMap = {
+      Browserless: { BROWSERLESS_TOKEN: readEnvKey("BROWSERLESS_TOKEN") || readEnvKey("BROWSERLESS_API_KEY"), BROWSERLESS_API_URL: readEnvKey("BROWSERLESS_API_URL") },
+    };
+    const commandMap = {
+      Browserless: { command: "npx", args: ["-y", "@browserless.io/mcp"] },
+    };
+    return {
+      ...commandMap[tool],
+      env: commandEnvMap[tool] || {},
+    };
+  }
+
+  // Node-based tools (local binary)
+  const distScript = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
   const envMap = {
     Terminal: { TERMINAL_DEFAULT_TIMEOUT_MS: "60000", TERMINAL_MAX_TIMEOUT_MS: "120000" },
     WebBrowser: { BROWSER_DEFAULT_TIMEOUT_MS: "20000", BROWSER_MAX_TIMEOUT_MS: "60000", BROWSER_MAX_CONTENT_CHARS: "12000" },
     Calculator: { CALCULATOR_DEFAULT_PRECISION: "12", CALCULATOR_MAX_PRECISION: "20" },
     DocumentScraper: { DOC_SCRAPER_DEFAULT_TIMEOUT_MS: "20000", DOC_SCRAPER_MAX_TIMEOUT_MS: "60000", DOC_SCRAPER_MAX_CONTENT_BYTES: "52428800", DOC_SCRAPER_MAX_CONTENT_CHARS: "50000", DOC_SCRAPER_WORKSPACE_ROOT: REPO_ROOT },
     Clock: { CLOCK_DEFAULT_TIMEZONE: "", CLOCK_DEFAULT_LOCALE: "en-US" },
-    Browserless: { BROWSERLESS_API_KEY: readEnvKey("BROWSERLESS_API_KEY"), BROWSERLESS_DEFAULT_REGION: "production-sfo", BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000", BROWSERLESS_MAX_TIMEOUT_MS: "120000", BROWSERLESS_CONCURRENCY_LIMIT: "5" },
     AskUser: { ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
     RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview" },
     BlenderBridge: { BLENDER_MCP_HOST: readEnvKey("BLENDER_MCP_HOST") || "127.0.0.1", BLENDER_MCP_PORT: readEnvKey("BLENDER_MCP_PORT") || "9876", BLENDER_MCP_COMMAND: readEnvKey("BLENDER_MCP_COMMAND") || "blender-mcp" },

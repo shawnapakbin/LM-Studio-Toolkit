@@ -39,6 +39,11 @@ const tools = [
     dist: "SlashCommands/dist/mcp-server.js",
     src: "SlashCommands/src/mcp-server.ts",
   },
+  {
+    name: "BlenderBridge",
+    dist: "BlenderBridge/dist/mcp-server.js",
+    src: "BlenderBridge/src/mcp-server.ts",
+  },
 ];
 
 let failed = false;

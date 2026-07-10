@@ -177,6 +177,29 @@ function buildApprovalQuestion(action: string, details: string): string {
   return `Approve '${action}' in RAG knowledge base? ${details}`;
 }
 
+/**
+ * Builds the fetch request options for the Browserless fallback call.
+ * Extracted as a pure function for testability.
+ */
+export function buildBrowserlessFallbackRequest(
+  url: string,
+  token: string,
+  endpoint: string,
+): { endpoint: string; init: RequestInit & { signal: AbortSignal } } {
+  return {
+    endpoint,
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ url, formats: ["markdown"] }),
+      signal: AbortSignal.timeout(30_000),
+    },
+  };
+}
+
 class RAGService {
   private readonly store: RAGStore;
   private readonly embeddings: EmbeddingProvider;
@@ -349,36 +372,79 @@ class RAGService {
           }
         })();
         if (dynamicDomains.some((d) => urlHost.endsWith(d))) {
-          // Use Browserless content extraction
+          // Token resolution: BROWSERLESS_TOKEN with BROWSERLESS_API_KEY fallback
+          const browserlessToken = (
+            process.env.BROWSERLESS_TOKEN ||
+            process.env.BROWSERLESS_API_KEY ||
+            ""
+          ).trim();
+
+          // Endpoint resolution: BROWSERLESS_MCP_ENDPOINT > BROWSERLESS_API_URL + /smartscraper > default
           const browserlessEndpoint =
             process.env.BROWSERLESS_MCP_ENDPOINT ||
-            "http://localhost:3340/tools/browserless_content";
-          const browserlessPayload = {
-            url: document.url,
-            waitForTimeout: 2000,
-          };
-          const browserlessResp = await fetch(browserlessEndpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(browserlessPayload),
-          });
-          type BrowserlessResult = {
-            success?: boolean;
-            text?: string;
-            error?: string;
-          };
-          const browserlessResult = (await browserlessResp.json()) as BrowserlessResult;
-          if (
-            browserlessResult.success &&
-            browserlessResult.text &&
-            browserlessResult.text.trim()
-          ) {
-            return { content: browserlessResult.text, title: document.title };
-          } else {
+            `${process.env.BROWSERLESS_API_URL || "https://production-sfo.browserless.io"}/smartscraper`;
+
+          let browserlessResp: Response;
+          try {
+            browserlessResp = await fetch(browserlessEndpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${browserlessToken}`,
+              },
+              body: JSON.stringify({ url: document.url, formats: ["markdown"] }),
+              signal: AbortSignal.timeout(30_000),
+            });
+          } catch (fetchErr: unknown) {
+            // Network error (TypeError) or timeout (AbortError) — do not retry
+            if (fetchErr instanceof Error && fetchErr.name === "AbortError") {
+              throw new Error("Browserless fallback failed: request timed out");
+            }
             throw new Error(
-              `Browserless fallback failed: ${browserlessResult.error || "No content extracted."} (status: ${browserlessResp.status})`,
+              `Browserless fallback failed: endpoint unreachable (${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)})`,
             );
           }
+
+          // HTTP 401/403 — authentication failed, do not retry
+          if (browserlessResp.status === 401 || browserlessResp.status === 403) {
+            throw new Error(
+              `Browserless fallback failed: authentication failed (HTTP ${browserlessResp.status})`,
+            );
+          }
+
+          // HTTP 5xx — server error, do not retry
+          if (browserlessResp.status >= 500 && browserlessResp.status < 600) {
+            const errorBody = await browserlessResp.text().catch(() => "");
+            throw new Error(
+              `Browserless fallback failed: server error (HTTP ${browserlessResp.status}${errorBody ? `: ${errorBody}` : ""})`,
+            );
+          }
+
+          // Other non-OK responses
+          if (!browserlessResp.ok) {
+            throw new Error(
+              `Browserless fallback failed: unexpected response (HTTP ${browserlessResp.status})`,
+            );
+          }
+
+          type BrowserlessResult = {
+            data?: Array<{ markdown?: string }>;
+            markdown?: string;
+          };
+          const browserlessResult = (await browserlessResp.json()) as BrowserlessResult;
+
+          // Extract markdown from response (smartscraper returns data array or top-level markdown)
+          const markdownContent =
+            browserlessResult.data?.[0]?.markdown ||
+            browserlessResult.markdown ||
+            "";
+
+          if (markdownContent.trim()) {
+            return { content: markdownContent, title: document.title };
+          }
+          throw new Error(
+            `Browserless fallback returned no content (status: ${browserlessResp.status})`,
+          );
         }
       } catch (err) {
         // If Browserless fallback fails, propagate error below

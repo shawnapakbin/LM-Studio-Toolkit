@@ -51,7 +51,9 @@ export interface EnvState {
 export interface ToolDescriptor {
   id: string;
   displayName: string;
-  relativeScript: string;
+  relativeScript?: string;
+  command?: string;
+  args?: string[];
   env: Record<string, string>;
 }
 

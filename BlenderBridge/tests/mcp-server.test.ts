@@ -10,7 +10,7 @@
  *
  * Verifies:
  * - Server creation exports correctly
- * - All 31 tools are registered (5 orchestration + 26 passthrough)
+ * - All 35 tools are registered (9 orchestration + 26 passthrough)
  * - Config validation failure prevents startup (Req 7.5)
  * - Server completes MCP initialize handshake (Req 2.3, 9.1)
  */
@@ -45,28 +45,28 @@ describe("createBlenderBridgeMcpServer", () => {
   it("creates an MCP server instance and returns tool count", () => {
     const { server, toolCount } = createBlenderBridgeMcpServer(validConfig);
     expect(server).toBeDefined();
-    expect(toolCount).toBe(31);
+    expect(toolCount).toBe(35);
   });
 
   it("accepts an optional delegate override", () => {
     const mockDelegate = jest.fn().mockResolvedValue("ok");
     const { server, toolCount } = createBlenderBridgeMcpServer(validConfig, mockDelegate);
     expect(server).toBeDefined();
-    expect(toolCount).toBe(31);
+    expect(toolCount).toBe(35);
   });
 
-  it("registers all 31 tools (5 orchestration + 26 passthrough) (Req 2.3, 9.1)", () => {
+  it("registers all 35 tools (9 orchestration + 26 passthrough) (Req 2.3, 9.1)", () => {
     const { toolCount } = createBlenderBridgeMcpServer(validConfig);
-    expect(toolCount).toBe(31);
+    expect(toolCount).toBe(35);
   });
 
-  it("completes MCP initialize handshake and lists 31 tools (Req 2.3, 9.1)", () => {
+  it("completes MCP initialize handshake and lists 35 tools (Req 2.3, 9.1)", () => {
     // The createBlenderBridgeMcpServer function itself is the initialization step.
     // If it returns without throwing, the handshake setup is complete.
     const { server, toolCount } = createBlenderBridgeMcpServer(validConfig);
     expect(server).toBeDefined();
     expect(typeof server.connect).toBe("function"); // server is ready for transport
-    expect(toolCount).toBe(31);
+    expect(toolCount).toBe(35);
   });
 
   it("fails initialization with error if zero tools are registered (Req 2.3)", () => {
@@ -128,7 +128,7 @@ describe("config validation on startup (Req 7.5)", () => {
         blenderMcpPort: 9876,
         blenderMcpCommand: "blender-mcp",
         blenderMcpArgs: [],
-              healthCheckTimeoutMs: 5000,
+        healthCheckTimeoutMs: 5000,
         operationTimeoutMs: 30000,
       }),
     ).toThrow(/BLENDER_MCP_HOST/);

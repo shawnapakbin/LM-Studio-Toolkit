@@ -42,7 +42,7 @@ export function createCodeExecutionTools(
         "The code runs in Blender's Python environment with full access to bpy. " +
         "To return data, assign a JSON-serialisable dict to a variable named `result`. " +
         "IMPORTANT: The 'code' parameter must be a single JSON string containing Python code. " +
-        "Multi-line code uses \\n for newlines: {\"code\": \"import bpy\\nresult = bpy.context.scene.name\"}. " +
+        'Multi-line code uses \\n for newlines: {"code": "import bpy\\nresult = bpy.context.scene.name"}. ' +
         "Do NOT pass objects, arrays, or previous tool results as the code parameter.",
       inputSchema: z.object({
         code: z
@@ -50,7 +50,7 @@ export function createCodeExecutionTools(
           .optional()
           .describe(
             "Python code string to execute in Blender. " +
-              "Must be a plain string, e.g. \"import bpy\\nresult = bpy.data.objects.keys()\". " +
+              'Must be a plain string, e.g. "import bpy\\nresult = bpy.data.objects.keys()". ' +
               "Do NOT pass an object or array.",
           ),
         command: z

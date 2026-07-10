@@ -16,17 +16,12 @@
  * **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6**
  */
 
-import * as fc from "fast-check";
 import * as net from "net";
-import {
-  ExecuteBlenderCodeFn,
-  createBlenderClient,
-  formatExecutionError,
-  withTimeout,
-} from "../src/blender-client";
+import * as fc from "fast-check";
+import { ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
 import { loadConfig, validateConfig } from "../src/config";
-import { BlenderBridgeConfig } from "../src/types";
 import { checkAddonConnectivity, runHealthCheck } from "../src/health-check";
+import { BlenderBridgeConfig } from "../src/types";
 
 const defaultConfig: BlenderBridgeConfig = {
   blenderMcpHost: "127.0.0.1",
@@ -117,7 +112,9 @@ describe("Preservation: Quick operations return results immediately without over
         // Must NOT have additional error-related metadata
         expect(result.error).toBeUndefined();
         // The result object should only have success + output for success cases
-        const keys = Object.keys(result).filter((k) => result[k as keyof typeof result] !== undefined);
+        const keys = Object.keys(result).filter(
+          (k) => result[k as keyof typeof result] !== undefined,
+        );
         expect(keys).toContain("success");
         expect(keys).toContain("output");
         expect(keys).not.toContain("error");
@@ -174,12 +171,7 @@ describe("Preservation: Standard API code passes through unmodified", () => {
     // Generate random Python-like strings that don't contain deprecated API patterns
     const arbitraryCodeArb = fc
       .string({ minLength: 1, maxLength: 200 })
-      .filter(
-        (s) =>
-          !s.includes("export_mesh.stl") &&
-          !s.includes("normal_make") &&
-          s.length > 0,
-      );
+      .filter((s) => !s.includes("export_mesh.stl") && !s.includes("normal_make") && s.length > 0);
 
     await fc.assert(
       fc.asyncProperty(arbitraryCodeArb, async (code) => {
@@ -265,7 +257,7 @@ describe("Preservation: TCP protocol remains null-byte-delimited JSON", () => {
   // We test this by creating a mock TCP server that verifies the protocol format
 
   let server: net.Server;
-  let serverPort: number;
+  let _serverPort: number;
 
   beforeAll((done) => {
     server = net.createServer((socket) => {
@@ -291,7 +283,7 @@ describe("Preservation: TCP protocol remains null-byte-delimited JSON", () => {
     });
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address() as net.AddressInfo;
-      serverPort = addr.port;
+      _serverPort = addr.port;
       done();
     });
   });
@@ -486,10 +478,13 @@ describe("Preservation: Config loads from env vars with same defaults and valida
   it("env var BLENDER_MCP_HOST overrides default host", () => {
     fc.assert(
       fc.property(
-        fc.stringOf(fc.char().filter((c) => c.trim().length > 0 && c !== "\0"), {
-          minLength: 1,
-          maxLength: 50,
-        }),
+        fc.stringOf(
+          fc.char().filter((c) => c.trim().length > 0 && c !== "\0"),
+          {
+            minLength: 1,
+            maxLength: 50,
+          },
+        ),
         (host) => {
           process.env.BLENDER_MCP_HOST = host;
           const config = loadConfig();
@@ -514,10 +509,7 @@ describe("Preservation: Config loads from env vars with same defaults and valida
   it("invalid port validation unchanged: port < 1 or > 65535 throws", () => {
     fc.assert(
       fc.property(
-        fc.oneof(
-          fc.integer({ min: -1000, max: 0 }),
-          fc.integer({ min: 65536, max: 100000 }),
-        ),
+        fc.oneof(fc.integer({ min: -1000, max: 0 }), fc.integer({ min: 65536, max: 100000 })),
         (port) => {
           process.env.BLENDER_MCP_PORT = String(port);
           expect(() => loadConfig()).toThrow(/BLENDER_MCP_PORT/);

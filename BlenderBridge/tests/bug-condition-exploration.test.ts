@@ -22,9 +22,9 @@ import {
   createBlenderClient,
   formatExecutionError,
 } from "../src/blender-client";
-import { BlenderBridgeConfig } from "../src/types";
-import { createRenderPreviewTool } from "../src/tools/render-preview.tool";
 import { generateRenderPreviewCode } from "../src/codegen/render-preview.py";
+import { createRenderPreviewTool } from "../src/tools/render-preview.tool";
+import { BlenderBridgeConfig } from "../src/types";
 
 const defaultConfig: BlenderBridgeConfig = {
   blenderMcpHost: "127.0.0.1",
@@ -194,8 +194,7 @@ describe("Bug Condition Exploration - BlenderBridge Known Issues", () => {
 
       // The fixed system should have a function that applies compatibility mappings
       const applyCompat =
-        (addonTransport as any).applyCompatibilityLayer ||
-        (addonTransport as any).applyApiMapping;
+        (addonTransport as any).applyCompatibilityLayer || (addonTransport as any).applyApiMapping;
 
       expect(applyCompat).toBeDefined();
       if (applyCompat) {
@@ -292,7 +291,8 @@ TypeError: bpy.ops.object.modifier_add(): error with keyword argument "type" - e
       const delegate: ExecuteBlenderCodeFn = async () => {
         return JSON.stringify({
           filePath: "/tmp/blender_preview_123.png",
-          imageData: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          imageData:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
         });
       };
 
@@ -364,7 +364,7 @@ TypeError: bpy.ops.object.modifier_add(): error with keyword argument "type" - e
     it("MeshValidationResult type should be defined with required fields", () => {
       // On fixed code: types.ts should export MeshValidationResult
       // On unfixed code: no such type exists
-      const types = require("../src/types");
+      const _types = require("../src/types");
 
       // We can't directly check TypeScript types at runtime, but we can verify
       // that the mesh validation tool returns the expected structure

@@ -17,11 +17,18 @@
 import { z } from "zod";
 import { BlenderClient } from "../blender-client";
 import { generateMeshValidateCode } from "../codegen/mesh-validate.py";
-import { BlenderBridgeConfig, MeshValidationResult } from "../types";
+import {
+  BlenderBridgeConfig,
+  MeshQualityBreakdown,
+  MeshValidationResult,
+  QualityGrade,
+} from "../types";
 
 export interface ToolResult {
   isError: boolean;
-  content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>;
+  content: Array<
+    { type: "text"; text: string } | { type: "image"; data: string; mimeType: string }
+  >;
 }
 
 export interface ToolHandler {
@@ -37,7 +44,7 @@ export interface ToolHandler {
  * non-manifold edges, loose vertices, and face orientation issues.
  */
 export function createMeshValidateTool(
-  config: BlenderBridgeConfig,
+  _config: BlenderBridgeConfig,
   client: BlenderClient,
 ): ToolHandler {
   return {
@@ -126,6 +133,31 @@ export function createMeshValidateTool(
           isValid: parsed.isValid ?? false,
         };
 
+        // Extract quality scoring fields from extended Python codegen output
+        const qualityScore: number = parsed.qualityScore ?? 0;
+        const qualityGrade: QualityGrade = parsed.qualityGrade ?? "F";
+        const breakdown: MeshQualityBreakdown = parsed.breakdown
+          ? {
+              vertexCount: parsed.breakdown.vertexCount ?? 0,
+              edgeCount: parsed.breakdown.edgeCount ?? 0,
+              faceCount: parsed.breakdown.faceCount ?? 0,
+              nonManifoldEdgeCount: parsed.breakdown.nonManifoldEdgeCount ?? 0,
+              looseVertexCount: parsed.breakdown.looseVertexCount ?? 0,
+              degenerateFaceCount: parsed.breakdown.degenerateFaceCount ?? 0,
+              ngonCount: parsed.breakdown.ngonCount ?? 0,
+              ngonPercentage: parsed.breakdown.ngonPercentage ?? 0.0,
+            }
+          : {
+              vertexCount: 0,
+              edgeCount: 0,
+              faceCount: 0,
+              nonManifoldEdgeCount: 0,
+              looseVertexCount: 0,
+              degenerateFaceCount: 0,
+              ngonCount: 0,
+              ngonPercentage: 0.0,
+            };
+
         return {
           isError: false,
           content: [
@@ -136,6 +168,9 @@ export function createMeshValidateTool(
                   success: true,
                   objectName,
                   validation,
+                  qualityScore,
+                  qualityGrade,
+                  breakdown,
                 },
                 null,
                 2,

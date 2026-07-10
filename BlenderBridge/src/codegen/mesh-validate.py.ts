@@ -114,6 +114,45 @@ else:
                         face_orientation_issues += 1
                         break  # Only count each face once
 
+        # Count degenerate faces (area <= 1e-6)
+        degenerate_faces = 0
+        for face in bm.faces:
+            if face.calc_area() <= 1e-6:
+                degenerate_faces += 1
+
+        # Count n-gons (faces with more than 4 vertices)
+        ngon_count = 0
+        for face in bm.faces:
+            if len(face.verts) > 4:
+                ngon_count += 1
+
+        # Compute n-gon percentage
+        face_count = len(bm.faces)
+        if face_count > 0:
+            ngon_percentage = round(ngon_count / face_count * 100, 1)
+        else:
+            ngon_percentage = 0.0
+
+        # Compute quality score
+        score = 100
+        score -= non_manifold_edges * 5
+        score -= degenerate_faces * 4
+        score -= loose_vertices * 2
+        score -= ngon_count * 1
+        score = max(0, min(100, score))
+
+        # Derive quality grade
+        if score >= 90:
+            grade = "A"
+        elif score >= 80:
+            grade = "B"
+        elif score >= 70:
+            grade = "C"
+        elif score >= 60:
+            grade = "D"
+        else:
+            grade = "F"
+
         is_valid = (inverted_faces == 0 and non_manifold_edges == 0 and
                     loose_vertices == 0 and face_orientation_issues == 0)
 
@@ -122,7 +161,19 @@ else:
             "nonManifoldEdges": non_manifold_edges,
             "looseVertices": loose_vertices,
             "faceOrientationIssues": face_orientation_issues,
-            "isValid": is_valid
+            "isValid": is_valid,
+            "qualityScore": score,
+            "qualityGrade": grade,
+            "breakdown": {
+                "vertexCount": len(bm.verts),
+                "edgeCount": len(bm.edges),
+                "faceCount": face_count,
+                "nonManifoldEdgeCount": non_manifold_edges,
+                "looseVertexCount": loose_vertices,
+                "degenerateFaceCount": degenerate_faces,
+                "ngonCount": ngon_count,
+                "ngonPercentage": ngon_percentage
+            }
         }
 
         bm.free()

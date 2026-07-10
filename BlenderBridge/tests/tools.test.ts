@@ -11,7 +11,7 @@
  * Validates: Requirements 4.2, 4.6, 8.2, 8.3, 8.4
  */
 
-import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
+import { ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
 import { validateCreateObjectInput } from "../src/tools/create-object.tool";
 import { BlenderBridgeConfig } from "../src/types";
 

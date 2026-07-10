@@ -5,6 +5,7 @@
  * See LICENSE file in the project root for full license text.
  */
 
+import { enhanceError } from "./error-enhancer";
 import { BlenderBridgeConfig, BlenderExecutionResult, CallToolFn, CallToolResult } from "./types";
 
 /**
@@ -27,7 +28,11 @@ export type OperationType = "render" | "export" | "code_execution";
  * execution to the external Blender MCP server.
  */
 export interface BlenderClient {
-  executeCode(pythonCode: string, timeoutMs?: number, operationType?: OperationType): Promise<BlenderExecutionResult>;
+  executeCode(
+    pythonCode: string,
+    timeoutMs?: number,
+    operationType?: OperationType,
+  ): Promise<BlenderExecutionResult>;
   getSceneSummary(): Promise<BlenderExecutionResult>;
   getBlenderVersion(): Promise<BlenderExecutionResult>;
   callTool(toolName: string, args: Record<string, unknown>): Promise<CallToolResult>;
@@ -73,7 +78,11 @@ class BlenderClientImpl implements BlenderClient {
    * @param operationType - Operation type for selecting per-operation timeout override
    * @returns Structured execution result with success/error information
    */
-  async executeCode(pythonCode: string, timeoutMs?: number, operationType?: OperationType): Promise<BlenderExecutionResult> {
+  async executeCode(
+    pythonCode: string,
+    timeoutMs?: number,
+    operationType?: OperationType,
+  ): Promise<BlenderExecutionResult> {
     const timeout = timeoutMs ?? this.resolveTimeout(operationType);
 
     try {
@@ -97,7 +106,22 @@ class BlenderClientImpl implements BlenderClient {
         };
       }
 
-      return formatExecutionError(error);
+      const formattedResult = formatExecutionError(error);
+
+      // Post-process with error enhancer for actionable suggestions (Req 2.1, 2.4, 2.5, 2.6)
+      // All tools benefit automatically since enhancement happens at the client level.
+      if (formattedResult.error) {
+        try {
+          const executeCodeFn = (code: string) => this.delegate(code);
+          const enhancedError = await enhanceError(formattedResult.error, executeCodeFn);
+          return { ...formattedResult, error: enhancedError };
+        } catch {
+          // Graceful degradation: if enhanceError itself throws, fall back to the original formatted error
+          return formattedResult;
+        }
+      }
+
+      return formattedResult;
     }
   }
 
@@ -276,9 +300,9 @@ export function levenshteinDistance(a: string, b: string): number {
     for (let i = 1; i <= aLen; i++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       currRow[i] = Math.min(
-        currRow[i - 1] + 1,      // insertion
-        prevRow[i] + 1,          // deletion
-        prevRow[i - 1] + cost,   // substitution
+        currRow[i - 1] + 1, // insertion
+        prevRow[i] + 1, // deletion
+        prevRow[i - 1] + cost, // substitution
       );
     }
     [prevRow, currRow] = [currRow, prevRow];
@@ -333,7 +357,10 @@ export function findClosestMatches(target: string, candidates: string[]): string
       // Compute a combined score for sorting: use ratio but boost prefix/containment matches
       let score = ratio;
       if (prefixMatch) {
-        score = Math.max(score, sharedPrefixLen / Math.max(targetUpper.length, candidateUpper.length) + 0.3);
+        score = Math.max(
+          score,
+          sharedPrefixLen / Math.max(targetUpper.length, candidateUpper.length) + 0.3,
+        );
       }
       if (containsMatch) {
         score = Math.max(score, 0.7);

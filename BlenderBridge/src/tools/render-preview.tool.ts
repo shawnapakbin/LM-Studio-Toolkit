@@ -18,11 +18,21 @@ import * as path from "path";
 import { z } from "zod";
 import { BlenderClient } from "../blender-client";
 import { generateRenderPreviewCode } from "../codegen/render-preview.py";
-import { BlenderBridgeConfig } from "../types";
+import { generateRenderStatsCode } from "../codegen/render-stats.py";
+import {
+  formatPeakMemory,
+  formatRenderTime,
+  validateResolution,
+  validateSamples,
+  validateScenePolygonCount,
+} from "../type-validation-helpers";
+import { BlenderBridgeConfig, RenderStatistics } from "../types";
 
 export interface ToolResult {
   isError: boolean;
-  content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>;
+  content: Array<
+    { type: "text"; text: string } | { type: "image"; data: string; mimeType: string }
+  >;
 }
 
 export interface ToolHandler {
@@ -97,18 +107,55 @@ export function createRenderPreviewTool(
         /* keep defaults */
       }
 
+      // Collect render statistics (best-effort, does not block render result)
+      let renderStatistics: Partial<RenderStatistics> | undefined;
+      try {
+        const statsCode = generateRenderStatsCode();
+        const statsResult = await client.executeCode(statsCode, config.operationTimeoutMs);
+
+        if (statsResult.success && statsResult.output) {
+          const rawStats = JSON.parse(statsResult.output);
+          const stats: RenderStatistics = {
+            renderTimeSeconds: formatRenderTime(rawStats.renderTimeSeconds),
+            samples: validateSamples(rawStats.samples),
+            peakMemoryMB: formatPeakMemory(rawStats.peakMemoryMB),
+            engineName: rawStats.engineName,
+            resolutionWidth: validateResolution(rawStats.resolutionWidth),
+            resolutionHeight: validateResolution(rawStats.resolutionHeight),
+            scenePolygonCount: validateScenePolygonCount(rawStats.scenePolygonCount),
+            gpuAvailable: rawStats.gpuAvailable,
+          };
+
+          // Only include GPU fields when GPU is available
+          if (rawStats.gpuAvailable) {
+            if (rawStats.gpuDeviceName) {
+              stats.gpuDeviceName = rawStats.gpuDeviceName;
+            }
+            if (rawStats.gpuMemoryMB != null) {
+              stats.gpuMemoryMB = formatPeakMemory(rawStats.gpuMemoryMB);
+            }
+          }
+
+          renderStatistics = stats;
+        }
+      } catch {
+        // Stats collection failed — still return the render result without stats
+      }
+
+      const responsePayload: Record<string, unknown> = {
+        success: true,
+        filePath,
+        resolution: { width: 480, height: 270 },
+      };
+
+      if (renderStatistics) {
+        responsePayload.renderStatistics = renderStatistics;
+      }
+
       const content: ToolResult["content"] = [
         {
           type: "text",
-          text: JSON.stringify(
-            {
-              success: true,
-              filePath,
-              resolution: { width: 480, height: 270 },
-            },
-            null,
-            2,
-          ),
+          text: JSON.stringify(responsePayload, null, 2),
         },
       ];
 

@@ -30,7 +30,7 @@ function createTestConfig(overrides?: Partial<BlenderBridgeConfig>): BlenderBrid
     blenderMcpPort: 9876,
     blenderMcpCommand: "blender-mcp",
     blenderMcpArgs: [],
-      healthCheckTimeoutMs: 5000,
+    healthCheckTimeoutMs: 5000,
     operationTimeoutMs: 30000,
     ...overrides,
   };

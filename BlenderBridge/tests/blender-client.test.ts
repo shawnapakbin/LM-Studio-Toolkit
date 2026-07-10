@@ -360,7 +360,9 @@ describe("extractOperatorInfo - did you mean suggestions", () => {
     expect(info!.operatorName).toBe("object.modifier_add");
     expect(info!.availableEnums).toEqual(["ARRAY", "BEVEL", "BOOLEAN", "MIRROR", "SUBSURF"]);
     expect(info!.suggestions).toBeDefined();
-    expect(info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("SUBSURF"))).toBe(true);
+    expect(
+      info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("SUBSURF")),
+    ).toBe(true);
   });
 
   it("suggests closest enum match for typos", () => {
@@ -370,7 +372,9 @@ describe("extractOperatorInfo - did you mean suggestions", () => {
 
     expect(info).not.toBeNull();
     expect(info!.suggestions).toBeDefined();
-    expect(info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("BOOLEAN"))).toBe(true);
+    expect(
+      info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("BOOLEAN")),
+    ).toBe(true);
   });
 
   it("does not suggest when no enum is close enough", () => {
@@ -381,7 +385,9 @@ describe("extractOperatorInfo - did you mean suggestions", () => {
     expect(info).not.toBeNull();
     expect(info!.availableEnums).toEqual(["ARRAY", "BEVEL", "BOOLEAN", "MIRROR", "SUBSURF"]);
     // No "Did you mean" suggestions since nothing is close
-    const didYouMeanSuggestions = (info!.suggestions || []).filter((s) => s.includes("Did you mean"));
+    const didYouMeanSuggestions = (info!.suggestions || []).filter((s) =>
+      s.includes("Did you mean"),
+    );
     expect(didYouMeanSuggestions.length).toBe(0);
   });
 
@@ -393,7 +399,9 @@ describe("extractOperatorInfo - did you mean suggestions", () => {
     expect(info).not.toBeNull();
     // Should have both context suggestion and did-you-mean suggestion
     expect(info!.suggestions!.some((s) => s.includes("OBJECT mode"))).toBe(true);
-    expect(info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("BOOLEAN"))).toBe(true);
+    expect(
+      info!.suggestions!.some((s) => s.includes("Did you mean") && s.includes("BOOLEAN")),
+    ).toBe(true);
   });
 
   it("returns null for non-operator errors", () => {

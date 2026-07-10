@@ -14,7 +14,7 @@
  *          completes initialize handshake, reports registered tools.
  *          Fails initialization with error if zero tools are registered.
  *   7.5 — Fails to start with clear error on invalid config.
- *   9.1 — Registers all 31 tools (5 orchestration + 26 passthrough).
+ *   9.1 — Registers all 35 tools (9 orchestration + 26 passthrough).
  *   9.5 — Fails initialization if any tool fails to register.
  */
 
@@ -25,8 +25,13 @@ import { z } from "zod";
 import { createAddonCallToolDelegate, createAddonExecuteCodeDelegate } from "./addon-transport";
 import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "./blender-client";
 import { loadConfig } from "./config";
+import { DocCache } from "./doc-cache";
+import { createApiLookupTool } from "./tools/api-lookup.tool";
+import { createCleanupDatablocksTool } from "./tools/cleanup-datablocks.tool";
 import { createCreateObjectTool } from "./tools/create-object.tool";
+import { createFileIntegrityTool } from "./tools/file-integrity.tool";
 import { createHealthCheckTool } from "./tools/health-check.tool";
+import { createMeshValidateTool } from "./tools/mesh-validate.tool";
 import { createCliFileInfoTools } from "./tools/passthrough/cli-file-info.tools";
 import { createCodeExecutionTools } from "./tools/passthrough/code-execution.tools";
 import { createDocumentationTools } from "./tools/passthrough/documentation.tools";
@@ -35,7 +40,7 @@ import { createNavigationTools } from "./tools/passthrough/navigation.tools";
 import { createRenderingTools } from "./tools/passthrough/rendering.tools";
 import { createSceneInspectionTools } from "./tools/passthrough/scene-inspection.tools";
 import { createScreenshotTools } from "./tools/passthrough/screenshot.tools";
-import { createMeshValidateTool } from "./tools/mesh-validate.tool";
+import { createPerformanceMetricsTool } from "./tools/performance-metrics.tool";
 import { createRenderPreviewTool } from "./tools/render-preview.tool";
 import { createSceneSummaryTool } from "./tools/scene-summary.tool";
 import { BlenderBridgeConfig, CallToolFn } from "./types";
@@ -178,6 +183,69 @@ export function createBlenderBridgeMcpServer(
     },
     async (input) => {
       const result = await meshValidateTool.handler(input);
+      return { content: result.content, isError: result.isError };
+    },
+  );
+  toolCount++;
+
+  // 6. blender_cleanup_datablocks (Req 1.1)
+  const cleanupDatablocksTool = createCleanupDatablocksTool(config, client);
+  registerTool(
+    cleanupDatablocksTool.name,
+    cleanupDatablocksTool.description,
+    {
+      dryRun: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, reports orphaned datablocks without removing them. Defaults to false.",
+        ),
+    },
+    async (input) => {
+      const result = await cleanupDatablocksTool.handler(input);
+      return { content: result.content, isError: result.isError };
+    },
+  );
+  toolCount++;
+
+  // 7. blender_file_integrity (Req 5.1)
+  const fileIntegrityTool = createFileIntegrityTool(config, client);
+  registerTool(fileIntegrityTool.name, fileIntegrityTool.description, {}, async () => {
+    const result = await fileIntegrityTool.handler({});
+    return { content: result.content, isError: result.isError };
+  });
+  toolCount++;
+
+  // 8. blender_performance_metrics (Req 7.1)
+  const performanceMetricsTool = createPerformanceMetricsTool(config, client);
+  registerTool(performanceMetricsTool.name, performanceMetricsTool.description, {}, async () => {
+    const result = await performanceMetricsTool.handler({});
+    return { content: result.content, isError: result.isError };
+  });
+  toolCount++;
+
+  // 9. blender_api_lookup (Req 8.1)
+  const docCachePath = config.docCachePath;
+  const docCacheMaxSizeBytes = config.docCacheMaxSizeMB
+    ? config.docCacheMaxSizeMB * 1024 * 1024
+    : undefined;
+  const docCache = new DocCache("unknown", docCachePath, docCacheMaxSizeBytes);
+  const apiLookupTool = createApiLookupTool(config, client, docCache);
+  registerTool(
+    apiLookupTool.name,
+    apiLookupTool.description,
+    {
+      identifier: z
+        .string()
+        .optional()
+        .describe("Exact API identifier to look up (e.g. 'bpy.types.Object')"),
+      query: z
+        .string()
+        .optional()
+        .describe("Search query for token-based search across cached documentation"),
+    },
+    async (input) => {
+      const result = await apiLookupTool.handler(input);
       return { content: result.content, isError: result.isError };
     },
   );

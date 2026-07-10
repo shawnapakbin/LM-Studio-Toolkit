@@ -29,9 +29,9 @@
  */
 
 import * as net from "net";
+import { applyCompatibilityLayer } from "./api-compat";
 import { ExecuteBlenderCodeFn } from "./blender-client";
 import { BlenderBridgeConfig, CallToolContent } from "./types";
-import { applyCompatibilityLayer } from "./api-compat";
 
 // Re-export applyCompatibilityLayer for discoverability by tests
 export { applyCompatibilityLayer } from "./api-compat";
@@ -177,9 +177,7 @@ export async function getBlenderVersionCached(
 
   const result = response.result;
   if (!Array.isArray(result) || result.length < 3) {
-    throw new Error(
-      `Unexpected version format from Blender: ${JSON.stringify(result)}`,
-    );
+    throw new Error(`Unexpected version format from Blender: ${JSON.stringify(result)}`);
   }
 
   cachedVersion = [Number(result[0]), Number(result[1]), Number(result[2])];

@@ -138,14 +138,63 @@ async function sendCodeToAddon(
  * Generates Python code that implements a given MCP tool's behavior.
  * All tools ultimately execute Python in Blender — the add-on only supports "execute".
  */
-function generateCodeForTool(toolName: string, args: Record<string, unknown>): string {
+export function generateCodeForTool(toolName: string, args: Record<string, unknown>): string {
   switch (toolName) {
     case "execute_blender_code":
       return args.code as string;
 
-    case "execute_blender_code_for_cli":
-      // CLI mode not supported via direct addon — execute in current session
-      return args.code as string;
+    case "execute_blender_code_for_cli": {
+      const blendFile = args.blend_file as string;
+      const userCode = args.code as string;
+      // Generate Python code that spawns a background Blender process
+      // to execute the user's code against the specified blend file
+      return `
+import subprocess, json, sys, tempfile, os
+
+blend_file = ${JSON.stringify(blendFile)}
+user_code = ${JSON.stringify(userCode)}
+
+# Write user code to a temp file with a JSON result extractor appended
+MARKER = "__BLENDER_CLI_RESULT_JSON__"
+wrapper_suffix = """
+import json as _json
+try:
+    _result_val = result
+except NameError:
+    _result_val = None
+print(f"{MARKER}")
+print(_json.dumps(_result_val))
+"""
+
+temp_fd, temp_path = tempfile.mkstemp(suffix=".py", prefix="blender_cli_")
+try:
+    with os.fdopen(temp_fd, 'w') as f:
+        f.write(user_code)
+        f.write("\\n")
+        f.write(wrapper_suffix)
+
+    proc = subprocess.run(
+        ["blender", "--background", blend_file, "--python", temp_path],
+        capture_output=True,
+        text=True
+    )
+finally:
+    os.unlink(temp_path)
+
+# Parse the result JSON from stdout using the marker
+parsed_result = None
+stdout_lines = proc.stdout.split("\\n")
+for i, line in enumerate(stdout_lines):
+    if MARKER in line and i + 1 < len(stdout_lines):
+        try:
+            parsed_result = json.loads(stdout_lines[i + 1])
+        except (json.JSONDecodeError, IndexError):
+            pass
+        break
+
+result = {"result": parsed_result, "stdout": proc.stdout, "stderr": proc.stderr, "returncode": proc.returncode}
+`.trim();
+    }
 
     case "get_objects_summary":
       return `
@@ -229,15 +278,65 @@ if not guesses: guesses.append({"use_case": "General 3D Modeling", "certainty": 
 result = {"usage_guesses": guesses}
 `.trim();
 
-    // CLI variants — same as interactive for direct addon
+    // CLI variants — spawn background Blender process for file inspection
     case "get_blendfile_summary_datablocks_for_cli":
     case "get_blendfile_summary_missing_files_for_cli":
     case "get_blendfile_summary_of_linked_libraries_for_cl":
     case "get_blendfile_summary_path_info_for_cli":
-    case "get_blendfile_summary_usage_guess_for_cli":
-      // Strip _for_cli suffix and recurse
-      const baseToolName = toolName.replace(/_for_cli?$/, "").replace(/_for_cl$/, "");
-      return generateCodeForTool(baseToolName, args);
+    case "get_blendfile_summary_usage_guess_for_cli": {
+      const blendFileCli = args.blend_file as string;
+      // Get the corresponding interactive tool's query code
+      const baseToolNameCli = toolName.replace(/_for_cli?$/, "").replace(/_for_cl$/, "");
+      const queryCode = generateCodeForTool(baseToolNameCli, args);
+      return `
+import subprocess, json, tempfile, os
+
+blend_file = ${JSON.stringify(blendFileCli)}
+
+# The query code to run inside the background Blender process
+query_code = ${JSON.stringify(queryCode)}
+
+# Append a JSON result extractor to the query code
+MARKER = "__BLENDER_CLI_RESULT_JSON__"
+wrapper_suffix = """
+import json as _json
+try:
+    _result_val = result
+except NameError:
+    _result_val = None
+print(f"{MARKER}")
+print(_json.dumps(_result_val))
+"""
+
+temp_fd, temp_path = tempfile.mkstemp(suffix=".py", prefix="blender_cli_")
+try:
+    with os.fdopen(temp_fd, 'w') as f:
+        f.write(query_code)
+        f.write("\\n")
+        f.write(wrapper_suffix)
+
+    proc = subprocess.run(
+        ["blender", "--background", blend_file, "--python", temp_path],
+        capture_output=True,
+        text=True
+    )
+finally:
+    os.unlink(temp_path)
+
+# Parse the result JSON from stdout using the marker
+parsed_result = None
+stdout_lines = proc.stdout.split("\\n")
+for i, line in enumerate(stdout_lines):
+    if MARKER in line and i + 1 < len(stdout_lines):
+        try:
+            parsed_result = json.loads(stdout_lines[i + 1])
+        except (json.JSONDecodeError, IndexError):
+            pass
+        break
+
+result = {"result": parsed_result, "stdout": proc.stdout, "stderr": proc.stderr, "returncode": proc.returncode}
+`.trim();
+    }
 
     case "get_screenshot_of_area_as_image":
       return `
@@ -421,9 +520,85 @@ except Exception as e:
 `.trim();
 
     case "search_api_docs":
+      return `
+import pkgutil, inspect, importlib
+query = ${JSON.stringify(args.query)}.lower()
+results = []
+modules_to_search = ["bpy", "bpy.types", "bpy.ops", "bpy.props", "bpy.utils", "mathutils", "bmesh", "gpu", "bgl", "aud", "bl_math", "freestyle", "idprop"]
+for mod_name in modules_to_search:
+    try:
+        mod = importlib.import_module(mod_name)
+    except ImportError:
+        continue
+    if query in mod_name.lower():
+        doc = (mod.__doc__ or "")[:200]
+        results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100})
+    for attr_name in dir(mod):
+        if attr_name.startswith("_"):
+            continue
+        full_name = f"{mod_name}.{attr_name}"
+        try:
+            obj = getattr(mod, attr_name)
+        except Exception:
+            continue
+        obj_doc = getattr(obj, "__doc__", "") or ""
+        name_match = query in attr_name.lower()
+        doc_match = query in obj_doc[:500].lower()
+        if name_match or doc_match:
+            score = 90 if name_match else 50
+            if inspect.isclass(obj):
+                obj_type = "class"
+            elif inspect.isfunction(obj) or inspect.isbuiltin(obj):
+                obj_type = "function"
+            elif inspect.ismodule(obj):
+                obj_type = "module"
+            else:
+                obj_type = "attribute"
+            results.append({"module_path": mod_name, "name": attr_name, "type": obj_type, "docstring": obj_doc[:200], "score": score})
+results.sort(key=lambda x: x["score"], reverse=True)
+results = results[:20]
+result = {"query": ${JSON.stringify(args.query)}, "results": results}
+`.trim();
+
     case "search_manual_docs":
       return `
-result = {"query": ${JSON.stringify(args.query)}, "results": [], "note": "Documentation search requires the blender-mcp CLI server"}
+import pkgutil, inspect, importlib
+query = ${JSON.stringify(args.query)}.lower()
+results = []
+modules_to_search = ["bpy", "bpy.types", "bpy.ops", "bpy.props", "bpy.utils", "bpy.path", "bpy.app", "mathutils", "bmesh", "gpu", "bgl", "aud", "bl_math", "freestyle", "idprop"]
+for mod_name in modules_to_search:
+    try:
+        mod = importlib.import_module(mod_name)
+    except ImportError:
+        continue
+    if query in mod_name.lower():
+        doc = (mod.__doc__ or "")[:200]
+        results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100})
+    for attr_name in dir(mod):
+        if attr_name.startswith("_"):
+            continue
+        full_name = f"{mod_name}.{attr_name}"
+        try:
+            obj = getattr(mod, attr_name)
+        except Exception:
+            continue
+        obj_doc = getattr(obj, "__doc__", "") or ""
+        name_match = query in attr_name.lower()
+        doc_match = query in obj_doc[:500].lower()
+        if name_match or doc_match:
+            score = 90 if name_match else 50
+            if inspect.isclass(obj):
+                obj_type = "class"
+            elif inspect.isfunction(obj) or inspect.isbuiltin(obj):
+                obj_type = "function"
+            elif inspect.ismodule(obj):
+                obj_type = "module"
+            else:
+                obj_type = "attribute"
+            results.append({"module_path": mod_name, "name": attr_name, "type": obj_type, "docstring": obj_doc[:200], "score": score})
+results.sort(key=lambda x: x["score"], reverse=True)
+results = results[:20]
+result = {"query": ${JSON.stringify(args.query)}, "results": results, "note": "Results from Blender Python API introspection of available documentation resources"}
 `.trim();
 
     default:

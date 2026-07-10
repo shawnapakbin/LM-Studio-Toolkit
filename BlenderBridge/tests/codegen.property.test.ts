@@ -149,7 +149,12 @@ describe("codegen property tests", () => {
           const code = generateCreateObjectCode(params);
           const [x, y, z] = params.scale!;
           const expectedTuple = `(${toPythonFloat(x)}, ${toPythonFloat(y)}, ${toPythonFloat(z)})`;
-          expect(code).toContain(`scale=${expectedTuple}`);
+          // Torus doesn't support scale as a parameter — it's applied post-creation via obj.scale
+          if (params.geometryType === "torus") {
+            expect(code).toContain(`obj.scale = ${expectedTuple}`);
+          } else {
+            expect(code).toContain(`scale=${expectedTuple}`);
+          }
         }),
         { numRuns: 100 },
       );

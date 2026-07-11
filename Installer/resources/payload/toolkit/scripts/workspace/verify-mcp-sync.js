@@ -12,10 +12,14 @@ const expectedServers = {
   calculator: "Calculator/dist/mcp-server.js",
   "document-scraper": "DocumentScraper/dist/mcp-server.js",
   clock: "Clock/dist/mcp-server.js",
-  browserless: "Browserless/dist/mcp-server.js",
   "ask-user": "AskUser/dist/mcp-server.js",
   rag: "RAG/dist/mcp-server.js",
   "python-shell": "PythonShell/dist/mcp-server.js",
+};
+
+// Command-based servers (external, no local script path)
+const expectedCommandServers = {
+  browserless: { command: "npx", args: ["-y", "@browserless.io/mcp"] },
 };
 
 const marker = "## Complete `mcp.json` Example";
@@ -78,6 +82,36 @@ for (const [serverKey, expectedPath] of Object.entries(expectedServers)) {
   }
 
   console.log(`✓ ${serverKey} path synchronized`);
+}
+
+// Verify command-based servers
+for (const [serverKey, expected] of Object.entries(expectedCommandServers)) {
+  const server = parsed.mcpServers[serverKey];
+
+  if (!server) {
+    console.error(`✗ README mcp.json missing server '${serverKey}'.`);
+    failed = true;
+    continue;
+  }
+
+  if (server.command !== expected.command) {
+    console.error(
+      `✗ Server '${serverKey}' command should be '${expected.command}', got '${server.command}'.`,
+    );
+    failed = true;
+    continue;
+  }
+
+  const args = Array.isArray(server.args) ? server.args : [];
+  const hasExpectedArg = expected.args.every((a) => args.includes(a));
+
+  if (!hasExpectedArg) {
+    console.error(`✗ Server '${serverKey}' args do not include '${expected.args.join(" ")}'.`);
+    failed = true;
+    continue;
+  }
+
+  console.log(`✓ ${serverKey} command synchronized`);
 }
 
 if (failed) {

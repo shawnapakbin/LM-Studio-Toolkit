@@ -46,13 +46,12 @@ const servers = {
     },
   },
   browserless: {
-    relativeScript: "Browserless/dist/mcp-server.js",
+    external: true,
+    command: "npx",
+    args: ["-y", "@browserless.io/mcp"],
     env: {
-      BROWSERLESS_API_KEY: "",
-      BROWSERLESS_DEFAULT_REGION: "production-sfo",
-      BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000",
-      BROWSERLESS_MAX_TIMEOUT_MS: "120000",
-      BROWSERLESS_CONCURRENCY_LIMIT: "5",
+      BROWSERLESS_TOKEN: "",
+      BROWSERLESS_API_URL: "",
     },
   },
   "ask-user": {
@@ -136,7 +135,7 @@ function buildMcpServers() {
     if (serverConfig.external) {
       if (!isBinaryOnPath(serverConfig.command)) {
         console.warn(
-          `[mcp-config] Warning: "${serverConfig.command}" missing or non-executable — skipping "${serverName}" entry`
+          `[mcp-config] Warning: "${serverConfig.command}" missing or non-executable — skipping "${serverName}" entry`,
         );
         continue;
       }

@@ -20,7 +20,7 @@ const tools = [
   { name: "Calculator", dist: "Calculator/dist/mcp-server.js" },
   { name: "DocumentScraper", dist: "DocumentScraper/dist/mcp-server.js" },
   { name: "Clock", dist: "Clock/dist/mcp-server.js" },
-  { name: "Browserless", dist: "Browserless/dist/mcp-server.js" },
+  { name: "Browserless", external: true, command: "npx", args: ["-y", "@browserless.io/mcp"] },
   { name: "AskUser", dist: "AskUser/dist/mcp-server.js" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js" },
   { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js" },
@@ -31,6 +31,13 @@ const tools = [
 
 function smokeTest(tool) {
   return new Promise((resolve) => {
+    // External/command-based tools (e.g. npx packages) — skip smoke test
+    if (tool.external) {
+      console.log(`⊘ ${tool.name}: external (${tool.command}) — skipped`);
+      resolve(true);
+      return;
+    }
+
     const fullPath = path.join(repoRoot, tool.dist);
     let exitCode = null;
     let stderr = "";

@@ -264,14 +264,11 @@ npm run mcp:sync-lmstudio
 			}
 		},
 		"browserless": {
-			"command": "node",
-			"args": ["Browserless/dist/mcp-server.js"],
+			"command": "npx",
+			"args": ["-y", "@browserless.io/mcp"],
 			"env": {
-				"BROWSERLESS_API_KEY": "",
-				"BROWSERLESS_DEFAULT_REGION": "production-sfo",
-				"BROWSERLESS_DEFAULT_TIMEOUT_MS": "30000",
-				"BROWSERLESS_MAX_TIMEOUT_MS": "120000",
-				"BROWSERLESS_CONCURRENCY_LIMIT": "5"
+				"BROWSERLESS_TOKEN": "",
+				"BROWSERLESS_API_URL": ""
 			}
 		},
 		"ask-user": {

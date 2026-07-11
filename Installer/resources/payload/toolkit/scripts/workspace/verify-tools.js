@@ -24,8 +24,9 @@ const tools = [
   { name: "Clock", dist: "Clock/dist/mcp-server.js", src: "Clock/src/mcp-server.ts" },
   {
     name: "Browserless",
-    dist: "Browserless/dist/mcp-server.js",
-    src: "Browserless/src/mcp-server.ts",
+    external: true,
+    command: "npx",
+    args: ["-y", "@browserless.io/mcp"],
   },
   { name: "AskUser", dist: "AskUser/dist/mcp-server.js", src: "AskUser/src/mcp-server.ts" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js", src: "RAG/src/mcp-server.ts" },
@@ -49,6 +50,12 @@ const tools = [
 let failed = false;
 
 for (const tool of tools) {
+  // External/command-based tools — skip file verification
+  if (tool.external) {
+    console.log(`⊘ ${tool.name}: external (${tool.command}) — skipped`);
+    continue;
+  }
+
   const srcPath = path.join(repoRoot, tool.src);
   const distPath = path.join(repoRoot, tool.dist);
 

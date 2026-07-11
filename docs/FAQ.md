@@ -8,6 +8,8 @@ Common issues and solutions encountered when running this toolkit.
 
 ### Q: After changing my Browserless API key in LM Studio, I get `Cannot find module '...Browserless/dist/mcp-server.js'`. Why?
 
+> **Note:** This FAQ entry applies to the **legacy** internal Browserless MCP server (prior to v2 migration). The current setup uses `npx -y @browserless.io/mcp` and does not require a local `dist/` build. If you're seeing this error, run `npm run sync` to regenerate your LM Studio config.
+
 **Symptom**
 
 LM Studio logs show:
@@ -16,52 +18,22 @@ LM Studio logs show:
 Error: Cannot find module 'C:\Users\<you>\.lmstudio\extensions\plugins\mcp\browserless\Browserless\dist\mcp-server.js'
 ```
 
-**Root cause**
+**Fix (current architecture)**
 
-LM Studio's MCP bridge resolves the `args` path in `mcp-bridge-config.json` relative to a working directory. When no `cwd` is set in that config, LM Studio falls back to the plugin folder itself:
-
-```
-C:\Users\<you>\.lmstudio\extensions\plugins\mcp\browserless\
-```
-
-That folder only contains three config files — no `Browserless/dist/` subfolder — so Node.js cannot find `mcp-server.js`.
-
-This is unrelated to the API key. Changing the key in LM Studio rewrites `mcp-bridge-config.json`, and if `cwd` was not preserved in that rewrite, the path resolution breaks on the next restart.
-
-**Fix**
-
-Add a `cwd` field to `mcp-bridge-config.json` pointing to your workspace root. The file lives at:
-
-```
-C:\Users\<you>\.lmstudio\extensions\plugins\mcp\browserless\mcp-bridge-config.json
-```
-
-Edit it to include `cwd`:
+Run `npm run sync` from the toolkit root. This regenerates the `mcp-bridge-config.json` to use the official hosted Browserless.io MCP server:
 
 ```json
 {
-  "command": "node",
-  "args": ["Browserless/dist/mcp-server.js"],
-  "cwd": "C:\\Users\\<you>\\Development\\llm-toolkit",
+  "command": "npx",
+  "args": ["-y", "@browserless.io/mcp"],
   "env": {
-    "BROWSERLESS_API_KEY": "your-api-key-here",
-    "BROWSERLESS_DEFAULT_REGION": "production-sfo",
-    "BROWSERLESS_DEFAULT_TIMEOUT_MS": "30000",
-    "BROWSERLESS_MAX_TIMEOUT_MS": "120000",
-    "BROWSERLESS_CONCURRENCY_LIMIT": "5"
+    "BROWSERLESS_TOKEN": "your-token-here",
+    "BROWSERLESS_API_URL": ""
   }
 }
 ```
 
-Replace `<you>` and the `cwd` path with your actual username and workspace location.
-
-**Why `args` stays relative**
-
-The `args` path (`Browserless/dist/mcp-server.js`) is intentionally relative so the config works across machines. Only `cwd` is machine-specific, and it lives in your local LM Studio config — not in the repository.
-
-**After editing**
-
-Restart LM Studio. The Browserless MCP server should connect and all 7 tools should be available.
+Restart LM Studio after syncing.
 
 ---
 

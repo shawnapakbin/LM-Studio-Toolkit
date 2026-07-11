@@ -46,6 +46,11 @@ function isPlaceholderEnvValue(key, value) {
     return false;
   }
 
+  if (key === "BROWSERLESS_TOKEN" && normalized === "your-browserless-api-token-here") {
+    return true;
+  }
+
+  // Legacy key fallback check
   if (key === "BROWSERLESS_API_KEY" && normalized === "your-browserless-api-token-here") {
     return true;
   }
@@ -127,7 +132,11 @@ function main() {
     const existingPluginConfig = readJsonSafe(targetFile);
     const topLevelServerConfig =
       topLevelServers && typeof topLevelServers === "object" ? topLevelServers[serverName] : null;
-    const mergedConfig = mergeServerConfig(serverConfig, topLevelServerConfig, existingPluginConfig);
+    const mergedConfig = mergeServerConfig(
+      serverConfig,
+      topLevelServerConfig,
+      existingPluginConfig,
+    );
 
     const json = `${JSON.stringify(mergedConfig, null, 2)}\n`;
     writeUtf8NoBom(targetFile, json);

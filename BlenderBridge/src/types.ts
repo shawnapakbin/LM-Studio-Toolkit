@@ -9,7 +9,7 @@ export interface BlenderBridgeConfig {
   blenderMcpPort: number; // default 9876, range 1-65535
   blenderMcpCommand: string; // default "blender-mcp"
   blenderMcpArgs: string[]; // default [], max combined 1024 chars
-  threeDToolHost: string; // default "http://localhost:3344"
+  threeDToolHost: string; // deprecated — retained for backward compatibility, unused
   healthCheckTimeoutMs: number; // default 5000
   operationTimeoutMs: number; // default 30000; timeout triggers at elapsed >= 30.0s
 }

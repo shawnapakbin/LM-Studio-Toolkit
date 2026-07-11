@@ -1,7 +1,6 @@
 /**
  * blender_export_to_viewer orchestration tool.
- * Exports the active Blender object as OBJ, probes 3DTool /health,
- * and POSTs to /api/load if the viewer is available.
+ * Exports the active Blender object as OBJ to the tmp/ directory.
  *
  * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
  */
@@ -39,51 +38,8 @@ const defaultHttpClient: HttpClient = {
 };
 
 /**
- * Probes the 3DTool /health endpoint with a 3-second timeout.
- * Returns true if the viewer is reachable.
- *
- * Requirement 8.2: 3DTool /health probe on port 3344 within 3s.
- */
-async function probe3DToolHealth(threeDToolHost: string, httpClient: HttpClient): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-
-    const response = await httpClient.fetch(`${threeDToolHost}/health`, {
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * POSTs the exported file path to 3DTool /api/load.
- */
-async function post3DToolLoad(
-  threeDToolHost: string,
-  filePath: string,
-  workspace: string,
-  httpClient: HttpClient,
-): Promise<boolean> {
-  try {
-    const response = await httpClient.fetch(`${threeDToolHost}/api/load`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filePath, workspace }),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Creates the blender_export_to_viewer tool handler.
- * Exports the active object as OBJ and optionally triggers 3DTool viewer.
+ * Exports the active object as OBJ and returns the file path.
  */
 export function createExportToViewerTool(
   config: BlenderBridgeConfig,
@@ -93,8 +49,8 @@ export function createExportToViewerTool(
   return {
     name: "blender_export_to_viewer",
     description:
-      "Exports the active Blender object as OBJ to the tmp/ directory and " +
-      "triggers the 3DTool viewer to load it. Returns the file path and viewer status.",
+      "Exports the active Blender object as OBJ to the tmp/ directory. " +
+      "Returns the exported file path for use with render previews or external viewers.",
     inputSchema: z.object({}),
     handler: async (): Promise<ToolResult> => {
       // First, check for active object by running a quick query
@@ -181,34 +137,18 @@ export function createExportToViewerTool(
         };
       }
 
-      // Requirement 8.2: BOTH conditions must pass before POSTing to /api/load:
-      // a. Probe 3DTool /health on :3344 (3s timeout)
-      // b. Verify OBJ file exists on disk (fs.existsSync)
-      const viewerAvailable = await probe3DToolHealth(config.threeDToolHost, httpClient);
+      // Verify file was created
       const fileExists = fs.existsSync(outputPath);
 
-      let viewerTriggered = false;
-
-      if (viewerAvailable && fileExists) {
-        // Requirement 8.1: POST to /api/load with file path and workspace
-        const workspace = path.dirname(outputPath);
-        viewerTriggered = await post3DToolLoad(
-          config.threeDToolHost,
-          outputPath,
-          workspace,
-          httpClient,
-        );
-      }
-
-      // Requirement 8.3: If viewer not reachable, return file path with "viewer unavailable" message
       const response: Record<string, unknown> = {
         success: true,
         filePath: outputPath,
-        viewerTriggered,
+        fileExists,
+        viewerTriggered: false,
       };
 
-      if (!viewerAvailable) {
-        response.message = "3DTool viewer is not running. File exported successfully.";
+      if (!fileExists) {
+        response.message = "Export command completed but file was not found on disk.";
       }
 
       return {

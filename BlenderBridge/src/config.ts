@@ -26,7 +26,7 @@ export function loadConfig(): BlenderBridgeConfig {
     blenderMcpPort: port,
     blenderMcpCommand: command,
     blenderMcpArgs: args,
-    threeDToolHost: "http://localhost:3344",
+    threeDToolHost: "http://localhost:3344", // deprecated — unused, retained for interface compat
     healthCheckTimeoutMs: 5000,
     operationTimeoutMs: 30000,
   };

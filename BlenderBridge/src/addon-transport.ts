@@ -162,7 +162,7 @@ try:
     _result_val = result
 except NameError:
     _result_val = None
-print(f"{MARKER}")
+print("__BLENDER_CLI_RESULT_JSON__")
 print(_json.dumps(_result_val))
 """
 
@@ -304,7 +304,7 @@ try:
     _result_val = result
 except NameError:
     _result_val = None
-print(f"{MARKER}")
+print("__BLENDER_CLI_RESULT_JSON__")
 print(_json.dumps(_result_val))
 """
 
@@ -524,6 +524,7 @@ except Exception as e:
       return `
 import inspect, importlib
 query = ${JSON.stringify(args.query)}.lower()
+query_terms = [t for t in query.split() if len(t) > 1]
 results = []
 modules_to_search = ["bpy", "bpy.types", "bpy.ops", "bpy.props", "bpy.utils", "mathutils", "bmesh", "gpu", "bgl", "aud", "bl_math", "freestyle", "idprop"]
 for mod_name in modules_to_search:
@@ -531,17 +532,18 @@ for mod_name in modules_to_search:
         mod = importlib.import_module(mod_name)
     except ImportError:
         continue
-    if query in mod_name.lower():
+    mod_name_lower = mod_name.lower()
+    mod_matches = sum(1 for t in query_terms if t in mod_name_lower)
+    if mod_matches > 0:
         doc = ""
         try:
             doc = (mod.__doc__ or "")[:200]
         except Exception:
             pass
-        results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100})
+        results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100 * mod_matches // len(query_terms)})
     for attr_name in dir(mod):
         if attr_name.startswith("_"):
             continue
-        full_name = f"{mod_name}.{attr_name}"
         try:
             obj = getattr(mod, attr_name)
         except Exception:
@@ -550,10 +552,13 @@ for mod_name in modules_to_search:
             obj_doc = str(getattr(obj, "__doc__", None) or "")
         except Exception:
             obj_doc = ""
-        name_match = query in attr_name.lower()
-        doc_match = query in obj_doc[:500].lower()
-        if name_match or doc_match:
-            score = 90 if name_match else 50
+        attr_lower = attr_name.lower()
+        doc_lower = obj_doc[:500].lower()
+        name_hits = sum(1 for t in query_terms if t in attr_lower)
+        doc_hits = sum(1 for t in query_terms if t in doc_lower)
+        total_hits = name_hits + doc_hits
+        if total_hits > 0:
+            score = min(100, 40 * name_hits + 20 * doc_hits)
             try:
                 if inspect.isclass(obj):
                     obj_type = "class"
@@ -575,6 +580,7 @@ result = {"query": ${JSON.stringify(args.query)}, "results": results}
       return `
 import inspect, importlib
 query = ${JSON.stringify(args.query)}.lower()
+query_terms = [t for t in query.split() if len(t) > 1]
 results = []
 modules_to_search = ["bpy", "bpy.types", "bpy.ops", "bpy.props", "bpy.utils", "bpy.path", "bpy.app", "mathutils", "bmesh", "gpu", "bgl", "aud", "bl_math", "freestyle", "idprop"]
 for mod_name in modules_to_search:
@@ -582,17 +588,18 @@ for mod_name in modules_to_search:
         mod = importlib.import_module(mod_name)
     except ImportError:
         continue
-    if query in mod_name.lower():
+    mod_name_lower = mod_name.lower()
+    mod_matches = sum(1 for t in query_terms if t in mod_name_lower)
+    if mod_matches > 0:
         doc = ""
         try:
             doc = (mod.__doc__ or "")[:200]
         except Exception:
             pass
-        results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100})
+        results.append({"module_path": mod_name, "name": mod_name, "type": "module", "docstring": doc, "score": 100 * mod_matches // len(query_terms)})
     for attr_name in dir(mod):
         if attr_name.startswith("_"):
             continue
-        full_name = f"{mod_name}.{attr_name}"
         try:
             obj = getattr(mod, attr_name)
         except Exception:
@@ -601,10 +608,13 @@ for mod_name in modules_to_search:
             obj_doc = str(getattr(obj, "__doc__", None) or "")
         except Exception:
             obj_doc = ""
-        name_match = query in attr_name.lower()
-        doc_match = query in obj_doc[:500].lower()
-        if name_match or doc_match:
-            score = 90 if name_match else 50
+        attr_lower = attr_name.lower()
+        doc_lower = obj_doc[:500].lower()
+        name_hits = sum(1 for t in query_terms if t in attr_lower)
+        doc_hits = sum(1 for t in query_terms if t in doc_lower)
+        total_hits = name_hits + doc_hits
+        if total_hits > 0:
+            score = min(100, 40 * name_hits + 20 * doc_hits)
             try:
                 if inspect.isclass(obj):
                     obj_type = "class"

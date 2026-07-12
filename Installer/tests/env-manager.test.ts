@@ -16,64 +16,64 @@ describe("resolveBrowserlessToken", () => {
     warnSpy.mockRestore();
   });
 
-  test("returns BROWSERLESS_TOKEN when it is non-empty", () => {
+  test("returns BROWSERLESS_API_KEY when it is non-empty", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "my-token",
-      BROWSERLESS_API_KEY: "legacy-key",
+      BROWSERLESS_API_KEY: "my-key",
+      BROWSERLESS_TOKEN: "legacy-token",
     });
-    expect(result).toBe("my-token");
+    expect(result).toBe("my-key");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  test("trims BROWSERLESS_TOKEN before checking", () => {
+  test("trims BROWSERLESS_API_KEY before checking", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "  token-with-spaces  ",
-      BROWSERLESS_API_KEY: "legacy",
+      BROWSERLESS_API_KEY: "  key-with-spaces  ",
+      BROWSERLESS_TOKEN: "legacy",
     });
-    expect(result).toBe("token-with-spaces");
+    expect(result).toBe("key-with-spaces");
   });
 
-  test("falls back to BROWSERLESS_API_KEY when TOKEN is empty", () => {
+  test("falls back to BROWSERLESS_TOKEN when API_KEY is empty", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "",
-      BROWSERLESS_API_KEY: "fallback-key",
+      BROWSERLESS_API_KEY: "",
+      BROWSERLESS_TOKEN: "fallback-token",
     });
-    expect(result).toBe("fallback-key");
+    expect(result).toBe("fallback-token");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  test("falls back to BROWSERLESS_API_KEY when TOKEN is whitespace-only", () => {
+  test("falls back to BROWSERLESS_TOKEN when API_KEY is whitespace-only", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "   ",
-      BROWSERLESS_API_KEY: "fallback-key",
+      BROWSERLESS_API_KEY: "   ",
+      BROWSERLESS_TOKEN: "fallback-token",
     });
-    expect(result).toBe("fallback-key");
+    expect(result).toBe("fallback-token");
   });
 
-  test("falls back to BROWSERLESS_API_KEY when TOKEN is missing", () => {
+  test("falls back to BROWSERLESS_TOKEN when API_KEY is missing", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_API_KEY: "legacy-only",
+      BROWSERLESS_TOKEN: "token-only",
     });
-    expect(result).toBe("legacy-only");
+    expect(result).toBe("token-only");
   });
 
-  test("trims BROWSERLESS_API_KEY fallback value", () => {
+  test("trims BROWSERLESS_TOKEN fallback value", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "",
-      BROWSERLESS_API_KEY: "  trimmed-key  ",
+      BROWSERLESS_API_KEY: "",
+      BROWSERLESS_TOKEN: "  trimmed-token  ",
     });
-    expect(result).toBe("trimmed-key");
+    expect(result).toBe("trimmed-token");
   });
 
   test("returns empty string and warns when both are empty", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "",
       BROWSERLESS_API_KEY: "",
+      BROWSERLESS_TOKEN: "",
     });
     expect(result).toBe("");
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("BROWSERLESS_TOKEN is not configured"),
+      expect.stringContaining("BROWSERLESS_API_KEY is not configured"),
     );
   });
 
@@ -85,8 +85,8 @@ describe("resolveBrowserlessToken", () => {
 
   test("returns empty string and warns when both are whitespace-only", () => {
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "   ",
-      BROWSERLESS_API_KEY: "  ",
+      BROWSERLESS_API_KEY: "   ",
+      BROWSERLESS_TOKEN: "  ",
     });
     expect(result).toBe("");
     expect(warnSpy).toHaveBeenCalledTimes(1);
@@ -95,12 +95,12 @@ describe("resolveBrowserlessToken", () => {
   test("ignores deprecated keys without error", () => {
     // Deprecated keys in the env object should not affect resolution
     const result = resolveBrowserlessToken({
-      BROWSERLESS_TOKEN: "valid-token",
+      BROWSERLESS_API_KEY: "valid-key",
       BROWSERLESS_DEFAULT_TIMEOUT_MS: "30000",
       BROWSERLESS_MAX_TIMEOUT_MS: "60000",
       BROWSERLESS_CONCURRENCY_LIMIT: "5",
     });
-    expect(result).toBe("valid-token");
+    expect(result).toBe("valid-key");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 });

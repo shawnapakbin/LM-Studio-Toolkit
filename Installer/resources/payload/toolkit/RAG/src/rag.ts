@@ -349,10 +349,10 @@ class RAGService {
           }
         })();
         if (dynamicDomains.some((d) => urlHost.endsWith(d))) {
-          // Token resolution: BROWSERLESS_TOKEN with BROWSERLESS_API_KEY fallback
+          // Token resolution: BROWSERLESS_API_KEY with BROWSERLESS_TOKEN fallback
           const browserlessToken = (
-            process.env.BROWSERLESS_TOKEN ||
             process.env.BROWSERLESS_API_KEY ||
+            process.env.BROWSERLESS_TOKEN ||
             ""
           ).trim();
 

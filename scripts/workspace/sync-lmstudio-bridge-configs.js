@@ -46,12 +46,12 @@ function isPlaceholderEnvValue(key, value) {
     return false;
   }
 
-  if (key === "BROWSERLESS_TOKEN" && normalized === "your-browserless-api-token-here") {
+  if (key === "BROWSERLESS_API_KEY" && normalized === "your-browserless-api-key-here") {
     return true;
   }
 
   // Legacy key fallback check
-  if (key === "BROWSERLESS_API_KEY" && normalized === "your-browserless-api-token-here") {
+  if (key === "BROWSERLESS_TOKEN" && normalized === "your-browserless-api-token-here") {
     return true;
   }
 

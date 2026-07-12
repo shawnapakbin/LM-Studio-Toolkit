@@ -2,7 +2,8 @@ module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
   roots: ["<rootDir>/tests"],
-  testMatch: ["**/*.test.ts"],
+  testMatch: ["<rootDir>/tests/**/*.test.ts"],
+  testPathIgnorePatterns: ["/node_modules/", "/resources/", "/payload/"],
   extensionsToTreatAsEsm: [],
   moduleNameMapper: {
     // Stub electron so main-process modules can be imported in tests

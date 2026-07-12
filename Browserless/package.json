@@ -4,7 +4,7 @@
   "private": true,
   "description": "Configuration wrapper for the official Browserless.io hosted MCP server",
   "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "preflight": "tsx src/preflight-check.ts"
+    "preflight": "node scripts/preflight-check.js",
+    "test": "jest"
   }
 }

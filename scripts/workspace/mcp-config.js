@@ -50,7 +50,7 @@ const servers = {
     command: "npx",
     args: ["-y", "@browserless.io/mcp"],
     env: {
-      BROWSERLESS_TOKEN: "",
+      BROWSERLESS_TOKEN: "",  // Mapped from BROWSERLESS_API_KEY at sync time
       BROWSERLESS_API_URL: "",
     },
   },

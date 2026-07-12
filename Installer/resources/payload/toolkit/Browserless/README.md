@@ -24,17 +24,17 @@ The hosted Browserless MCP server provides the following tools:
 
 ## Authentication
 
-Authentication uses a Bearer token passed via the `BROWSERLESS_TOKEN` environment variable.
+Authentication uses an API key passed via the `BROWSERLESS_API_KEY` environment variable.
 
-Set the token in your `.env` file:
+Set the key in your `.env` file:
 
 ```env
-BROWSERLESS_TOKEN=your-api-token-here
+BROWSERLESS_API_KEY=your-api-key-here
 ```
 
-The token is sent as an `Authorization: Bearer <token>` header with all requests to the Browserless API.
+The key is appended as a `?token=` query parameter with all requests to the Browserless API.
 
-For backward compatibility, `BROWSERLESS_API_KEY` is accepted as a fallback if `BROWSERLESS_TOKEN` is not set.
+For backward compatibility, `BROWSERLESS_TOKEN` is accepted as a legacy fallback if `BROWSERLESS_API_KEY` is not set.
 
 ## Regional Endpoints
 

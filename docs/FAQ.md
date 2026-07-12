@@ -27,7 +27,7 @@ Run `npm run sync` from the toolkit root. This regenerates the `mcp-bridge-confi
   "command": "npx",
   "args": ["-y", "@browserless.io/mcp"],
   "env": {
-    "BROWSERLESS_TOKEN": "your-token-here",
+    "BROWSERLESS_API_KEY": "your-api-key-here",
     "BROWSERLESS_API_URL": ""
   }
 }

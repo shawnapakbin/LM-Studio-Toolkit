@@ -22,6 +22,8 @@ memory.db
 # IDE / editor metadata
 .kiro/
 .vs/
+.husky/
+.github/
 .vscode/
 .idea/
 *.swp

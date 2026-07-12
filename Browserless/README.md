@@ -1,55 +1,35 @@
 # Browserless MCP Integration
 
-> **⚠️ DEPRECATED:** The custom Browserless MCP server has been deprecated.
-> This module now delegates to the official hosted Browserless.io MCP server.
-> See: <https://docs.browserless.io/>
+This folder provides configuration and preflight validation for the official [`@browserless.io/mcp`](https://www.npmjs.com/package/@browserless.io/mcp) package.
 
-## Overview
+## How It Works
 
-This module is a configuration wrapper that delegates all browser automation to the official hosted Browserless.io MCP endpoint. It no longer contains a custom MCP server implementation. The previous custom server source is preserved in the `legacy/` directory for reference only.
+The Browserless MCP server is invoked via `npx -y @browserless.io/mcp` — no local server code is maintained in this repository. The previous custom server implementation has been removed in favor of the official package, which provides upstream bug fixes, new tools, and reduced maintenance burden.
 
-## Available Tools
+## Environment Variables
 
-The hosted Browserless MCP server provides the following tools:
+| Variable | Purpose |
+|----------|---------|
+| `BROWSERLESS_API_KEY` | Internal canonical env variable stored in `.env` |
+| `BROWSERLESS_TOKEN` | Mapped from `BROWSERLESS_API_KEY` at runtime for the official package |
+| `BROWSERLESS_API_URL` | Optional regional endpoint override |
 
-- **smartscraper** — Intelligent content extraction from web pages
-- **function** — Execute custom browser functions
-- **download** — Download files from URLs
-- **export** — Export page content in various formats
-- **search** — Perform web searches
-- **map** — Generate site maps
-- **performance** — Measure page performance metrics
-- **crawl** — Crawl websites and extract content
-- **agent** — Autonomous browser agent for complex tasks
+The setup scripts automatically map `BROWSERLESS_API_KEY` to `BROWSERLESS_TOKEN` in the bridge config so the official package authenticates correctly.
 
-## Authentication
+## Preflight Check
 
-Authentication uses a Bearer token passed via the `BROWSERLESS_TOKEN` environment variable.
+The script at `scripts/preflight-check.js` validates that Node.js 24+ is available before the MCP server is launched. If the version requirement is not met, the setup process skips the Browserless bridge config and logs a warning.
 
-Set the token in your `.env` file:
+Run it manually:
 
-```env
-BROWSERLESS_TOKEN=your-api-token-here
+```bash
+node Browserless/scripts/preflight-check.js
 ```
 
-The token is sent as an `Authorization: Bearer <token>` header with all requests to the Browserless API.
+## Documentation
 
-For backward compatibility, `BROWSERLESS_API_KEY` is accepted as a fallback if `BROWSERLESS_TOKEN` is not set.
+See [`Official-MCP-Document.md`](./Official-MCP-Document.md) for the full list of tools and capabilities provided by the official `@browserless.io/mcp` package.
 
-## Regional Endpoints
+## Migration Note
 
-Browserless.io provides the following regional endpoints:
-
-| Region | Endpoint |
-|--------|----------|
-| San Francisco (default) | `https://production-sfo.browserless.io` |
-| London | `https://production-lon.browserless.io` |
-| Amsterdam | `https://production-ams.browserless.io` |
-
-To use a specific region, set the `BROWSERLESS_API_URL` environment variable:
-
-```env
-BROWSERLESS_API_URL=https://production-lon.browserless.io
-```
-
-If `BROWSERLESS_API_URL` is not set, the San Francisco endpoint (`production-sfo`) is used by default.
+The custom MCP server (`Browserless/dist/mcp-server.js`) was removed as part of the migration to the official package. All browser automation is now handled by `@browserless.io/mcp`.

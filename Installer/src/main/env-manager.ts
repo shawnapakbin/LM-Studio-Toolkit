@@ -7,10 +7,10 @@ import type { EnvField, EnvState } from "./types";
 
 const DEFAULT_FIELDS: EnvField[] = [
   {
-    key: "BROWSERLESS_TOKEN",
+    key: "BROWSERLESS_API_KEY",
     value: "",
     required: false,
-    description: "API token for Browserless.io hosted MCP server (replaces BROWSERLESS_API_KEY).",
+    description: "API key for Browserless.io hosted MCP server (replaces legacy BROWSERLESS_TOKEN).",
   },
   {
     key: "BROWSERLESS_API_URL",
@@ -82,18 +82,18 @@ export function maskTokenForDisplay(value: string): string {
 
 /**
  * Resolves the Browserless authentication token from an environment record.
- * Priority: BROWSERLESS_TOKEN > BROWSERLESS_API_KEY (backward compat).
+ * Priority: BROWSERLESS_API_KEY > BROWSERLESS_TOKEN (backward compat).
  * Returns empty string and logs a warning if neither is set.
  */
 export function resolveBrowserlessToken(env: Record<string, string>): string {
-  const token = (env.BROWSERLESS_TOKEN ?? "").trim();
-  if (token) return token;
+  const apiKey = (env.BROWSERLESS_API_KEY ?? "").trim();
+  if (apiKey) return apiKey;
 
-  const legacyKey = (env.BROWSERLESS_API_KEY ?? "").trim();
-  if (legacyKey) return legacyKey;
+  const legacyToken = (env.BROWSERLESS_TOKEN ?? "").trim();
+  if (legacyToken) return legacyToken;
 
   console.warn(
-    "[env-manager] BROWSERLESS_TOKEN is not configured. Browserless tools will not authenticate until a token is provided.",
+    "[env-manager] BROWSERLESS_API_KEY is not configured. Browserless tools will not authenticate until a key is provided.",
   );
   return "";
 }

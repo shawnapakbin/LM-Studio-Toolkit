@@ -134,7 +134,7 @@ runSetup({ send: consoleSend, repair: IS_REPAIR }).then(() => {
   section("Setup complete!");
   console.log(`\n${c.bold}Next steps:${c.reset}`);
   console.log("  1. Open LM Studio and restart the MCP plugin.");
-  console.log("  2. If Browserless tools are needed, ensure BROWSERLESS_TOKEN is set in .env");
+  console.log("  2. If Browserless tools are needed, ensure BROWSERLESS_API_KEY is set in .env");
   console.log("  3. Run: npm run startup:check\n");
 }).catch((err) => {
   fail(`Setup failed: ${err.message}`);
@@ -183,27 +183,27 @@ async function runSetup({ send, repair }) {
     if (fs.existsSync(ENV_EXAMPLE)) {
       fs.copyFileSync(ENV_EXAMPLE, ENV_FILE);
       send("ok", ".env created from .env.example");
-      send("info", "Edit .env and set BROWSERLESS_TOKEN before using Browserless tools.");
+      send("info", "Edit .env and set BROWSERLESS_API_KEY before using Browserless tools.");
     } else {
       // Write a minimal .env
       const minimal = [
         "# LLM Toolkit environment variables",
-        "# Get your Browserless API token at https://browserless.io/account/",
-        "BROWSERLESS_TOKEN=",
+        "# Get your Browserless API key at https://browserless.io/account/",
+        "BROWSERLESS_API_KEY=",
         "# BROWSERLESS_API_URL=",
       ].join(os.EOL);
       fs.writeFileSync(ENV_FILE, minimal, "utf8");
       send("ok", ".env created with defaults");
-      send("info", "Set BROWSERLESS_TOKEN in .env before using Browserless tools.");
+      send("info", "Set BROWSERLESS_API_KEY in .env before using Browserless tools.");
     }
   } else {
     send("ok", ".env already exists — skipping (use --repair to overwrite)");
     // Validate token is not placeholder or empty
     const envContent = fs.readFileSync(ENV_FILE, "utf8");
-    const hasToken = envContent.match(/BROWSERLESS_TOKEN=\s*\S+/m) && !envContent.includes("your-browserless-api-token-here");
-    const hasLegacyKey = envContent.match(/BROWSERLESS_API_KEY=\s*\S+/m);
-    if (!hasToken && !hasLegacyKey) {
-      send("warn", "BROWSERLESS_TOKEN is not set in .env — Browserless tools will not authenticate.");
+    const hasKey = envContent.match(/BROWSERLESS_API_KEY=\s*\S+/m) && !envContent.includes("your-browserless-api-key-here");
+    const hasLegacyToken = envContent.match(/BROWSERLESS_TOKEN=\s*\S+/m);
+    if (!hasKey && !hasLegacyToken) {
+      send("warn", "BROWSERLESS_API_KEY is not set in .env — Browserless tools will not authenticate.");
     }
   }
 
@@ -263,6 +263,7 @@ async function runSetup({ send, repair }) {
 
   let synced = 0;
   let skipped = 0;
+  const syncedConfigs = {}; // Collect all successfully synced configs for top-level mcp.json
 
   for (const tool of ALL_TOOLS) {
     const serverName = toolToServerName(tool);
@@ -275,13 +276,54 @@ async function runSetup({ send, repair }) {
       continue;
     }
 
+    // Run preflight check for command-based tools before writing bridge config
+    if (COMMAND_BASED_TOOLS.includes(tool)) {
+      const preflightScript = path.join(REPO_ROOT, "Browserless", "scripts", "preflight-check.js");
+      if (fs.existsSync(preflightScript)) {
+        const preflight = spawnSync("node", [preflightScript], { stdio: "pipe" });
+        if (preflight.status !== 0) {
+          send("warn", "Browserless skipped: Node.js 24+ required");
+          skipped++;
+          continue;
+        }
+      }
+    }
+
     const config = buildBridgeConfig(tool);
     fs.writeFileSync(targetFile, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     send("ok", `Synced ${serverName}`);
+
+    // Warn if Browserless token is empty (Req 2.5)
+    if (COMMAND_BASED_TOOLS.includes(tool) && tool === "Browserless" && !config.env.BROWSERLESS_TOKEN) {
+      send("warn", "BROWSERLESS_TOKEN is empty — Browserless tools will not authenticate. Set BROWSERLESS_API_KEY in .env.");
+    }
+
+    syncedConfigs[serverName] = config;
     synced++;
   }
 
   send("info", `LM Studio sync: ${synced} updated, ${skipped} skipped (not installed).`);
+
+  // Write top-level ~/.lmstudio/mcp.json with all synced tool entries
+  if (synced > 0) {
+    try {
+      const topLevelMcpPath = path.join(os.homedir(), ".lmstudio", "mcp.json");
+      let existing = {};
+      if (fs.existsSync(topLevelMcpPath)) {
+        try {
+          existing = JSON.parse(fs.readFileSync(topLevelMcpPath, "utf8"));
+        } catch {
+          // If existing file is malformed, overwrite it
+          existing = {};
+        }
+      }
+      existing.mcpServers = { ...(existing.mcpServers || {}), ...syncedConfigs };
+      fs.writeFileSync(topLevelMcpPath, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+      send("info", "LM Studio MCP bridge configs are up to date");
+    } catch (err) {
+      send("warn", `LM Studio top-level mcp.json sync failed: ${err.message}. Continuing setup.`);
+    }
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -310,15 +352,26 @@ function toolToServerName(tool) {
 function buildBridgeConfig(tool) {
   // Command-based tools (no local binary)
   if (COMMAND_BASED_TOOLS.includes(tool)) {
-    const commandEnvMap = {
-      Browserless: { BROWSERLESS_TOKEN: readEnvKey("BROWSERLESS_TOKEN") || readEnvKey("BROWSERLESS_API_KEY"), BROWSERLESS_API_URL: readEnvKey("BROWSERLESS_API_URL") },
-    };
     const commandMap = {
       Browserless: { command: "npx", args: ["-y", "@browserless.io/mcp"] },
     };
+
+    if (tool === "Browserless") {
+      const token = readEnvKey("BROWSERLESS_API_KEY") || readEnvKey("BROWSERLESS_TOKEN");
+      const apiUrl = readEnvKey("BROWSERLESS_API_URL");
+      const env = { BROWSERLESS_TOKEN: token };
+      if (apiUrl) {
+        env.BROWSERLESS_API_URL = apiUrl;
+      }
+      return {
+        ...commandMap[tool],
+        env,
+      };
+    }
+
     return {
       ...commandMap[tool],
-      env: commandEnvMap[tool] || {},
+      env: {},
     };
   }
 

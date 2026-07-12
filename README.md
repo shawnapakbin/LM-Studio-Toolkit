@@ -267,7 +267,7 @@ npm run mcp:sync-lmstudio
 			"command": "npx",
 			"args": ["-y", "@browserless.io/mcp"],
 			"env": {
-				"BROWSERLESS_TOKEN": "",
+				"BROWSERLESS_API_KEY": "",
 				"BROWSERLESS_API_URL": ""
 			}
 		},

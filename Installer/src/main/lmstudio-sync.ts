@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { loadEnvState, resolveBrowserlessToken } from "./env-manager";
 import { TOOL_DESCRIPTORS, buildBridgeConfig } from "./mcp-config";
 import { resolveActiveNodePath } from "./runtime-manager";
 import type { LmStudioInstallationStatus, LmStudioStatus } from "./types";
@@ -102,8 +103,26 @@ export function verifyLmStudio(installRoot: string, override?: string): LmStudio
   const nodePath = resolveActiveNodePath();
   const mcpServers: Record<string, ReturnType<typeof buildBridgeConfig>> = {};
 
+  // Load env state to resolve runtime values for tools that need env remapping.
+  const envState = loadEnvState(installRoot);
+  const envRecord = Object.fromEntries(envState.fields.map((f) => [f.key, f.value]));
+
   for (const tool of TOOL_DESCRIPTORS) {
     const config = buildBridgeConfig(installRoot, tool, nodePath);
+
+    // Remap env values for the Browserless tool:
+    // - BROWSERLESS_API_KEY from .env → BROWSERLESS_TOKEN in output config
+    // - BROWSERLESS_API_URL passed through if non-empty
+    if (tool.id === "browserless") {
+      const resolvedToken = resolveBrowserlessToken(envRecord);
+      const apiUrl = (envRecord.BROWSERLESS_API_URL ?? "").trim();
+
+      config.env = {
+        BROWSERLESS_TOKEN: resolvedToken,
+        ...(apiUrl ? { BROWSERLESS_API_URL: apiUrl } : {}),
+      };
+    }
+
     mcpServers[tool.id] = config;
 
     // Also write per-plugin bridge config for the extension plugin loader.

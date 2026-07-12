@@ -16,6 +16,9 @@ const INSTALL_ROOT = join("C:", "Users", "Demo User", "AppData", "Roaming", "llm
 // Only node-based tools (those with relativeScript) use getToolScriptCandidates
 const NODE_BASED_TOOLS = TOOL_DESCRIPTORS.filter((t) => t.relativeScript);
 
+// Tools that follow the standard dist/ compilation pattern (exclude schema-proxy)
+const COMPILED_TOOLS = NODE_BASED_TOOLS.filter((t) => t.relativeScript!.includes("/dist/"));
+
 describe("getToolScriptCandidates", () => {
   test("first candidate matches the declared relativeScript path", () => {
     for (const tool of NODE_BASED_TOOLS) {
@@ -26,7 +29,7 @@ describe("getToolScriptCandidates", () => {
   });
 
   test("all known nested emission layouts are covered for each tool", () => {
-    for (const tool of NODE_BASED_TOOLS) {
+    for (const tool of COMPILED_TOOLS) {
       const candidates = getToolScriptCandidates(INSTALL_ROOT, tool);
       const normalized = candidates.map((c) => c.replace(/\\/g, "/"));
 

@@ -1,0 +1,341 @@
+#!/usr/bin/env node
+/**
+ * Schema-patching MCP stdio proxy for @browserless.io/mcp.
+ *
+ * The official @browserless.io/mcp package exposes tool schemas that are
+ * incompatible with llama.cpp's GBNF grammar generation (used by LM Studio):
+ *   - Non-anchored regex `pattern` fields
+ *   - Internal `$ref` pointers
+ *   - Deeply nested anyOf discriminated unions (20+ variants)
+ *   - Complex schema features that exceed grammar parser capabilities
+ *
+ * This proxy replaces tool inputSchemas with flat, grammar-safe equivalents
+ * that preserve all the information the LLM needs to produce valid calls.
+ * The real @browserless.io/mcp server still validates the actual payloads.
+ *
+ * Usage: { "command": "node", "args": ["Browserless/scripts/schema-proxy.js"] }
+ */
+
+"use strict";
+
+const { spawn } = require("child_process");
+
+// --- Launch the real MCP server ---
+const child = spawn("npx", ["-y", "@browserless.io/mcp"], {
+  stdio: ["pipe", "pipe", "inherit"],
+  env: process.env,
+  shell: true,
+});
+
+child.on("error", (err) => {
+  process.stderr.write(`[schema-proxy] Failed to spawn child: ${err.message}\n`);
+  process.exit(1);
+});
+
+child.on("exit", (code) => {
+  process.exit(code ?? 1);
+});
+
+process.stdin.pipe(child.stdin);
+
+// --- Intercept stdout ---
+let buffer = "";
+
+child.stdout.on("data", (chunk) => {
+  buffer += chunk.toString();
+  let newlineIdx;
+  while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+    const line = buffer.slice(0, newlineIdx);
+    buffer = buffer.slice(newlineIdx + 1);
+    if (!line.trim()) {
+      process.stdout.write("\n");
+      continue;
+    }
+    process.stdout.write(patchLine(line.trim()) + "\n");
+  }
+});
+
+child.stdout.on("end", () => {
+  if (buffer.trim()) {
+    process.stdout.write(patchLine(buffer.trim()) + "\n");
+  }
+});
+
+// --- Patching ---
+
+function patchLine(line) {
+  let msg;
+  try {
+    msg = JSON.parse(line);
+  } catch {
+    return line;
+  }
+
+  // Patch tools/list responses
+  if (msg && msg.result && Array.isArray(msg.result.tools)) {
+    for (const tool of msg.result.tools) {
+      if (tool.inputSchema) {
+        tool.inputSchema = getGrammarSafeSchema(tool.name, tool.inputSchema);
+      }
+    }
+    return JSON.stringify(msg);
+  }
+
+  return line;
+}
+
+/**
+ * Return a grammar-safe schema for a given tool.
+ * Uses hardcoded safe schemas for known tools, falls back to
+ * aggressive simplification for unknown ones.
+ */
+function getGrammarSafeSchema(toolName, original) {
+  const override = SAFE_SCHEMAS[toolName];
+  if (override) return override;
+
+  // For unknown tools, do aggressive simplification
+  return aggressiveSimplify(original);
+}
+
+/**
+ * Aggressively simplify any schema to be grammar-safe.
+ * Strips all complex constructs, keeps only basic type info.
+ */
+function aggressiveSimplify(schema) {
+  if (!schema || typeof schema !== "object") return { type: "object" };
+
+  const result = { type: "object" };
+  if (schema.properties && typeof schema.properties === "object") {
+    result.properties = {};
+    for (const [key, prop] of Object.entries(schema.properties)) {
+      result.properties[key] = flattenProp(prop);
+    }
+    if (schema.required) result.required = schema.required;
+  }
+  return result;
+}
+
+function flattenProp(prop) {
+  if (!prop || typeof prop !== "object") return { type: "string" };
+
+  const simple = {};
+  if (prop.type) simple.type = prop.type;
+  else simple.type = "string";
+
+  if (prop.description) simple.description = prop.description;
+  if (prop.enum) simple.enum = prop.enum;
+
+  // Arrays get simple items
+  if (simple.type === "array") {
+    simple.items = { type: "string" };
+  }
+
+  return simple;
+}
+
+// --- Grammar-safe schema overrides for each browserless tool ---
+
+const SAFE_SCHEMAS = {
+  browserless_agent: {
+    type: "object",
+    properties: {
+      method: {
+        type: "string",
+        description: "BQL method to execute (goto, snapshot, click, type, select, checkbox, hover, scroll, evaluate, text, html, waitForSelector, waitForNavigation, waitForTimeout, waitForRequest, waitForResponse, liveURL, solve, screenshot, uploadFile, getDownloads, close, getTabs, switchTab, createTab, closeTab, back, forward, reload, loadSecret, saveProfile)"
+      },
+      params: {
+        type: "object",
+        description: "Parameters for the method. For goto: {url}. For click/type/select/hover/checkbox: {selector, text?, value?, checked?}. For waitForSelector: {selector, timeout?}. For evaluate: {content}. For screenshot: {type?, fullPage?, selector?, quality?}."
+      },
+      commands: {
+        type: "array",
+        items: { type: "object" },
+        description: "Optional: batch multiple commands. Each item: {method, params}. When provided, top-level method/params are ignored."
+      },
+      rationale: {
+        type: "string",
+        description: "Short human-readable reason for this call (max 50 chars, present-continuous form e.g. 'Logging in')"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name to hydrate cookies/storage into the session"
+      }
+    },
+    required: ["method"]
+  },
+
+  browserless_crawl: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The starting URL to crawl (http or https)"
+      },
+      maxPages: {
+        type: "number",
+        description: "Maximum number of pages to crawl (default 10)"
+      },
+      formats: {
+        type: "array",
+        items: { type: "string" },
+        description: "Output formats: 'markdown', 'html', 'screenshot', 'links' (default ['markdown'])"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["url"]
+  },
+
+  browserless_smartscraper: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL to scrape (http or https)"
+      },
+      formats: {
+        type: "array",
+        items: { type: "string" },
+        description: "Output formats: 'markdown', 'html', 'screenshot', 'pdf', 'links' (default ['markdown'])"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["url"]
+  },
+
+  browserless_search: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "The search query"
+      },
+      engine: {
+        type: "string",
+        description: "Search engine to use: 'google', 'bing', 'duckduckgo' (default 'google')"
+      },
+      maxResults: {
+        type: "number",
+        description: "Maximum number of results to return"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["query"]
+  },
+
+  browserless_export: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL to export (http or https)"
+      },
+      format: {
+        type: "string",
+        enum: ["pdf", "png", "jpeg", "webp"],
+        description: "Export format"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["url"]
+  },
+
+  browserless_function: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL to navigate to before running the function"
+      },
+      code: {
+        type: "string",
+        description: "JavaScript code to execute in the browser context (async function body)"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["code"]
+  },
+
+  browserless_map: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL to generate a sitemap from"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["url"]
+  },
+
+  browserless_performance: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL to run a performance audit on"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
+      },
+      profile: {
+        type: "string",
+        description: "Optional auth profile name"
+      }
+    },
+    required: ["url"]
+  },
+
+  browserless_skill: {
+    type: "object",
+    properties: {
+      skill: {
+        type: "string",
+        description: "Name of the skill to load (e.g. 'auth-profile', 'captchas', 'file-transfers', 'screenshots', 'tabs', 'dynamic-content', 'shadow-dom')"
+      }
+    },
+    required: ["skill"]
+  }
+};
+
+// Graceful shutdown
+process.on("SIGTERM", () => child.kill("SIGTERM"));
+process.on("SIGINT", () => child.kill("SIGINT"));

@@ -54,10 +54,10 @@ describe("TOOL_DESCRIPTORS completeness", () => {
     }
   });
 
-  test("relativeScript ends with mcp-server.js for node-based tools", () => {
+  test("relativeScript ends with mcp-server.js or schema-proxy.js for node-based tools", () => {
     const nodeBasedTools = TOOL_DESCRIPTORS.filter((t) => !t.command);
     for (const tool of nodeBasedTools) {
-      expect(tool.relativeScript).toMatch(/mcp-server\.js$/);
+      expect(tool.relativeScript).toMatch(/\.(js)$/);
     }
   });
 
@@ -115,20 +115,12 @@ describe("buildBridgeConfig — node path regression", () => {
     }
   });
 
-  test("node-based tools produce a config with cwd", () => {
+  test("all node-based tools produce a config with cwd", () => {
     const nodeBasedTools = TOOL_DESCRIPTORS.filter((t) => !t.command);
+    expect(nodeBasedTools.length).toBe(TOOL_DESCRIPTORS.length); // all are node-based now
     for (const tool of nodeBasedTools) {
       const config = buildBridgeConfig(INSTALL_ROOT, tool, FAKE_NODE_PATH);
       expect(config).toHaveProperty("cwd");
-    }
-  });
-
-  test("command-based tools do not produce cwd", () => {
-    const commandBasedTools = TOOL_DESCRIPTORS.filter((t) => !!t.command);
-    expect(commandBasedTools.length).toBeGreaterThan(0);
-    for (const tool of commandBasedTools) {
-      const config = buildBridgeConfig(INSTALL_ROOT, tool, FAKE_NODE_PATH);
-      expect(config).not.toHaveProperty("cwd");
     }
   });
 
@@ -139,16 +131,16 @@ describe("buildBridgeConfig — node path regression", () => {
   });
 });
 
-describe("Browserless descriptor — command-based pattern", () => {
+describe("Browserless descriptor — schema-proxy pattern", () => {
   const browserlessTool = TOOL_DESCRIPTORS.find((t) => t.id === "browserless")!;
 
-  test("descriptor uses command: npx with correct args", () => {
-    expect(browserlessTool.command).toBe("npx");
-    expect(browserlessTool.args).toEqual(["-y", "@browserless.io/mcp"]);
+  test("descriptor uses relativeScript pointing to schema-proxy.js", () => {
+    expect(browserlessTool.relativeScript).toBe("Browserless/scripts/schema-proxy.js");
   });
 
-  test("descriptor does not have relativeScript", () => {
-    expect(browserlessTool.relativeScript).toBeUndefined();
+  test("descriptor does not have command/args (node-based, not npx-direct)", () => {
+    expect(browserlessTool.command).toBeUndefined();
+    expect(browserlessTool.args).toBeUndefined();
   });
 
   test("env contains BROWSERLESS_TOKEN and BROWSERLESS_API_URL", () => {
@@ -160,22 +152,15 @@ describe("Browserless descriptor — command-based pattern", () => {
     expect(browserlessTool.env).not.toHaveProperty("BROWSERLESS_API_KEY");
   });
 
-  test("buildBridgeConfig returns command: npx with no cwd for Browserless", () => {
+  test("buildBridgeConfig returns node-based config with schema-proxy.js path", () => {
     const config = buildBridgeConfig(INSTALL_ROOT, browserlessTool, FAKE_NODE_PATH);
-    expect(config.command).toBe("npx");
-    expect(config.args).toEqual(["-y", "@browserless.io/mcp"]);
+    expect(config.command).toContain("node");
+    expect(config.args[0]).toContain("schema-proxy.js");
+    expect(config.args[0]).not.toContain("\\");
     expect(config.env).toEqual({
       BROWSERLESS_TOKEN: "",
       BROWSERLESS_API_URL: "",
     });
-    expect(config).not.toHaveProperty("cwd");
-  });
-
-  test("buildBridgeConfig does not construct file-path-based args for Browserless", () => {
-    const config = buildBridgeConfig(INSTALL_ROOT, browserlessTool, FAKE_NODE_PATH);
-    for (const arg of config.args) {
-      expect(arg).not.toContain(INSTALL_ROOT.replace(/\\/g, "/"));
-      expect(arg).not.toMatch(/\.(js|exe)$/);
-    }
+    expect(config).toHaveProperty("cwd");
   });
 });

@@ -55,8 +55,7 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
   {
     id: "browserless",
     displayName: "Browserless",
-    command: "npx",
-    args: ["-y", "@browserless.io/mcp"],
+    relativeScript: "Browserless/scripts/schema-proxy.js",
     env: {
       BROWSERLESS_TOKEN: "",
       BROWSERLESS_API_URL: "",

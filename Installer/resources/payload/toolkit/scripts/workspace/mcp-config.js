@@ -46,11 +46,9 @@ const servers = {
     },
   },
   browserless: {
-    external: true,
-    command: "npx",
-    args: ["-y", "@browserless.io/mcp"],
+    relativeScript: "Browserless/scripts/schema-proxy.js",
     env: {
-      BROWSERLESS_API_KEY: "",
+      BROWSERLESS_TOKEN: "",
       BROWSERLESS_API_URL: "",
     },
   },

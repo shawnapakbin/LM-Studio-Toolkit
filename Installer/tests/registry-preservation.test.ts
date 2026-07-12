@@ -79,8 +79,7 @@ const PRESERVED_DESCRIPTORS: Array<{
   {
     id: "browserless",
     displayName: "Browserless",
-    command: "npx",
-    args: ["-y", "@browserless.io/mcp"],
+    relativeScript: "Browserless/scripts/schema-proxy.js",
     env: {
       BROWSERLESS_TOKEN: "",
       BROWSERLESS_API_URL: "",
@@ -251,17 +250,19 @@ describe("Property 2: Preservation — buildBridgeConfig forward slashes", () =>
       },
     );
 
-    test.each(commandBasedTools.map((t) => [t.id, t] as [string, ToolDescriptor]))(
-      "command-based tool '%s' → returns command, args, env without cwd",
-      (_id, tool) => {
-        const config = buildBridgeConfig(installRoot, tool, FAKE_NODE_PATH);
+    if (commandBasedTools.length > 0) {
+      test.each(commandBasedTools.map((t) => [t.id, t] as [string, ToolDescriptor]))(
+        "command-based tool '%s' → returns command, args, env without cwd",
+        (_id, tool) => {
+          const config = buildBridgeConfig(installRoot, tool, FAKE_NODE_PATH);
 
-        expect(config.command).toBe(tool.command);
-        expect(config.args).toEqual(tool.args);
-        expect(config.env).toEqual(tool.env);
-        expect(config).not.toHaveProperty("cwd");
-      },
-    );
+          expect(config.command).toBe(tool.command);
+          expect(config.args).toEqual(tool.args);
+          expect(config.env).toEqual(tool.env);
+          expect(config).not.toHaveProperty("cwd");
+        },
+      );
+    }
   });
 
   test("buildBridgeConfig returns valid structure for all node-based preserved tools", () => {

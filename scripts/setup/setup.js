@@ -350,13 +350,10 @@ function toolToServerName(tool) {
 }
 
 function buildBridgeConfig(tool) {
-  // Command-based tools (no local binary)
+  // Command-based tools (no local binary) — use schema-proxy wrapper
   if (COMMAND_BASED_TOOLS.includes(tool)) {
-    const commandMap = {
-      Browserless: { command: "npx", args: ["-y", "@browserless.io/mcp"] },
-    };
-
     if (tool === "Browserless") {
+      const proxyScript = path.join(REPO_ROOT, "Browserless", "scripts", "schema-proxy.js");
       const token = readEnvKey("BROWSERLESS_API_KEY") || readEnvKey("BROWSERLESS_TOKEN");
       const apiUrl = readEnvKey("BROWSERLESS_API_URL");
       const env = { BROWSERLESS_TOKEN: token };
@@ -364,13 +361,15 @@ function buildBridgeConfig(tool) {
         env.BROWSERLESS_API_URL = apiUrl;
       }
       return {
-        ...commandMap[tool],
+        command: "node",
+        args: [proxyScript.replace(/\\/g, "/")],
         env,
       };
     }
 
     return {
-      ...commandMap[tool],
+      command: "node",
+      args: [],
       env: {},
     };
   }

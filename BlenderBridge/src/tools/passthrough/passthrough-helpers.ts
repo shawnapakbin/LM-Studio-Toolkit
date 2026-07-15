@@ -88,7 +88,21 @@ export function normalizeCodeParam(rawCode: unknown): string | null {
 
   // If already a string, return as-is if non-empty, null if empty
   if (typeof rawCode === "string") {
-    return rawCode.length > 0 ? rawCode : null;
+    if (rawCode.length === 0) return null;
+    // Fix double-escaped newlines from LLMs that over-escape.
+    // Heuristic: if the string has NO real newlines but contains sequences like
+    // `\nimport`, `\nresult`, `\ndef`, `\nfor`, `\nif`, `\nprint`, `\nclass`, `\nfrom`
+    // these are almost certainly double-escaped Python statement separators.
+    if (!rawCode.includes("\n") && rawCode.includes("\\n")) {
+      const pythonStatementBoundary = /\\n\s*(?:import |from |def |class |if |elif |else:|for |while |return |result |print\(|try:|except |with |raise |assert )/;
+      if (pythonStatementBoundary.test(rawCode)) {
+        return rawCode
+          .replace(/\\n/g, "\n")
+          .replace(/\\t/g, "\t")
+          .replace(/\\r/g, "\r");
+      }
+    }
+    return rawCode;
   }
 
   // If array of strings, join with newlines
@@ -105,7 +119,7 @@ export function normalizeCodeParam(rawCode: unknown): string | null {
     // Check fields in priority order: python, code, text
     for (const field of ["python", "code", "text"]) {
       if (typeof obj[field] === "string" && (obj[field] as string).length > 0) {
-        return obj[field] as string;
+        return normalizeCodeParam(obj[field]);
       }
     }
     return null;

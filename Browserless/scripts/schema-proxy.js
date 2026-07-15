@@ -221,15 +221,33 @@ const SAFE_SCHEMAS = {
     properties: {
       query: {
         type: "string",
-        description: "The search query"
+        description: "The search query string"
       },
-      engine: {
-        type: "string",
-        description: "Search engine to use: 'google', 'bing', 'duckduckgo' (default 'google')"
-      },
-      maxResults: {
+      limit: {
         type: "number",
-        description: "Maximum number of results to return"
+        description: "Maximum number of results to return (default 10, max 100)"
+      },
+      lang: {
+        type: "string",
+        description: "Language code for search results (default 'en')"
+      },
+      country: {
+        type: "string",
+        description: "Country code for search results (e.g. 'us', 'gb')"
+      },
+      tbs: {
+        type: "string",
+        enum: ["day", "week", "month", "year"],
+        description: "Time-based filter for results"
+      },
+      sources: {
+        type: "array",
+        items: { type: "string" },
+        description: "Search sources: 'web', 'news', 'images' (default ['web'])"
+      },
+      timeout: {
+        type: "number",
+        description: "Request timeout in milliseconds"
       },
       profile: {
         type: "string",
@@ -266,13 +284,13 @@ const SAFE_SCHEMAS = {
   browserless_function: {
     type: "object",
     properties: {
-      url: {
-        type: "string",
-        description: "The URL to navigate to before running the function"
-      },
       code: {
         type: "string",
-        description: "JavaScript code to execute in the browser context (async function body)"
+        description: "JavaScript ESM code to execute. MUST use 'export default async function' syntax. The function receives { page, context } and must return { data, type }. Example: 'export default async function({ page }) { const title = await page.title(); return { data: title, type: \"text/plain\" }; }'"
+      },
+      context: {
+        type: "object",
+        description: "Optional context object passed to the function as the second argument"
       },
       timeout: {
         type: "number",
@@ -327,12 +345,13 @@ const SAFE_SCHEMAS = {
   browserless_skill: {
     type: "object",
     properties: {
-      skill: {
+      id: {
         type: "string",
-        description: "Name of the skill to load (e.g. 'auth-profile', 'captchas', 'file-transfers', 'screenshots', 'tabs', 'dynamic-content', 'shadow-dom')"
+        enum: ["autonomous-login", "shadow-dom", "cookie-consent", "modals", "captchas", "snapshot-misses", "dynamic-content", "screenshots", "tabs", "auth-profile", "file-transfers"],
+        description: "The skill ID to load. Available skills: autonomous-login, shadow-dom, cookie-consent, modals, captchas, snapshot-misses, dynamic-content, screenshots, tabs, auth-profile, file-transfers"
       }
     },
-    required: ["skill"]
+    required: ["id"]
   }
 };
 

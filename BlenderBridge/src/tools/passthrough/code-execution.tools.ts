@@ -39,13 +39,8 @@ export function createCodeExecutionTools(
         "Do NOT use raw/literal newline characters inside the JSON string.",
       inputSchema: z.object({
         code: z
-          .any()
-          .optional()
-          .describe("Python code to execute in Blender. MUST use this parameter name."),
-        command: z
-          .any()
-          .optional()
-          .describe("Alias for code — Python code to execute (use 'code' preferably)."),
+          .string()
+          .describe("Python code to execute in Blender as a single string. Use \\n for newlines. Example: \"import bpy\\nresult = {'version': bpy.app.version_string}\". MUST be a string, not an object."),
       }),
       handler: async (input: unknown): Promise<ToolResult> => {
         const args = input as Record<string, unknown>;

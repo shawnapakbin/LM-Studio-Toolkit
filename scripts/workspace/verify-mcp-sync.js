@@ -12,15 +12,14 @@ const expectedServers = {
   calculator: "Calculator/dist/mcp-server.js",
   "document-scraper": "DocumentScraper/dist/mcp-server.js",
   clock: "Clock/dist/mcp-server.js",
+  browserless: "Browserless/scripts/schema-proxy.js",
   "ask-user": "AskUser/dist/mcp-server.js",
   rag: "RAG/dist/mcp-server.js",
   "python-shell": "PythonShell/dist/mcp-server.js",
 };
 
 // Command-based servers (external, no local script path)
-const expectedCommandServers = {
-  browserless: { command: "npx", args: ["-y", "@browserless.io/mcp"] },
-};
+const expectedCommandServers = {};
 
 const marker = "## Complete `mcp.json` Example";
 const markerIndex = readme.indexOf(marker);

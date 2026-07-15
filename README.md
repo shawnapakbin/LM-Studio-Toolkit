@@ -264,10 +264,10 @@ npm run mcp:sync-lmstudio
 			}
 		},
 		"browserless": {
-			"command": "npx",
-			"args": ["-y", "@browserless.io/mcp"],
+			"command": "node",
+			"args": ["Browserless/scripts/schema-proxy.js"],
 			"env": {
-				"BROWSERLESS_API_KEY": "",
+				"BROWSERLESS_TOKEN": "",
 				"BROWSERLESS_API_URL": ""
 			}
 		},
@@ -340,19 +340,24 @@ Phase 2 will introduce unified orchestrator MCP server and multi-interface launc
 ### Quick Setup for LLM/Agent Workflows
 
 1. **Get a Browserless API token** from https://browserless.io/account/
-2. **Set your token** in your environment (recommended: `.env` or system env):
-	 - `BROWSERLESS_API_KEY=your-token-here`
-3. **Never commit your token to version control.**
+2. **Set your token** in your `.env` file: `BROWSERLESS_API_KEY=your-token-here`
+3. **Run setup** to sync bridge configs: `node scripts/setup/setup.js`
+4. **Never commit your token to version control.**
+
+### How It Works
+
+Browserless runs through a **schema-proxy** that wraps the official `@browserless.io/mcp` package. The proxy fixes incompatible JSON schemas that break LM Studio's grammar-based constrained output generation. See [Browserless/README.md](Browserless/README.md) for details.
 
 ### Tool Registration
-- **Cloud:** The Browserless tool is registered to the official MCP endpoint:
-	- Endpoint: `https://mcp.browserless.io/mcp?token=YOUR_TOKEN`
-	- Token is loaded from `BROWSERLESS_API_KEY` or `BROWSERLESS_API_TOKEN`.
-- **Local:** For development, run the tool at `http://localhost:3003` (see [Browserless/README.md](Browserless/README.md)).
 
-### LLM/Agent Integration
-- Use the MCP endpoint for all browser automation tasks: screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits, and more.
-- See [Browserless/README.md](Browserless/README.md) for full tool list, schemas, and examples.
+The bridge config uses the schema-proxy wrapper:
+```json
+{
+  "command": "node",
+  "args": ["Browserless/scripts/schema-proxy.js"],
+  "env": { "BROWSERLESS_TOKEN": "your-token" }
+}
+```
 
 ### Example `.env` file
 ```
@@ -361,8 +366,9 @@ BROWSERLESS_API_KEY=your-browserless-api-token-here
 
 ### Troubleshooting
 - **401/Invalid API key:** Check your token and environment variable.
-- **Protocol errors:** Ensure you are using the correct endpoint (MCP for cloud, HTTP for local).
-- See [Browserless official docs](https://docs.browserless.io/) for more.
+- **Grammar parse errors:** Ensure the bridge config points to `schema-proxy.js`, not raw `npx`.
+- **spawn EINVAL:** Node.js 24+ must be installed and on PATH.
+- See [Browserless/README.md](Browserless/README.md) for more.
 
 ## Testing & CI/CD
 

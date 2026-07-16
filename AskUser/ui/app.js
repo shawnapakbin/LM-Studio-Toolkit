@@ -3,7 +3,7 @@
  * Polls for pending interviews and renders interactive HTML forms.
  */
 
-const API_BASE = window.location.origin;
+const API_BASE = window.location.origin; // Dynamic: uses whatever port the page was served from
 const POLL_INTERVAL = 2000; // 2 seconds
 
 let currentInterviews = [];

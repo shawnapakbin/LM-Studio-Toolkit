@@ -114,7 +114,7 @@ function createInterview(
       questionCount: payload.questions.length,
       questions: payload.questions,
       interviewUrl: `http://localhost:${activeUIPort}/ui/`,
-      instruction: "Direct the user to open the interview form at the interviewUrl above. The form renders interactive controls and submits responses automatically.",
+      instruction: "The interview form has been auto-opened in the user's browser. You MUST now poll with action 'get' and this interviewId every few seconds until status changes to 'answered'. Only then read the responses and proceed.",
     },
     timingMs,
     traceId,

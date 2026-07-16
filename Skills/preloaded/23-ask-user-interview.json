@@ -42,7 +42,7 @@
     },
     {
       "type": "prompt",
-      "template": "The interview has been created. Direct the user to open the interactive form at:\n\nhttp://localhost:3338/ui/\n\nThe form will appear automatically with clickable controls (radio buttons, checkboxes, text fields, etc.). The user fills it out and clicks Submit.\n\nThen poll for the user's response using action 'get' with the returned interviewId.\n\nOnce the user submits:\n- Parse their responses\n- Summarize the choices made\n- Proceed with the next action based on their input\n\nIf the interview expires before response, inform the user and offer to recreate it."
+      "template": "The interview has been created and the form auto-opened in the user's browser at the interviewUrl.\n\nYou MUST now poll for the response:\n1. Call ask_user_interview with action='get' and the interviewId\n2. Check if status is 'answered'\n3. If still 'pending', wait a few seconds and poll again\n4. Repeat until status='answered' or 'expired'\n\nOnce status='answered':\n- Read the responses array from the result\n- Summarize what the user chose\n- Proceed with the next action based on their input\n\nIf status='expired', inform the user and offer to recreate the interview."
     }
   ]
 }

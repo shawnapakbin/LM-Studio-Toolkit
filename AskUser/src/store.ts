@@ -87,6 +87,13 @@ export class AskUserStore {
     stmt.run(JSON.stringify(responses), interviewId);
   }
 
+  listPending(): InterviewRecord[] {
+    const stmt = this.db.prepare(
+      "SELECT * FROM ask_user_interviews WHERE status = 'pending' ORDER BY created_at DESC",
+    );
+    return stmt.all() as InterviewRecord[];
+  }
+
   close(): void {
     this.db.close();
   }

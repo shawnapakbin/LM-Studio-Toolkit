@@ -53,7 +53,7 @@ function normalizeAskUserRequest(input: unknown): AskUserRequest {
 export function createAskUserMcpServer(): McpServer {
   const server = new McpServer({
     name: "lm-studio-ask-user-tool",
-    version: "1.0.0",
+    version: "2.2.6",
   });
 
   const registerTool = server.registerTool.bind(server) as unknown as (

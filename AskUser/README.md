@@ -32,7 +32,20 @@ Interviews are persisted in SQLite, so they survive process restarts.
 
 - `GET /health`
 - `GET /tool-schema`
+- `GET /api/interviews/pending` — Returns all pending interviews (for UI polling)
 - `POST /tools/ask_user_interview`
+- `GET /ui` — Interactive interview form UI
+
+## Interview UI
+
+The tool includes a built-in web UI at `http://localhost:3338/ui` that:
+- Polls for pending interviews every 2 seconds
+- Renders interactive HTML forms with proper input controls per question type
+- Validates required fields before submission
+- Submits responses back to the API automatically
+- Shows success/expiry states
+
+Open the UI in any browser while the AskUser server is running. When an agent creates an interview, it appears automatically as an interactive form.
 
 ## Example: Destructive Action Approval
 

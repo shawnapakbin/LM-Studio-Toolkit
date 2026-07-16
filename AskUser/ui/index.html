@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Toolkit — Interview</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>📋 Pending Interviews</h1>
+      <p id="status-bar">Polling for interviews...</p>
+    </header>
+    <main id="interviews-container">
+      <div id="empty-state" class="empty-state">
+        <p>No pending interviews. Waiting for agent requests...</p>
+        <div class="spinner"></div>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

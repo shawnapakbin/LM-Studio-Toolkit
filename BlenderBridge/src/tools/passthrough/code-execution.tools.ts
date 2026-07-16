@@ -80,11 +80,19 @@ export function createCodeExecutionTools(
         code: z.string().describe("Python code to execute in the background Blender process"),
       }),
       handler: async (input: unknown): Promise<ToolResult> => {
-        const { blend_file, code } = input as { blend_file: string; code: string };
+        const args = input as Record<string, unknown>;
+        const blend_file = args.blend_file as string;
 
         const blendFileError = validateStringParam(blend_file, "blend_file", 1024);
         if (blendFileError) {
           return validationError(blendFileError);
+        }
+
+        const rawCode = args.code ?? args.command ?? args.script ?? args.python ?? args.text;
+        const code = normalizeCodeParam(rawCode);
+
+        if (code === null) {
+          return validationError(buildDiagnosticError(rawCode, "code"));
         }
 
         const codeError = validateStringParam(code, "code", 100000);

@@ -5,7 +5,7 @@ import { OperationTimer, generateTraceId } from "@shared/types";
 import dotenv from "dotenv";
 import { z } from "zod";
 import { normalizeToolCall } from "../../shared/toolCallNormalizer";
-import { handleAskUserRequest } from "./ask-user";
+import { handleAskUserRequest, setActiveUIPort } from "./ask-user";
 import type { AskUserRequest } from "./types";
 
 dotenv.config();
@@ -192,13 +192,33 @@ async function main() {
   await server.connect(transport);
   console.error("LM Studio AskUser MCP server running on stdio");
 
-  // Also start the HTTP server for the interview UI
+  // Also start the HTTP server for the interview UI (non-fatal if port is busy)
   try {
     const { app } = await import("./index");
-    const UI_PORT = Number(process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? 3338);
-    app.listen(UI_PORT, () => {
-      console.error(`AskUser Interview UI available at http://localhost:${UI_PORT}/ui/`);
-    });
+    const basePort = Number(process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? 3338);
+
+    const tryListen = (port: number, retries: number): void => {
+      const httpServer = app.listen(port);
+
+      httpServer.on("listening", () => {
+        setActiveUIPort(port);
+        console.error(`AskUser Interview UI available at http://localhost:${port}/ui/`);
+      });
+
+      httpServer.on("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE" && retries > 0) {
+          console.error(`Port ${port} in use, trying ${port + 1}...`);
+          httpServer.close();
+          tryListen(port + 1, retries - 1);
+        } else if (err.code === "EADDRINUSE") {
+          console.error(`Interview UI: all ports ${basePort}-${port} in use. UI unavailable (MCP tool still works).`);
+        } else {
+          console.error(`Interview UI HTTP server error: ${err.message}`);
+        }
+      });
+    };
+
+    tryListen(basePort, 5);
   } catch (err) {
     console.error("Failed to start Interview UI HTTP server:", err);
     // Non-fatal: MCP server continues working without the UI

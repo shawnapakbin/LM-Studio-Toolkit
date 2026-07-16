@@ -18,13 +18,23 @@ import type {
 const DB_PATH = process.env.ASK_USER_DB_PATH ?? "./memory.db";
 const store = new AskUserStore(DB_PATH);
 
+/** Tracks the actual port the UI HTTP server bound to (set by mcp-server.ts) */
+let activeUIPort: number = Number(process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338");
+
+export function setActiveUIPort(port: number): void {
+  activeUIPort = port;
+}
+
+export function getActiveUIPort(): number {
+  return activeUIPort;
+}
+
 /**
  * Opens the interview UI in the default browser and brings it to focus.
  * Cross-platform: Windows (start), macOS (open), Linux (xdg-open).
  */
 function launchInterviewUI(): void {
-  const port = process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338";
-  const url = `http://localhost:${port}/ui/`;
+  const url = `http://localhost:${activeUIPort}/ui/`;
 
   let cmd: string;
   switch (process.platform) {
@@ -92,8 +102,6 @@ function createInterview(
     expiresAtIso: expiresAt,
   });
 
-  const UI_PORT = process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338";
-
   // Auto-launch the interview UI in the user's browser
   launchInterviewUI();
 
@@ -105,7 +113,7 @@ function createInterview(
       expiresAt,
       questionCount: payload.questions.length,
       questions: payload.questions,
-      interviewUrl: `http://localhost:${UI_PORT}/ui/`,
+      interviewUrl: `http://localhost:${activeUIPort}/ui/`,
       instruction: "Direct the user to open the interview form at the interviewUrl above. The form renders interactive controls and submits responses automatically.",
     },
     timingMs,

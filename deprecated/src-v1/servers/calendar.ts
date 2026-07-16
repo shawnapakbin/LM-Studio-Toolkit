@@ -2,19 +2,19 @@ import { z } from "zod";
 import { startServer } from "../shared/mcp-helpers.js";
 
 const nowArgs = z.object({
-  timeZone: z.string().optional().default("UTC")
+  timeZone: z.string().optional().default("UTC"),
 });
 
 const addDaysArgs = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  days: z.number().int().min(-36500).max(36500)
+  days: z.number().int().min(-36500).max(36500),
 });
 
 function formatDateParts(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     dateStyle: "full",
     timeStyle: "long",
-    timeZone
+    timeZone,
   }).format(date);
 
   return parts;
@@ -29,15 +29,15 @@ async function main(): Promise<void> {
         inputSchema: {
           type: "object",
           properties: {
-            timeZone: { type: "string" }
-          }
-        }
+            timeZone: { type: "string" },
+          },
+        },
       },
       handler: async (args: unknown) => {
         const parsed = nowArgs.parse(args);
         const now = new Date();
         return formatDateParts(now, parsed.timeZone);
-      }
+      },
     },
     {
       tool: {
@@ -47,10 +47,10 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-            days: { type: "integer", minimum: -36500, maximum: 36500 }
+            days: { type: "integer", minimum: -36500, maximum: 36500 },
           },
-          required: ["date", "days"]
-        }
+          required: ["date", "days"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = addDaysArgs.parse(args);
@@ -61,8 +61,8 @@ async function main(): Promise<void> {
 
         base.setUTCDate(base.getUTCDate() + parsed.days);
         return base.toISOString().slice(0, 10);
-      }
-    }
+      },
+    },
   ]);
 }
 

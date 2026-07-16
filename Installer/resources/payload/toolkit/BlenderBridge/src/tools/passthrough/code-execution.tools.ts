@@ -40,7 +40,9 @@ export function createCodeExecutionTools(
       inputSchema: z.object({
         code: z
           .string()
-          .describe("Python code to execute in Blender as a single string. Use \\n for newlines. Example: \"import bpy\\nresult = {'version': bpy.app.version_string}\". MUST be a string, not an object."),
+          .describe(
+            "Python code to execute in Blender as a single string. Use \\n for newlines. Example: \"import bpy\\nresult = {'version': bpy.app.version_string}\". MUST be a string, not an object.",
+          ),
       }),
       handler: async (input: unknown): Promise<ToolResult> => {
         const args = input as Record<string, unknown>;

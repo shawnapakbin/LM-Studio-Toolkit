@@ -94,12 +94,10 @@ export function normalizeCodeParam(rawCode: unknown): string | null {
     // `\nimport`, `\nresult`, `\ndef`, `\nfor`, `\nif`, `\nprint`, `\nclass`, `\nfrom`
     // these are almost certainly double-escaped Python statement separators.
     if (!rawCode.includes("\n") && rawCode.includes("\\n")) {
-      const pythonStatementBoundary = /\\n\s*(?:import |from |def |class |if |elif |else:|for |while |return |result |print\(|try:|except |with |raise |assert )/;
+      const pythonStatementBoundary =
+        /\\n\s*(?:import |from |def |class |if |elif |else:|for |while |return |result |print\(|try:|except |with |raise |assert )/;
       if (pythonStatementBoundary.test(rawCode)) {
-        return rawCode
-          .replace(/\\n/g, "\n")
-          .replace(/\\t/g, "\t")
-          .replace(/\\r/g, "\r");
+        return rawCode.replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r");
       }
     }
     return rawCode;

@@ -20,46 +20,52 @@
 
 const { spawn } = require("child_process");
 
-// --- Launch the real MCP server ---
-const child = spawn("npx", ["-y", "@browserless.io/mcp"], {
-  stdio: ["pipe", "pipe", "inherit"],
-  env: process.env,
-  shell: true,
-});
+// --- Launch the real MCP server (skip when loaded for testing) ---
+if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== "test") {
+  const child = spawn("npx", ["-y", "@browserless.io/mcp"], {
+    stdio: ["pipe", "pipe", "inherit"],
+    env: process.env,
+    shell: true,
+  });
 
-child.on("error", (err) => {
-  process.stderr.write(`[schema-proxy] Failed to spawn child: ${err.message}\n`);
-  process.exit(1);
-});
+  child.on("error", (err) => {
+    process.stderr.write(`[schema-proxy] Failed to spawn child: ${err.message}\n`);
+    process.exit(1);
+  });
 
-child.on("exit", (code) => {
-  process.exit(code ?? 1);
-});
+  child.on("exit", (code) => {
+    process.exit(code ?? 1);
+  });
 
-process.stdin.pipe(child.stdin);
+  process.stdin.pipe(child.stdin);
 
-// --- Intercept stdout ---
-let buffer = "";
+  // --- Intercept stdout ---
+  let buffer = "";
 
-child.stdout.on("data", (chunk) => {
-  buffer += chunk.toString();
-  let newlineIdx;
-  while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-    const line = buffer.slice(0, newlineIdx);
-    buffer = buffer.slice(newlineIdx + 1);
-    if (!line.trim()) {
-      process.stdout.write("\n");
-      continue;
+  child.stdout.on("data", (chunk) => {
+    buffer += chunk.toString();
+    let newlineIdx;
+    while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, newlineIdx);
+      buffer = buffer.slice(newlineIdx + 1);
+      if (!line.trim()) {
+        process.stdout.write("\n");
+        continue;
+      }
+      process.stdout.write(patchLine(line.trim()) + "\n");
     }
-    process.stdout.write(patchLine(line.trim()) + "\n");
-  }
-});
+  });
 
-child.stdout.on("end", () => {
-  if (buffer.trim()) {
-    process.stdout.write(patchLine(buffer.trim()) + "\n");
-  }
-});
+  child.stdout.on("end", () => {
+    if (buffer.trim()) {
+      process.stdout.write(patchLine(buffer.trim()) + "\n");
+    }
+  });
+
+  // Graceful shutdown
+  process.on("SIGTERM", () => child.kill("SIGTERM"));
+  process.on("SIGINT", () => child.kill("SIGINT"));
+}
 
 // --- Patching ---
 
@@ -141,27 +147,31 @@ const SAFE_SCHEMAS = {
     properties: {
       method: {
         type: "string",
-        description: "BQL method to execute (goto, snapshot, click, type, select, checkbox, hover, scroll, evaluate, text, html, waitForSelector, waitForNavigation, waitForTimeout, waitForRequest, waitForResponse, liveURL, solve, screenshot, uploadFile, getDownloads, close, getTabs, switchTab, createTab, closeTab, back, forward, reload, loadSecret, saveProfile)"
+        description:
+          "BQL method to execute (goto, snapshot, click, type, select, checkbox, hover, scroll, evaluate, text, html, waitForSelector, waitForNavigation, waitForTimeout, waitForRequest, waitForResponse, liveURL, solve, screenshot, uploadFile, getDownloads, close, getTabs, switchTab, createTab, closeTab, back, forward, reload, loadSecret, saveProfile)",
       },
       params: {
         type: "object",
-        description: "Parameters for the method. For goto: {url}. For click/type/select/hover/checkbox: {selector, text?, value?, checked?}. For waitForSelector: {selector, timeout?}. For evaluate: {content}. For screenshot: {type?, fullPage?, selector?, quality?}."
+        description:
+          "Parameters for the method. For goto: {url}. For click/type/select/hover/checkbox: {selector, text?, value?, checked?}. For waitForSelector: {selector, timeout?}. For evaluate: {content}. For screenshot: {type?, fullPage?, selector?, quality?}.",
       },
       commands: {
         type: "array",
         items: { type: "object" },
-        description: "Optional: batch multiple commands. Each item: {method, params}. When provided, top-level method/params are ignored."
+        description:
+          "Optional: batch multiple commands. Each item: {method, params}. When provided, top-level method/params are ignored.",
       },
       rationale: {
         type: "string",
-        description: "Short human-readable reason for this call (max 50 chars, present-continuous form e.g. 'Logging in')"
+        description:
+          "Short human-readable reason for this call (max 50 chars, present-continuous form e.g. 'Logging in')",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name to hydrate cookies/storage into the session"
-      }
+        description: "Optional auth profile name to hydrate cookies/storage into the session",
+      },
     },
-    required: ["method"]
+    required: ["method"],
   },
 
   browserless_crawl: {
@@ -169,27 +179,30 @@ const SAFE_SCHEMAS = {
     properties: {
       url: {
         type: "string",
-        description: "The starting URL to crawl (http or https)"
+        description:
+          "The starting URL to crawl (http or https). WARNING: Root URLs (/) on documentation sites may redirect (e.g., to /docs/getting-started). Target specific paths rather than relying on root URL resolution.",
       },
       maxPages: {
         type: "number",
-        description: "Maximum number of pages to crawl (default 10)"
+        description:
+          "Maximum number of pages to crawl (default 10). NOTE: This is a soft cap — sitemap discovery may cause more pages to be returned than specified. For strict limits, post-process and truncate results.",
       },
       formats: {
         type: "array",
         items: { type: "string" },
-        description: "Output formats: 'markdown', 'html', 'screenshot', 'links' (default ['markdown'])"
+        description:
+          "Output formats: 'markdown', 'html', 'screenshot', 'links' (default ['markdown'])",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
     },
-    required: ["url"]
+    required: ["url"],
   },
 
   browserless_smartscraper: {
@@ -197,23 +210,25 @@ const SAFE_SCHEMAS = {
     properties: {
       url: {
         type: "string",
-        description: "The URL to scrape (http or https)"
+        description:
+          "The URL to scrape (http or https). WARNING: Root URLs (/) on documentation sites may redirect (e.g., to /docs/getting-started). Target specific paths rather than relying on root URL resolution.",
       },
       formats: {
         type: "array",
         items: { type: "string" },
-        description: "Output formats: 'markdown', 'html', 'screenshot', 'pdf', 'links' (default ['markdown'])"
+        description:
+          "Output formats: 'markdown', 'html', 'screenshot', 'pdf', 'links' (default ['markdown'])",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
     },
-    required: ["url"]
+    required: ["url"],
   },
 
   browserless_search: {
@@ -221,40 +236,41 @@ const SAFE_SCHEMAS = {
     properties: {
       query: {
         type: "string",
-        description: "The search query string"
+        description: "The search query string",
       },
       limit: {
         type: "number",
-        description: "Maximum number of results to return (default 10, max 100)"
+        description:
+          "Maximum number of results to return. NOTE: The effective maximum depends on your API key tier (free tier max is 3). Values above your tier limit will be silently capped. Default: 3.",
       },
       lang: {
         type: "string",
-        description: "Language code for search results (default 'en')"
+        description: "Language code for search results (default 'en')",
       },
       country: {
         type: "string",
-        description: "Country code for search results (e.g. 'us', 'gb')"
+        description: "Country code for search results (e.g. 'us', 'gb')",
       },
       tbs: {
         type: "string",
         enum: ["day", "week", "month", "year"],
-        description: "Time-based filter for results"
+        description: "Time-based filter for results",
       },
       sources: {
         type: "array",
         items: { type: "string" },
-        description: "Search sources: 'web', 'news', 'images' (default ['web'])"
+        description: "Search sources: 'web', 'news', 'images' (default ['web'])",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
     },
-    required: ["query"]
+    required: ["query"],
   },
 
   browserless_export: {
@@ -262,23 +278,34 @@ const SAFE_SCHEMAS = {
     properties: {
       url: {
         type: "string",
-        description: "The URL to export (http or https)"
+        description:
+          "The URL to export (http or https). WARNING: Root URLs (/) on documentation sites may redirect (e.g., to /docs/getting-started). Target specific paths rather than relying on root URL resolution.",
       },
       format: {
         type: "string",
         enum: ["pdf", "png", "jpeg", "webp"],
-        description: "Export format"
+        description: "Export format",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
+      waitForSelector: {
+        type: "string",
+        description:
+          "CSS selector to wait for before capturing export. Use for SPA/JavaScript-rendered pages that need time to render dynamic content.",
+      },
+      waitForTimeout: {
+        type: "number",
+        description:
+          "Time in milliseconds to wait before capturing export. Use for pages with animations or delayed rendering.",
+      },
     },
-    required: ["url"]
+    required: ["url"],
   },
 
   browserless_function: {
@@ -286,22 +313,23 @@ const SAFE_SCHEMAS = {
     properties: {
       code: {
         type: "string",
-        description: "JavaScript ESM code to execute. MUST use 'export default async function' syntax. The function receives { page, context } and must return { data, type }. Example: 'export default async function({ page }) { const title = await page.title(); return { data: title, type: \"text/plain\" }; }'"
+        description:
+          "JavaScript ESM code to execute. MUST use 'export default async function' syntax. IMPORTANT: The page starts on about:blank — your code MUST include 'await page.goto(url)' to navigate to a target page before interacting. The function receives { page, context } and must return { data, type }. Example: 'export default async function({ page }) { await page.goto(\"https://example.com\"); const title = await page.title(); return { data: title, type: \"text/plain\" }; }'",
       },
       context: {
         type: "object",
-        description: "Optional context object passed to the function as the second argument"
+        description: "Optional context object passed to the function as the second argument",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
     },
-    required: ["code"]
+    required: ["code"],
   },
 
   browserless_map: {
@@ -309,18 +337,19 @@ const SAFE_SCHEMAS = {
     properties: {
       url: {
         type: "string",
-        description: "The URL to generate a sitemap from"
+        description:
+          "The URL to generate a sitemap from. WARNING: Root URLs (/) on documentation sites may redirect (e.g., to /docs/getting-started). Target specific paths rather than relying on root URL resolution.",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
     },
-    required: ["url"]
+    required: ["url"],
   },
 
   browserless_performance: {
@@ -328,18 +357,19 @@ const SAFE_SCHEMAS = {
     properties: {
       url: {
         type: "string",
-        description: "The URL to run a performance audit on"
+        description:
+          "The URL to run a performance audit on. WARNING: Root URLs (/) on documentation sites may redirect (e.g., to /docs/getting-started). Target specific paths rather than relying on root URL resolution.",
       },
       timeout: {
         type: "number",
-        description: "Request timeout in milliseconds"
+        description: "Request timeout in milliseconds",
       },
       profile: {
         type: "string",
-        description: "Optional auth profile name"
-      }
+        description: "Optional auth profile name",
+      },
     },
-    required: ["url"]
+    required: ["url"],
   },
 
   browserless_skill: {
@@ -347,14 +377,28 @@ const SAFE_SCHEMAS = {
     properties: {
       id: {
         type: "string",
-        enum: ["autonomous-login", "shadow-dom", "cookie-consent", "modals", "captchas", "snapshot-misses", "dynamic-content", "screenshots", "tabs", "auth-profile", "file-transfers"],
-        description: "The skill ID to load. Available skills: autonomous-login, shadow-dom, cookie-consent, modals, captchas, snapshot-misses, dynamic-content, screenshots, tabs, auth-profile, file-transfers"
-      }
+        enum: [
+          "autonomous-login",
+          "shadow-dom",
+          "cookie-consent",
+          "modals",
+          "captchas",
+          "snapshot-misses",
+          "dynamic-content",
+          "screenshots",
+          "tabs",
+          "auth-profile",
+          "file-transfers",
+        ],
+        description:
+          "The skill ID to load. Available skills: autonomous-login, shadow-dom, cookie-consent, modals, captchas, snapshot-misses, dynamic-content, screenshots, tabs, auth-profile, file-transfers",
+      },
     },
-    required: ["id"]
-  }
+    required: ["id"],
+  },
 };
 
-// Graceful shutdown
-process.on("SIGTERM", () => child.kill("SIGTERM"));
-process.on("SIGINT", () => child.kill("SIGINT"));
+// Test exports
+if (process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID) {
+  module.exports = { SAFE_SCHEMAS, aggressiveSimplify };
+}

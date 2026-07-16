@@ -10,7 +10,6 @@ import request from "supertest";
 import { app } from "../src/index";
 
 const SESSION = "continuous-compact-session";
-const SESSION2 = "continuous-compact-session-2";
 
 // ─── set_continuous_compact ──────────────────────────────────────────────────
 

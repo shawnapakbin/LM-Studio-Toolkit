@@ -435,9 +435,7 @@ class RAGService {
 
           // Extract markdown from response (smartscraper returns data array or top-level markdown)
           const markdownContent =
-            browserlessResult.data?.[0]?.markdown ||
-            browserlessResult.markdown ||
-            "";
+            browserlessResult.data?.[0]?.markdown || browserlessResult.markdown || "";
 
           if (markdownContent.trim()) {
             return { content: markdownContent, title: document.title };

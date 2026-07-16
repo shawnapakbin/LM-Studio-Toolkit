@@ -4,7 +4,7 @@ import { startServer } from "../shared/mcp-helpers.js";
 
 const evaluateArgs = z.object({
   expression: z.string().min(1),
-  variables: z.record(z.number()).optional().default({})
+  variables: z.record(z.number()).optional().default({}),
 });
 
 async function main(): Promise<void> {
@@ -19,23 +19,23 @@ async function main(): Promise<void> {
             expression: { type: "string" },
             variables: {
               type: "object",
-              additionalProperties: { type: "number" }
-            }
+              additionalProperties: { type: "number" },
+            },
           },
-          required: ["expression"]
-        }
+          required: ["expression"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = evaluateArgs.parse(args);
         const parser = new Parser({
-          allowMemberAccess: false
+          allowMemberAccess: false,
         });
 
         const compiled = parser.parse(parsed.expression);
         const result = compiled.evaluate(parsed.variables);
         return `${String(result)}`;
-      }
-    }
+      },
+    },
   ]);
 }
 

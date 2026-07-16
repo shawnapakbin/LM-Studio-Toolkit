@@ -10,13 +10,15 @@ const DEFAULT_FIELDS: EnvField[] = [
     key: "BROWSERLESS_API_KEY",
     value: "",
     required: false,
-    description: "API key for Browserless.io hosted MCP server (replaces legacy BROWSERLESS_TOKEN).",
+    description:
+      "API key for Browserless.io hosted MCP server (replaces legacy BROWSERLESS_TOKEN).",
   },
   {
     key: "BROWSERLESS_API_URL",
     value: "",
     required: false,
-    description: "Custom Browserless API URL. Empty defaults to https://production-sfo.browserless.io.",
+    description:
+      "Custom Browserless API URL. Empty defaults to https://production-sfo.browserless.io.",
   },
   {
     key: "LMSTUDIO_MCP_PLUGIN_ROOT",

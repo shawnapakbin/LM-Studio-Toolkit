@@ -4,7 +4,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { OperationTimer, generateTraceId } from "@shared/types";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { normalizeToolCall } from "../../shared/dist/toolCallNormalizer";
+import { normalizeToolCall } from "../../shared/toolCallNormalizer";
 import { handleAskUserRequest } from "./ask-user";
 import type { AskUserRequest } from "./types";
 

@@ -87,7 +87,7 @@ const checks = [
     regex:
       /(api[_-]?key|secret|token|password|passwd|client[_-]?secret)\s*[:=]\s*["']([^"'\n]{8,})["']/i,
     message: "Potential secret assignment detected.",
-    validate: (line, match) => {
+    validate: (_line, match) => {
       const value = match && match[2] ? String(match[2]) : "";
       if (!value) return false;
       if (isPlaceholder(value)) return false;

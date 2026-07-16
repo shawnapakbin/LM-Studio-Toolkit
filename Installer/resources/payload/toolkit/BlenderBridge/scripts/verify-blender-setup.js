@@ -42,9 +42,7 @@ function fail(reason) {
   console.log("\u2717 FAIL \u2014 Blender MCP Setup Check Failed");
   console.log(`  Reason: ${reason}`);
   console.log("  The Blender add-on is not responding.");
-  console.log(
-    "  See BlenderBridge/README.md Troubleshooting section for resolution steps."
-  );
+  console.log("  See BlenderBridge/README.md Troubleshooting section for resolution steps.");
   console.log("");
   process.exit(1);
 }
@@ -55,9 +53,7 @@ function partial(reason) {
   console.log(`  State: ${reason}`);
   console.log(`  Host: ${host}`);
   console.log(`  Port: ${port}`);
-  console.log(
-    "  See BlenderBridge/README.md Troubleshooting section for resolution steps."
-  );
+  console.log("  See BlenderBridge/README.md Troubleshooting section for resolution steps.");
   console.log("");
   process.exit(1);
 }
@@ -74,7 +70,7 @@ socket.on("connect", () => {
 socket.on("timeout", () => {
   socket.destroy();
   partial(
-    `Connection timed out after ${TIMEOUT_MS / 1000}s on ${host}:${port} \u2014 add-on may not be reachable`
+    `Connection timed out after ${TIMEOUT_MS / 1000}s on ${host}:${port} \u2014 add-on may not be reachable`,
   );
 });
 

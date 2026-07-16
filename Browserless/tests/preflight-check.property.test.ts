@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import * as path from "node:path";
 // Feature: browserless-npx-migration, Property 4: Preflight Version Gate
 /**
  * Property-based tests for the preflight version gate.
@@ -7,15 +9,8 @@
  * **Validates: Requirements 5.1, 5.2**
  */
 import * as fc from "fast-check";
-import { spawnSync } from "node:child_process";
-import * as path from "node:path";
 
-const PREFLIGHT_SCRIPT = path.resolve(
-  __dirname,
-  "..",
-  "scripts",
-  "preflight-check.js",
-);
+const PREFLIGHT_SCRIPT = path.resolve(__dirname, "..", "scripts", "preflight-check.js");
 
 /**
  * Helper that spawns a small Node.js wrapper which overrides
@@ -53,43 +48,34 @@ function runPreflightWithMajor(major: number): {
 describe("Feature: browserless-npx-migration, Property 4: Preflight Version Gate", () => {
   test("exit code is 0 if and only if major version >= 24", () => {
     fc.assert(
-      fc.property(
-        fc.integer({ min: 0, max: 99 }),
-        (major) => {
-          const { exitCode } = runPreflightWithMajor(major);
-          if (major >= 24) {
-            expect(exitCode).toBe(0);
-          } else {
-            expect(exitCode).toBe(1);
-          }
-        },
-      ),
+      fc.property(fc.integer({ min: 0, max: 99 }), (major) => {
+        const { exitCode } = runPreflightWithMajor(major);
+        if (major >= 24) {
+          expect(exitCode).toBe(0);
+        } else {
+          expect(exitCode).toBe(1);
+        }
+      }),
       { numRuns: 100 },
     );
   });
 
   test("stderr contains '24' when major version < 24", () => {
     fc.assert(
-      fc.property(
-        fc.integer({ min: 0, max: 23 }),
-        (major) => {
-          const { stderr } = runPreflightWithMajor(major);
-          expect(stderr).toContain("24");
-        },
-      ),
+      fc.property(fc.integer({ min: 0, max: 23 }), (major) => {
+        const { stderr } = runPreflightWithMajor(major);
+        expect(stderr).toContain("24");
+      }),
       { numRuns: 100 },
     );
   });
 
   test("stdout contains success message when major version >= 24", () => {
     fc.assert(
-      fc.property(
-        fc.integer({ min: 24, max: 99 }),
-        (major) => {
-          const { stdout } = runPreflightWithMajor(major);
-          expect(stdout).toContain("OK");
-        },
-      ),
+      fc.property(fc.integer({ min: 24, max: 99 }), (major) => {
+        const { stdout } = runPreflightWithMajor(major);
+        expect(stdout).toContain("OK");
+      }),
       { numRuns: 100 },
     );
   });

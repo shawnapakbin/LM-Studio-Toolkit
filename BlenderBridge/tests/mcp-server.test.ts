@@ -68,7 +68,7 @@ describe("createBlenderBridgeMcpServer", () => {
     // Since all 5 tools are always registered, we verify the error message pattern
     // exists in the source code by testing the exact error the guard would produce.
     // We can test this by verifying the error message is correct in the thrown Error.
-    const _expectedMessage =
+    const expectedMessage =
       "BlenderBridge MCP server initialization failed: no tools were registered.";
 
     // Directly test the guard logic: the function always registers 5 tools,
@@ -81,6 +81,7 @@ describe("createBlenderBridgeMcpServer", () => {
     );
     expect(mcpServerSource).toContain("no tools were registered");
     expect(mcpServerSource).toContain("if (toolCount === 0)");
+    expect(expectedMessage).toBeDefined();
   });
 });
 

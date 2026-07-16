@@ -79,7 +79,9 @@ describe("Preflight skip behavior in setup (Req 5.3, 5.4)", () => {
       pluginDirExists: () => true, // All plugin dirs exist
       preflightScriptExists: () => true,
       runPreflight: () => ({ status: 1 }), // Preflight FAILS
-      writeConfig: (tool) => { writtenConfigs.push(tool); },
+      writeConfig: (tool) => {
+        writtenConfigs.push(tool);
+      },
       buildBridgeConfig: (tool) => ({ command: "node", args: [`${tool}/dist/mcp-server.js`] }),
     });
 
@@ -100,7 +102,9 @@ describe("Preflight skip behavior in setup (Req 5.3, 5.4)", () => {
       pluginDirExists: () => true, // All plugin dirs exist
       preflightScriptExists: () => true,
       runPreflight: () => ({ status: 1 }), // Preflight FAILS
-      writeConfig: (tool) => { writtenConfigs.push(tool); },
+      writeConfig: (tool) => {
+        writtenConfigs.push(tool);
+      },
       buildBridgeConfig: (tool) => ({ command: "node", args: [`${tool}/dist/mcp-server.js`] }),
     });
 
@@ -118,7 +122,9 @@ describe("Preflight skip behavior in setup (Req 5.3, 5.4)", () => {
       pluginDirExists: () => true,
       preflightScriptExists: () => true,
       runPreflight: () => ({ status: 0 }), // Preflight PASSES
-      writeConfig: (_tool) => { writtenConfigs.push(_tool); },
+      writeConfig: (_tool) => {
+        writtenConfigs.push(_tool);
+      },
       buildBridgeConfig: (_tool) => ({ command: "npx", args: ["-y", "@browserless.io/mcp"] }),
     });
 
@@ -135,8 +141,12 @@ describe("Preflight skip behavior in setup (Req 5.3, 5.4)", () => {
     const result = syncBridgeConfigs({
       pluginDirExists: () => true,
       preflightScriptExists: () => false, // Script missing
-      runPreflight: () => { throw new Error("Should not be called"); },
-      writeConfig: (_tool) => { writtenConfigs.push(_tool); },
+      runPreflight: () => {
+        throw new Error("Should not be called");
+      },
+      writeConfig: (_tool) => {
+        writtenConfigs.push(_tool);
+      },
       buildBridgeConfig: (_tool) => ({ command: "npx", args: ["-y", "@browserless.io/mcp"] }),
     });
 
@@ -151,7 +161,10 @@ describe("Preflight skip behavior in setup (Req 5.3, 5.4)", () => {
     const result = syncBridgeConfigs({
       pluginDirExists: (tool) => tool !== "Browserless", // Browserless not installed
       preflightScriptExists: () => true,
-      runPreflight: () => { preflightCalled = true; return { status: 0 }; },
+      runPreflight: () => {
+        preflightCalled = true;
+        return { status: 0 };
+      },
       writeConfig: () => {},
       buildBridgeConfig: (_tool) => ({ command: "node", args: [] }),
     });

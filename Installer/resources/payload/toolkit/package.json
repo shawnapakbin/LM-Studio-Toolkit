@@ -83,9 +83,7 @@
     "typescript": "^5.8.2"
   },
   "lint-staged": {
-    "*.{ts,js,json}": [
-      "biome check --diagnostic-level=error --no-errors-on-unmatched"
-    ]
+    "*.{ts,js,json}": ["biome check --diagnostic-level=error --no-errors-on-unmatched"]
   },
   "workspaces": [
     "shared",

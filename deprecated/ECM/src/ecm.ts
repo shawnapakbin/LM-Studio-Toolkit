@@ -461,20 +461,27 @@ async function maybeAutoCompact(
     // This prevents redundant loop attempts when insufficient segments exist
     const totalNonSummarySegments = store.countNonSummarySegments(sessionId);
     if (totalNonSummarySegments <= policy.continuousKeepNewest) {
-      return { ...base, reason: "below_minimum_segment_count", totalSegments: totalNonSummarySegments };
+      return {
+        ...base,
+        reason: "below_minimum_segment_count",
+        totalSegments: totalNonSummarySegments,
+      };
     }
 
-    const toSummarize = store.getOldestNonSummarySegments(
-      sessionId,
-      policy.continuousKeepNewest,
-    );
+    const toSummarize = store.getOldestNonSummarySegments(sessionId, policy.continuousKeepNewest);
     if (toSummarize.length === 0) {
       return { ...base, reason: "insufficient_segments_to_compact" };
     }
 
     compactingSessions.add(sessionId);
     try {
-      const result = await createCompactionSummary(sessionId, toSummarize, sourceAction, true, true);
+      const result = await createCompactionSummary(
+        sessionId,
+        toSummarize,
+        sourceAction,
+        true,
+        true,
+      );
       lastContinuousCompactAt.set(sessionId, Date.now());
       return {
         ...base,
@@ -776,10 +783,10 @@ export async function getSessionPolicy(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-      const code =
-        msg.startsWith("'") || msg.includes("must be")
-          ? ErrorCode.INVALID_INPUT
-          : ErrorCode.EXECUTION_FAILED;
-      return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
+    const code =
+      msg.startsWith("'") || msg.includes("must be")
+        ? ErrorCode.INVALID_INPUT
+        : ErrorCode.EXECUTION_FAILED;
+    return createErrorResponse(code, msg) as ToolResponse<SessionPolicyResult>;
   }
 }

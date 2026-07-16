@@ -42,9 +42,9 @@ const defaultHttpClient: HttpClient = {
  * Exports the active object as OBJ and returns the file path.
  */
 export function createExportToViewerTool(
-  config: BlenderBridgeConfig,
+  _config: BlenderBridgeConfig,
   client: BlenderClient,
-  httpClient: HttpClient = defaultHttpClient,
+  _httpClient: HttpClient = defaultHttpClient,
 ): ToolHandler {
   return {
     name: "blender_export_to_viewer",

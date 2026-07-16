@@ -1,48 +1,48 @@
-import { z } from "zod";
-import { chromium } from "playwright";
 import { load as cheerioLoad } from "cheerio";
+import { chromium } from "playwright";
+import { z } from "zod";
 import { startServer } from "../shared/mcp-helpers.js";
 
 const fetchPageArgs = z.object({
   url: z.string().url(),
-  maxChars: z.number().int().positive().max(20000).optional().default(4000)
+  maxChars: z.number().int().positive().max(20000).optional().default(4000),
 });
 
 const linksArgs = z.object({
   url: z.string().url(),
-  maxLinks: z.number().int().positive().max(200).optional().default(30)
+  maxLinks: z.number().int().positive().max(200).optional().default(30),
 });
 
 const fetchPageRenderedArgs = z.object({
   url: z.string().url(),
   maxChars: z.number().int().positive().max(20000).optional().default(4000),
-  waitForSelector: z.string().optional()
+  waitForSelector: z.string().optional(),
 });
 
 const extractMetadataArgs = z.object({
-  url: z.string().url()
+  url: z.string().url(),
 });
 
 const extractTableArgs = z.object({
   url: z.string().url(),
-  tableIndex: z.number().int().nonnegative().optional().default(0)
+  tableIndex: z.number().int().nonnegative().optional().default(0),
 });
 
 const extractDynamicLinksArgs = z.object({
   url: z.string().url(),
-  maxLinks: z.number().int().positive().max(200).optional().default(30)
+  maxLinks: z.number().int().positive().max(200).optional().default(30),
 });
 
 const fetchWithPaginationArgs = z.object({
   url: z.string().url(),
   paginationSelector: z.string().optional(),
   maxPages: z.number().int().positive().max(20).optional().default(5),
-  maxChars: z.number().int().positive().max(50000).optional().default(20000)
+  maxChars: z.number().int().positive().max(50000).optional().default(20000),
 });
 
 const extractMainContentArgs = z.object({
   url: z.string().url(),
-  maxChars: z.number().int().positive().max(20000).optional().default(4000)
+  maxChars: z.number().int().positive().max(20000).optional().default(4000),
 });
 
 const INSECURE_TLS = process.env.MCP_INSECURE_TLS === "1";
@@ -92,7 +92,7 @@ async function fetchHtml(url: string): Promise<string> {
   try {
     const response = await fetch(url, {
       headers: { "User-Agent": "local-mcp-toolkit/0.1.0" },
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -171,7 +171,7 @@ async function fetchAndExtractMetadata(url: string): Promise<Record<string, unkn
     lang: $("html").attr("lang") || "",
     headings,
     schema,
-    links: extractLinksFromHtml(html, 50)
+    links: extractLinksFromHtml(html, 50),
   };
 }
 
@@ -210,9 +210,11 @@ async function fetchAndExtractTable(url: string, tableIndex: number): Promise<st
 
   table.find("tbody tr").each((_, row) => {
     const cells: string[] = [];
-    $(row).find("td").each((__, cell) => {
-      cells.push($(cell).text().trim().replace(/\s+/g, " "));
-    });
+    $(row)
+      .find("td")
+      .each((__, cell) => {
+        cells.push($(cell).text().trim().replace(/\s+/g, " "));
+      });
     if (cells.length === headers.length) {
       markdown += `| ${cells.join(" | ")} |\n`;
     }
@@ -267,10 +269,10 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             url: { type: "string", format: "uri" },
-            maxChars: { type: "number", minimum: 1, maximum: 20000 }
+            maxChars: { type: "number", minimum: 1, maximum: 20000 },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = fetchPageArgs.parse(args);
@@ -280,7 +282,7 @@ async function main(): Promise<void> {
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
@@ -290,34 +292,37 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             url: { type: "string", format: "uri" },
-            maxLinks: { type: "number", minimum: 1, maximum: 200 }
+            maxLinks: { type: "number", minimum: 1, maximum: 200 },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = linksArgs.parse(args);
         try {
           const html = await fetchHtml(parsed.url);
-          return extractLinksFromHtml(html, parsed.maxLinks).join("\n") || "No absolute links found.";
+          return (
+            extractLinksFromHtml(html, parsed.maxLinks).join("\n") || "No absolute links found."
+          );
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
         name: "fetch_page_rendered",
-        description: "Fetch a web page with full JavaScript execution and return cleaned text content. Use for modern JS/TS-heavy websites (React, Vue, Angular, etc.).",
+        description:
+          "Fetch a web page with full JavaScript execution and return cleaned text content. Use for modern JS/TS-heavy websites (React, Vue, Angular, etc.).",
         inputSchema: {
           type: "object",
           properties: {
             url: { type: "string", format: "uri" },
             maxChars: { type: "number", minimum: 1, maximum: 20000 },
-            waitForSelector: { type: "string" }
+            waitForSelector: { type: "string" },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = fetchPageRenderedArgs.parse(args);
@@ -327,19 +332,20 @@ async function main(): Promise<void> {
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
         name: "extract_page_metadata",
-        description: "Extract structured metadata from a web page (title, description, headings, schema.org data, links).",
+        description:
+          "Extract structured metadata from a web page (title, description, headings, schema.org data, links).",
         inputSchema: {
           type: "object",
           properties: {
-            url: { type: "string", format: "uri" }
+            url: { type: "string", format: "uri" },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractMetadataArgs.parse(args);
@@ -348,7 +354,7 @@ async function main(): Promise<void> {
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
@@ -358,10 +364,10 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             url: { type: "string", format: "uri" },
-            tableIndex: { type: "number", minimum: 0 }
+            tableIndex: { type: "number", minimum: 0 },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractTableArgs.parse(args);
@@ -370,30 +376,33 @@ async function main(): Promise<void> {
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
         name: "extract_dynamic_links",
-        description: "Extract all links from a page after JavaScript execution (includes dynamically generated links).",
+        description:
+          "Extract all links from a page after JavaScript execution (includes dynamically generated links).",
         inputSchema: {
           type: "object",
           properties: {
             url: { type: "string", format: "uri" },
-            maxLinks: { type: "number", minimum: 1, maximum: 200 }
+            maxLinks: { type: "number", minimum: 1, maximum: 200 },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractDynamicLinksArgs.parse(args);
         try {
           const html = await fetchRenderedHtml(parsed.url);
-          return extractLinksFromHtml(html, parsed.maxLinks).join("\n") || "No dynamic links found.";
+          return (
+            extractLinksFromHtml(html, parsed.maxLinks).join("\n") || "No dynamic links found."
+          );
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
@@ -405,33 +414,38 @@ async function main(): Promise<void> {
             url: { type: "string", format: "uri" },
             paginationSelector: { type: "string" },
             maxPages: { type: "number", minimum: 1, maximum: 20 },
-            maxChars: { type: "number", minimum: 1, maximum: 50000 }
+            maxChars: { type: "number", minimum: 1, maximum: 50000 },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = fetchWithPaginationArgs.parse(args);
         try {
-          const text = await fetchWithPagination(parsed.url, parsed.paginationSelector, parsed.maxPages);
+          const text = await fetchWithPagination(
+            parsed.url,
+            parsed.paginationSelector,
+            parsed.maxPages,
+          );
           return `URL: ${parsed.url}\n\n${text.slice(0, parsed.maxChars)}`;
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
+      },
     },
     {
       tool: {
         name: "extract_main_content",
-        description: "Extract main article/content from a page, automatically removing navigation, sidebars, ads, and other non-content elements.",
+        description:
+          "Extract main article/content from a page, automatically removing navigation, sidebars, ads, and other non-content elements.",
         inputSchema: {
           type: "object",
           properties: {
             url: { type: "string", format: "uri" },
-            maxChars: { type: "number", minimum: 1, maximum: 20000 }
+            maxChars: { type: "number", minimum: 1, maximum: 20000 },
           },
-          required: ["url"]
-        }
+          required: ["url"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractMainContentArgs.parse(args);
@@ -441,8 +455,8 @@ async function main(): Promise<void> {
         } catch (error) {
           throw new Error(buildNetworkMessage(error));
         }
-      }
-    }
+      },
+    },
   ]);
 }
 

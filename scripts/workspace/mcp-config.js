@@ -48,8 +48,7 @@ const servers = {
   browserless: {
     relativeScript: "Browserless/scripts/schema-proxy.js",
     env: {
-      BROWSERLESS_TOKEN: "",  // Mapped from BROWSERLESS_API_KEY at sync time
-      BROWSERLESS_API_URL: "",
+      BROWSERLESS_TOKEN: "", // Mapped from BROWSERLESS_API_KEY at sync time
     },
   },
   "ask-user": {

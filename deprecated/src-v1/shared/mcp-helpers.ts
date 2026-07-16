@@ -1,6 +1,10 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
 
 export type ToolHandler = (args: unknown) => Promise<string>;
 
@@ -12,22 +16,22 @@ export interface ToolDefinition {
 export async function startServer(
   name: string,
   version: string,
-  tools: ToolDefinition[]
+  tools: ToolDefinition[],
 ): Promise<void> {
   const server = new Server(
     {
       name,
-      version
+      version,
     },
     {
       capabilities: {
-        tools: {}
-      }
-    }
+        tools: {},
+      },
+    },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: tools.map((item) => item.tool)
+    tools: tools.map((item) => item.tool),
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -41,9 +45,9 @@ export async function startServer(
       content: [
         {
           type: "text",
-          text
-        }
-      ]
+          text,
+        },
+      ],
     };
   });
 

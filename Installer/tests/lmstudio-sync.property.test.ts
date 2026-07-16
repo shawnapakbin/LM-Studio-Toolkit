@@ -53,9 +53,7 @@ describe("Feature: browserless-npx-migration, Property 6: LM Studio Configurator
       fc.webUrl(),
       fc
         .stringOf(
-          fc
-            .char()
-            .filter((c) => c !== "\n" && c !== "\r" && c !== "\0" && c !== "=" && c !== "#"),
+          fc.char().filter((c) => c !== "\n" && c !== "\r" && c !== "\0" && c !== "=" && c !== "#"),
           { minLength: 1 },
         )
         .filter((s) => s.trim().length > 0)

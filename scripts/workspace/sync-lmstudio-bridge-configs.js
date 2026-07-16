@@ -82,6 +82,14 @@ function mergeServerConfig(serverConfig, topLevelServerConfig, pluginServerConfi
     }
   }
 
+  // Remove empty-string env values — passing them to child processes
+  // can override package defaults (e.g. BROWSERLESS_API_URL="" breaks URL parsing)
+  for (const key of Object.keys(mergedEnv)) {
+    if (typeof mergedEnv[key] === "string" && !mergedEnv[key].trim()) {
+      delete mergedEnv[key];
+    }
+  }
+
   return {
     ...serverConfig,
     env: mergedEnv,

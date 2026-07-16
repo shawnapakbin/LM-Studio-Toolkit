@@ -182,12 +182,13 @@ const VARIED_INSTALL_ROOTS = [
   "/usr/local/lib/llm-toolkit",
 ];
 
-const FAKE_NODE_PATH = "C:\\Users\\Demo User\\AppData\\Roaming\\llm-toolkit-installer\\runtime-cache\\node-v20.17.0-win32-x64\\node.exe";
+const FAKE_NODE_PATH =
+  "C:\\Users\\Demo User\\AppData\\Roaming\\llm-toolkit-installer\\runtime-cache\\node-v20.17.0-win32-x64\\node.exe";
 
 // ─── Property Test: Descriptor Identity Preservation ───
 
 describe("Property 2: Preservation — Descriptor Identity", () => {
-  const preservedFromRegistry = TOOL_DESCRIPTORS.filter(
+  const _preservedFromRegistry = TOOL_DESCRIPTORS.filter(
     (t) => t.id !== "ecm" && t.id !== "blender-bridge",
   );
 
@@ -312,9 +313,7 @@ describe("Property 2: Preservation — PAYLOAD_ITEMS non-ECM entries", () => {
   const fileContent: string = fs.readFileSync(stagePayloadPath, "utf8");
 
   // Extract the PAYLOAD_ITEMS array from the file content
-  const arrayMatch = fileContent.match(
-    /const PAYLOAD_ITEMS\s*=\s*\[([\s\S]*?)\];/,
-  );
+  const arrayMatch = fileContent.match(/const PAYLOAD_ITEMS\s*=\s*\[([\s\S]*?)\];/);
 
   const parsedItems: string[] = arrayMatch
     ? arrayMatch[1]
@@ -330,12 +329,9 @@ describe("Property 2: Preservation — PAYLOAD_ITEMS non-ECM entries", () => {
     expect(parsedItems.length).toBeGreaterThan(0);
   });
 
-  test.each(EXPECTED_NON_ECM_PAYLOAD_ITEMS)(
-    "PAYLOAD_ITEMS contains '%s'",
-    (item) => {
-      expect(parsedItems).toContain(item);
-    },
-  );
+  test.each(EXPECTED_NON_ECM_PAYLOAD_ITEMS)("PAYLOAD_ITEMS contains '%s'", (item) => {
+    expect(parsedItems).toContain(item);
+  });
 
   test("all expected non-ECM payload items are present", () => {
     for (const item of EXPECTED_NON_ECM_PAYLOAD_ITEMS) {
@@ -343,7 +339,6 @@ describe("Property 2: Preservation — PAYLOAD_ITEMS non-ECM entries", () => {
     }
   });
 });
-
 
 // ─── Observation: Expected smoke-test-mcp.js tools (non-ECM) ───
 
@@ -364,16 +359,35 @@ const EXPECTED_SMOKE_TEST_TOOLS = [
 
 const EXPECTED_VERIFY_TOOLS = [
   { name: "Terminal", dist: "Terminal/dist/mcp-server.js", src: "Terminal/src/mcp-server.ts" },
-  { name: "WebBrowser", dist: "WebBrowser/dist/mcp-server.js", src: "WebBrowser/src/mcp-server.ts" },
-  { name: "Calculator", dist: "Calculator/dist/mcp-server.js", src: "Calculator/src/mcp-server.ts" },
-  { name: "DocumentScraper", dist: "DocumentScraper/dist/mcp-server.js", src: "DocumentScraper/src/mcp-server.ts" },
+  {
+    name: "WebBrowser",
+    dist: "WebBrowser/dist/mcp-server.js",
+    src: "WebBrowser/src/mcp-server.ts",
+  },
+  {
+    name: "Calculator",
+    dist: "Calculator/dist/mcp-server.js",
+    src: "Calculator/src/mcp-server.ts",
+  },
+  {
+    name: "DocumentScraper",
+    dist: "DocumentScraper/dist/mcp-server.js",
+    src: "DocumentScraper/src/mcp-server.ts",
+  },
   { name: "Clock", dist: "Clock/dist/mcp-server.js", src: "Clock/src/mcp-server.ts" },
   { name: "AskUser", dist: "AskUser/dist/mcp-server.js", src: "AskUser/src/mcp-server.ts" },
   { name: "RAG", dist: "RAG/dist/mcp-server.js", src: "RAG/src/mcp-server.ts" },
-  { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js", src: "PythonShell/src/mcp-server.ts" },
-  { name: "SlashCommands", dist: "SlashCommands/dist/mcp-server.js", src: "SlashCommands/src/mcp-server.ts" },
+  {
+    name: "PythonShell",
+    dist: "PythonShell/dist/mcp-server.js",
+    src: "PythonShell/src/mcp-server.ts",
+  },
+  {
+    name: "SlashCommands",
+    dist: "SlashCommands/dist/mcp-server.js",
+    src: "SlashCommands/src/mcp-server.ts",
+  },
 ];
-
 
 // ─── Property Test: smoke-test-mcp.js Tools Preservation ───
 
@@ -387,13 +401,18 @@ describe("Property 2: Preservation — smoke-test-mcp.js non-ECM tools", () => {
   const fs = require("node:fs");
   const path = require("node:path");
 
-  const smokeTestPath = path.join(__dirname, "..", "..", "scripts", "workspace", "smoke-test-mcp.js");
+  const smokeTestPath = path.join(
+    __dirname,
+    "..",
+    "..",
+    "scripts",
+    "workspace",
+    "smoke-test-mcp.js",
+  );
   const fileContent: string = fs.readFileSync(smokeTestPath, "utf8");
 
   // Extract the tools array from the file content
-  const toolsArrayMatch = fileContent.match(
-    /const tools\s*=\s*\[([\s\S]*?)\];/,
-  );
+  const toolsArrayMatch = fileContent.match(/const tools\s*=\s*\[([\s\S]*?)\];/);
 
   // Parse each tool entry: { name: "...", dist: "..." }
   const parsedTools: Array<{ name: string; dist: string }> = [];
@@ -428,7 +447,6 @@ describe("Property 2: Preservation — smoke-test-mcp.js non-ECM tools", () => {
   });
 });
 
-
 // ─── Property Test: verify-tools.js Tools Preservation ───
 
 describe("Property 2: Preservation — verify-tools.js existing tools", () => {
@@ -441,20 +459,26 @@ describe("Property 2: Preservation — verify-tools.js existing tools", () => {
   const fs = require("node:fs");
   const path = require("node:path");
 
-  const verifyToolsPath = path.join(__dirname, "..", "..", "scripts", "workspace", "verify-tools.js");
+  const verifyToolsPath = path.join(
+    __dirname,
+    "..",
+    "..",
+    "scripts",
+    "workspace",
+    "verify-tools.js",
+  );
   const fileContent: string = fs.readFileSync(verifyToolsPath, "utf8");
 
   // Extract the tools array from the file content
-  const toolsArrayMatch = fileContent.match(
-    /const tools\s*=\s*\[([\s\S]*?)\];/,
-  );
+  const toolsArrayMatch = fileContent.match(/const tools\s*=\s*\[([\s\S]*?)\];/);
 
   // Parse each tool entry: { name: "...", dist: "...", src: "..." }
   // Entries may span multiple lines in the source file
   const parsedTools: Array<{ name: string; dist: string; src: string }> = [];
   if (toolsArrayMatch) {
     const entriesStr = toolsArrayMatch[1];
-    const entryRegex = /\{\s*name:\s*"([^"]+)"[\s\S]*?dist:\s*"([^"]+)"[\s\S]*?src:\s*"([^"]+)"[\s\S]*?\}/g;
+    const entryRegex =
+      /\{\s*name:\s*"([^"]+)"[\s\S]*?dist:\s*"([^"]+)"[\s\S]*?src:\s*"([^"]+)"[\s\S]*?\}/g;
     let match: RegExpExecArray | null;
     while ((match = entryRegex.exec(entriesStr)) !== null) {
       parsedTools.push({ name: match[1], dist: match[2], src: match[3] });

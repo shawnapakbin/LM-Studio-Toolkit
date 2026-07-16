@@ -1,6 +1,6 @@
 {
   "name": "lm-studio-toolkit",
-  "version": "2.2.0",
+  "version": "2.2.5",
   "description": "Enterprise-grade LLM agent toolkit with multi-tool orchestration",
   "private": true,
   "main": "dist/index.js",
@@ -35,6 +35,7 @@
     "mcp:print-config": "node scripts/workspace/generate-mcp-config.js",
     "mcp:sync-lmstudio": "node scripts/workspace/sync-lmstudio-bridge-configs.js",
     "type-check": "tsc --noEmit",
+    "quality-gates": "npm run check:ci && npm run type-check && npm run test:ci",
     "prepare": "husky",
     "verify:all": "npm run verify:vnext-scope && npm run check:ci && npm run type-check && npm run test:ci && npm run build && npm run startup:check",
     "build": "npm run build:shared && npm run build:observability && npm run build:tools && npm run build:memory",

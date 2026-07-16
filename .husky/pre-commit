@@ -1,2 +1,8 @@
 node scripts/workspace/precommit-secrets.js
 npx lint-staged
+
+# Quality gates (mirrors CI)
+echo "Running quality gates..."
+npm run check:ci || { echo "❌ Biome check failed. Run 'npm run check' to auto-fix."; exit 1; }
+npm run type-check || { echo "❌ TypeScript type-check failed."; exit 1; }
+echo "✓ Quality gates passed."

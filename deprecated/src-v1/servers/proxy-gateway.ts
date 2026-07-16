@@ -1,14 +1,14 @@
 /**
  * Enhanced HTTP Proxy Gateway for MCP Browser Tools
- * 
+ *
  * Runs outside LM Studio's sandbox to fetch web content on behalf of
  * sandboxed MCP servers. Supports both simple HTTP fetches and full
  * JavaScript rendering via Playwright.
  */
 
 import { createServer } from "node:http";
-import { Browser, Page, chromium } from "playwright";
 import { load as cheerioLoad } from "cheerio";
+import { Browser, Page, chromium } from "playwright";
 
 const PORT = 8765;
 const HOST = "127.0.0.1";
@@ -66,20 +66,20 @@ async function getBrowser(): Promise<Browser> {
 async function getPage(): Promise<Page> {
   const browser = await getBrowser();
   let page = browserPagePool.pop();
-  
+
   if (!page) {
     page = await browser.newPage();
     page.setDefaultTimeout(15000);
   }
-  
+
   // Set idle timeout for cleanup
   setTimeout(() => {
     if (browserPagePool.includes(page)) {
       page!.close().catch(() => {});
-      browserPagePool = browserPagePool.filter(p => p !== page);
+      browserPagePool = browserPagePool.filter((p) => p !== page);
     }
   }, IDLE_TIMEOUT);
-  
+
   return page;
 }
 
@@ -111,7 +111,7 @@ async function fetchPage(url: string): Promise<string> {
   try {
     const response = await fetch(url, {
       headers: { "User-Agent": "local-mcp-toolkit/0.1.0" },
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -152,7 +152,7 @@ async function fetchPageRendered(url: string): Promise<string> {
 function extractLinks(html: string, maxLinks: number): string[] {
   const $ = cheerioLoad(html);
   const links = new Set<string>();
-  
+
   $("a[href]").each((_, element) => {
     if (links.size >= maxLinks) return;
     const href = $(element).attr("href");
@@ -175,12 +175,15 @@ async function extractPageMetadata(url: string, html?: string): Promise<PageMeta
   }
 
   const $ = cheerioLoad(html);
-  
+
   const title = $("title").text() || $("meta[property='og:title']").attr("content") || "";
-  const description = $("meta[name='description']").attr("content") || $("meta[property='og:description']").attr("content") || "";
+  const description =
+    $("meta[name='description']").attr("content") ||
+    $("meta[property='og:description']").attr("content") ||
+    "";
   const canonical = $("link[rel='canonical']").attr("href") || "";
   const lang = $("html").attr("lang") || "";
-  
+
   const headings: string[] = [];
   $("h1, h2, h3, h4, h5, h6").each((_, el) => {
     const text = $(el).text().trim();
@@ -211,7 +214,7 @@ async function extractPageMetadata(url: string, html?: string): Promise<PageMeta
     headings,
     mainText,
     schema: schema.length > 0 ? schema : undefined,
-    links
+    links,
   };
 }
 
@@ -221,32 +224,36 @@ async function extractMainContent(url: string, html?: string): Promise<string> {
   }
 
   const $ = cheerioLoad(html);
-  
+
   // Remove common non-content elements
   $("script, style, nav, footer, .ads, .sidebar, .comments, .related, .footer").remove();
-  
+
   // Try to find main content
   const main = $("main, article, .content, .post, .entry-content, .article-body").first();
   const content = main.length > 0 ? main.html() : $("body").html();
-  
+
   return stripHtml(content || "");
 }
 
-async function extractTableData(url: string, tableIndex: number = 0, html?: string): Promise<string> {
+async function extractTableData(
+  url: string,
+  tableIndex: number = 0,
+  html?: string,
+): Promise<string> {
   if (!html) {
     html = await fetchPage(url);
   }
 
   const $ = cheerioLoad(html);
   const tables = $("table");
-  
+
   if (tableIndex >= tables.length) {
     throw new Error(`Table index ${tableIndex} out of range (found ${tables.length} tables)`);
   }
 
   const table = tables.eq(tableIndex);
   let markdownTable = "";
-  
+
   // Extract headers
   const headers: string[] = [];
   table.find("thead th, thead td, tr:first th, tr:first td").each((_, el) => {
@@ -263,9 +270,11 @@ async function extractTableData(url: string, tableIndex: number = 0, html?: stri
   // Extract rows
   table.find("tbody tr, tr").each((_, row) => {
     const cells: string[] = [];
-    $(row).find("td").each((_, cell) => {
-      cells.push($(cell).text().trim().replace(/\n/g, " "));
-    });
+    $(row)
+      .find("td")
+      .each((_, cell) => {
+        cells.push($(cell).text().trim().replace(/\n/g, " "));
+      });
     if (cells.length === headers.length) {
       markdownTable += "| " + cells.join(" | ") + " |\n";
     }
@@ -277,7 +286,7 @@ async function extractTableData(url: string, tableIndex: number = 0, html?: stri
 async function fetchWithPagination(
   url: string,
   paginationSelector?: string,
-  maxPages: number = 5
+  maxPages: number = 5,
 ): Promise<string> {
   if (!USE_PLAYWRIGHT) {
     return stripHtml(await fetchPage(url));
@@ -291,7 +300,7 @@ async function fetchWithPagination(
     for (let i = 0; i < maxPages; i++) {
       console.log(`[Pagination] Fetching page ${i + 1} from ${currentUrl}`);
       await page.goto(currentUrl, { waitUntil: "networkidle" });
-      
+
       const content = await page.content();
       allContent += stripHtml(content) + "\n\n---\n\n";
 
@@ -367,7 +376,7 @@ const server = createServer(async (req, res) => {
         const content = await fetchWithPagination(
           url,
           proxyReq.pagination.selector,
-          proxyReq.pagination.maxPages ?? 5
+          proxyReq.pagination.maxPages ?? 5,
         );
         const maxChars = proxyReq.maxChars ?? 50000;
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -405,8 +414,8 @@ const server = createServer(async (req, res) => {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
-          error: error instanceof Error ? error.message : "Unknown error"
-        })
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
       );
     }
   });

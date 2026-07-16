@@ -1,5 +1,5 @@
 {
-  "traceId": "1776223348064-svmc9wei",
+  "traceId": "1784091573727-uridpw3u",
   "workflowId": "eval-shell-build-2-negative",
   "workflowName": "Shell Build - Negative Test",
   "status": "error",
@@ -15,5 +15,5 @@
       "errorMessage": "command required"
     }
   ],
-  "generatedAt": "2026-04-15T03:22:28.064Z"
+  "generatedAt": "2026-07-15T04:59:33.727Z"
 }

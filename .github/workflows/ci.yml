@@ -48,6 +48,8 @@ jobs:
           cache: 'npm'
       - name: "Install dependencies"
         run: npm ci
+      - name: "Build foundation packages (shared + observability)"
+        run: npm run build:shared && npm run build:observability
       - name: "Type check"
         run: npm run type-check
 
@@ -62,6 +64,8 @@ jobs:
           cache: 'npm'
       - name: "Install dependencies"
         run: npm ci
+      - name: "Build foundation packages (shared + observability)"
+        run: npm run build:shared && npm run build:observability
       - name: "Run tests with coverage"
         run: npm run test:ci
       - name: "Upload coverage to Codecov (optional)"

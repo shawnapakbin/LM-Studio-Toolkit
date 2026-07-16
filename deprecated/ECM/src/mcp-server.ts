@@ -75,7 +75,9 @@ const ecmInputShape = {
   keepNewest: z
     .number()
     .optional()
-    .describe("(summarize_session / auto_compact_now / set_continuous_compact) Number of newest segments to keep untouched (default 10 / 10 / 1)."),
+    .describe(
+      "(summarize_session / auto_compact_now / set_continuous_compact) Number of newest segments to keep untouched (default 10 / 10 / 1).",
+    ),
   enabled: z
     .boolean()
     .optional()

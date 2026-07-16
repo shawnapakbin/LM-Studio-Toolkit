@@ -13,7 +13,7 @@ const MAX_PUNCHOUT_WAIT_TIMEOUT_MS = 600000;
 const commandArgs = z.object({
   command: z.string().min(1),
   cwd: z.string().optional(),
-  timeoutMs: z.number().int().positive().max(30000).optional().default(10000)
+  timeoutMs: z.number().int().positive().max(30000).optional().default(10000),
 });
 
 function getAllowedCommands(): Set<string> {
@@ -22,7 +22,7 @@ function getAllowedCommands(): Set<string> {
     raw
       .split(",")
       .map((item) => item.trim())
-      .filter(Boolean)
+      .filter(Boolean),
   );
 }
 
@@ -63,7 +63,7 @@ function resolveTerminalLauncher(): string {
     "gnome-terminal",
     "konsole",
     "xfce4-terminal",
-    "xterm"
+    "xterm",
   ];
 
   for (const candidate of candidates) {
@@ -74,11 +74,15 @@ function resolveTerminalLauncher(): string {
 
   throw new Error(
     "Terminal punchout requested but no supported terminal launcher was found. " +
-      "Set TERMINAL_PUNCHOUT_CMD to a valid executable."
+      "Set TERMINAL_PUNCHOUT_CMD to a valid executable.",
   );
 }
 
-function launchPunchedOutTerminal(command: string, env: NodeJS.ProcessEnv | undefined, cwd?: string): string {
+function launchPunchedOutTerminal(
+  command: string,
+  env: NodeJS.ProcessEnv | undefined,
+  cwd?: string,
+): string {
   const launcher = resolveTerminalLauncher();
   const interactiveCommand = `${command}; echo; echo '[mcp-terminal] command finished'; exec bash`;
 
@@ -95,7 +99,7 @@ function launchPunchedOutTerminal(command: string, env: NodeJS.ProcessEnv | unde
     cwd,
     env,
     detached: true,
-    stdio: "ignore"
+    stdio: "ignore",
   });
 
   child.unref();
@@ -110,7 +114,7 @@ function shellQuote(value: string): string {
 function parsePositiveInt(
   rawValue: string | undefined,
   fallback: number,
-  maxValue: number
+  maxValue: number,
 ): number {
   if (!rawValue) {
     return fallback;
@@ -128,7 +132,7 @@ function getPunchoutWaitTimeoutMs(): number {
   return parsePositiveInt(
     process.env.TERMINAL_PUNCHOUT_WAIT_TIMEOUT_MS,
     DEFAULT_PUNCHOUT_WAIT_TIMEOUT_MS,
-    MAX_PUNCHOUT_WAIT_TIMEOUT_MS
+    MAX_PUNCHOUT_WAIT_TIMEOUT_MS,
   );
 }
 
@@ -182,7 +186,7 @@ function buildExecutionContext(command: string): {
     if (!askpassPath) {
       throw new Error(
         "sudo command requires askpass, but no helper was configured. " +
-          "Set TERMINAL_SUDO_ASKPASS or SUDO_ASKPASS."
+          "Set TERMINAL_SUDO_ASKPASS or SUDO_ASKPASS.",
       );
     }
 
@@ -191,16 +195,16 @@ function buildExecutionContext(command: string): {
       command: ensureSudoUsesAskpass(command),
       env: {
         ...process.env,
-        SUDO_ASKPASS: askpassPath
+        SUDO_ASKPASS: askpassPath,
       },
-      notes
+      notes,
     };
   }
 
   return {
     command,
     env: undefined,
-    notes
+    notes,
   };
 }
 
@@ -209,7 +213,7 @@ function launchTrackedPunchedOutTerminal(
   exitCodePath: string,
   keepOpen: boolean,
   env: NodeJS.ProcessEnv | undefined,
-  cwd?: string
+  cwd?: string,
 ): string {
   const launcher = resolveTerminalLauncher();
   const interactiveCommand = [
@@ -219,8 +223,8 @@ function launchTrackedPunchedOutTerminal(
     `printf '%s' \"$ec\" > ${shellQuote(exitCodePath)}`,
     "echo",
     "echo '[mcp-terminal] command finished'",
-    "echo \"[mcp-terminal] exit code: $ec\"",
-    keepOpen ? "exec bash" : "exit $ec"
+    'echo "[mcp-terminal] exit code: $ec"',
+    keepOpen ? "exec bash" : "exit $ec",
   ].join("; ");
 
   let args: string[];
@@ -236,7 +240,7 @@ function launchTrackedPunchedOutTerminal(
     cwd,
     env,
     detached: true,
-    stdio: "ignore"
+    stdio: "ignore",
   });
 
   child.unref();
@@ -246,7 +250,7 @@ function launchTrackedPunchedOutTerminal(
 
 async function waitForExitCodeFile(
   exitCodePath: string,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<{ timedOut: boolean; exitCode: number | null }> {
   const deadline = Date.now() + timeoutMs;
 
@@ -274,7 +278,7 @@ function launchTrackedPunchedOutTerminalWithCapture(
   exitCodePath: string,
   keepOpen: boolean,
   env: NodeJS.ProcessEnv | undefined,
-  cwd?: string
+  cwd?: string,
 ): string {
   const launcher = resolveTerminalLauncher();
   // Redirect stdout/stderr via shell so the TTY stays interactive for sudo prompts.
@@ -286,8 +290,8 @@ function launchTrackedPunchedOutTerminalWithCapture(
     `printf '%s' "$ec" > ${shellQuote(exitCodePath)}`,
     "echo",
     "echo '[mcp-terminal] command finished'",
-    "echo \"[mcp-terminal] exit code: $ec\"",
-    keepOpen ? "exec bash" : "exit $ec"
+    'echo "[mcp-terminal] exit code: $ec"',
+    keepOpen ? "exec bash" : "exit $ec",
   ].join("; ");
 
   let args: string[];
@@ -303,7 +307,7 @@ function launchTrackedPunchedOutTerminalWithCapture(
     cwd,
     env,
     detached: true,
-    stdio: "ignore"
+    stdio: "ignore",
   });
 
   child.unref();
@@ -320,7 +324,7 @@ function launchPunchedOutLogViewer(stdoutPath: string, stderrPath: string, cwd?:
     `echo`,
     `tail -n +1 -f ${shellQuote(stdoutPath)} ${shellQuote(stderrPath)}`,
     `echo`,
-    `echo '[mcp-terminal] command finished'; exec bash`
+    `echo '[mcp-terminal] command finished'; exec bash`,
   ].join("; ");
 
   let args: string[];
@@ -335,7 +339,7 @@ function launchPunchedOutLogViewer(stdoutPath: string, stderrPath: string, cwd?:
   const child = spawn(launcher, args, {
     cwd,
     detached: true,
-    stdio: "ignore"
+    stdio: "ignore",
   });
 
   child.unref();
@@ -351,7 +355,7 @@ function truncateUtf8(text: string, maxBytes: number): { text: string; truncated
 
   return {
     text: source.subarray(0, maxBytes).toString("utf8"),
-    truncated: true
+    truncated: true,
   };
 }
 
@@ -361,13 +365,13 @@ async function executeWithCapturedLogs(
   cwd: string | undefined,
   timeoutMs: number,
   stdoutPath: string,
-  stderrPath: string
+  stderrPath: string,
 ): Promise<{ exitCode: number | null; signal: NodeJS.Signals | null; timedOut: boolean }> {
   return await new Promise((resolve, reject) => {
     const child = spawn("bash", ["-lc", command], {
       cwd,
       env,
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
     const stdoutStream = createWriteStream(stdoutPath, { flags: "a" });
@@ -424,7 +428,7 @@ async function executeAndCapture(
   command: string,
   env: NodeJS.ProcessEnv | undefined,
   cwd: string | undefined,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<{
   stdout: string;
   stderr: string;
@@ -436,7 +440,7 @@ async function executeAndCapture(
     const child = spawn("bash", ["-lc", command], {
       cwd,
       env,
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -488,7 +492,7 @@ async function executeAndCapture(
         stderr: Buffer.concat(stderrChunks).toString("utf8").trim(),
         exitCode,
         signal,
-        timedOut
+        timedOut,
       });
     });
   });
@@ -507,10 +511,10 @@ async function main(): Promise<void> {
           properties: {
             command: { type: "string" },
             cwd: { type: "string" },
-            timeoutMs: { type: "number", minimum: 1, maximum: 30000 }
+            timeoutMs: { type: "number", minimum: 1, maximum: 30000 },
           },
-          required: ["command"]
-        }
+          required: ["command"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = commandArgs.parse(args);
@@ -547,7 +551,7 @@ async function main(): Promise<void> {
               exitCodePath,
               keepOpen,
               execution.env,
-              parsed.cwd
+              parsed.cwd,
             );
 
             const waitResult = await waitForExitCodeFile(exitCodePath, waitTimeoutMs);
@@ -558,8 +562,10 @@ async function main(): Promise<void> {
                 launchMessage,
                 `STATUS: timed out waiting for punchout completion after ${waitTimeoutMs}ms.`,
                 execution.notes.length > 0 ? execution.notes.join("\n") : "",
-                "The terminal window remains under user control."
-              ].filter(Boolean).join("\n\n");
+                "The terminal window remains under user control.",
+              ]
+                .filter(Boolean)
+                .join("\n\n");
             }
 
             const rawStdout = (await readFile(stdoutPath)).toString("utf8").trim();
@@ -578,7 +584,7 @@ async function main(): Promise<void> {
               `EXIT: code=${waitResult.exitCode ?? "null"}`,
               capNotes.length > 0 ? capNotes.join("\n") : "STATUS: completed",
               stdout.text ? `STDOUT:\n${stdout.text}` : "STDOUT: <empty>",
-              stderr.text ? `STDERR:\n${stderr.text}` : "STDERR: <empty>"
+              stderr.text ? `STDERR:\n${stderr.text}` : "STDERR: <empty>",
             ].join("\n\n");
           } finally {
             await rm(sessionDir, { recursive: true, force: true });
@@ -602,7 +608,7 @@ async function main(): Promise<void> {
               parsed.cwd,
               parsed.timeoutMs,
               stdoutPath,
-              stderrPath
+              stderrPath,
             );
 
             const rawStdout = (await readFile(stdoutPath)).toString("utf8").trim();
@@ -622,9 +628,11 @@ async function main(): Promise<void> {
               `Command: ${execution.command}`,
               message,
               `EXIT: code=${result.exitCode ?? "null"}${result.signal ? ` signal=${result.signal}` : ""}`,
-              notes.length > 0 ? [...execution.notes, ...notes].join("\n") : [...execution.notes, "STATUS: completed"].join("\n"),
+              notes.length > 0
+                ? [...execution.notes, ...notes].join("\n")
+                : [...execution.notes, "STATUS: completed"].join("\n"),
               stdout.text ? `STDOUT:\n${stdout.text}` : "STDOUT: <empty>",
-              stderr.text ? `STDERR:\n${stderr.text}` : "STDERR: <empty>"
+              stderr.text ? `STDERR:\n${stderr.text}` : "STDERR: <empty>",
             ].join("\n\n");
           } finally {
             await rm(sessionDir, { recursive: true, force: true });
@@ -644,7 +652,7 @@ async function main(): Promise<void> {
                 exitCodePath,
                 keepOpen,
                 execution.env,
-                parsed.cwd
+                parsed.cwd,
               );
               const waitResult = await waitForExitCodeFile(exitCodePath, waitTimeoutMs);
 
@@ -653,8 +661,10 @@ async function main(): Promise<void> {
                   `Command: ${execution.command}`,
                   launchMessage,
                   `STATUS: timed out waiting for punchout completion after ${waitTimeoutMs}ms.`,
-                  execution.notes.length > 0 ? execution.notes.join("\n") : "STATUS: waiting aborted",
-                  "The terminal window remains under user control."
+                  execution.notes.length > 0
+                    ? execution.notes.join("\n")
+                    : "STATUS: waiting aborted",
+                  "The terminal window remains under user control.",
                 ].join("\n\n");
               }
 
@@ -663,7 +673,7 @@ async function main(): Promise<void> {
                 launchMessage,
                 `EXIT: code=${waitResult.exitCode ?? "null"}`,
                 [...execution.notes, "STATUS: completed via tracked punchout mode."].join("\n"),
-                "Output capture is disabled in punchout mode; view output in the opened terminal window."
+                "Output capture is disabled in punchout mode; view output in the opened terminal window.",
               ].join("\n\n");
             } finally {
               await rm(sessionDir, { recursive: true, force: true });
@@ -675,42 +685,44 @@ async function main(): Promise<void> {
             `Command: ${execution.command}`,
             message,
             execution.notes.length > 0 ? execution.notes.join("\n") : "STATUS: launched",
-            "Output capture is disabled in punchout mode; view output in the opened terminal window."
+            "Output capture is disabled in punchout mode; view output in the opened terminal window.",
           ].join("\n\n");
         }
 
-          const result = await executeAndCapture(
-            execution.command,
-            execution.env,
-            parsed.cwd,
-            parsed.timeoutMs
-          );
+        const result = await executeAndCapture(
+          execution.command,
+          execution.env,
+          parsed.cwd,
+          parsed.timeoutMs,
+        );
 
-          const notes: string[] = [];
-          if (result.timedOut) {
-            notes.push(`TIMEOUT: command exceeded ${parsed.timeoutMs}ms and was terminated.`);
-          }
-          if (result.exitCode !== 0) {
-            notes.push("STATUS: non-zero exit code returned by command.");
-          } else {
-            notes.push("STATUS: completed");
-          }
+        const notes: string[] = [];
+        if (result.timedOut) {
+          notes.push(`TIMEOUT: command exceeded ${parsed.timeoutMs}ms and was terminated.`);
+        }
+        if (result.exitCode !== 0) {
+          notes.push("STATUS: non-zero exit code returned by command.");
+        } else {
+          notes.push("STATUS: completed");
+        }
 
-          const stdoutTruncated = result.stdout.length > 0 && Buffer.byteLength(result.stdout, "utf8") >= CAPTURE_MAX_BYTES;
-          const stderrTruncated = result.stderr.length > 0 && Buffer.byteLength(result.stderr, "utf8") >= CAPTURE_MAX_BYTES;
-          if (stdoutTruncated || stderrTruncated) {
-            notes.push(`NOTE: output was truncated to ${CAPTURE_MAX_BYTES} bytes per stream.`);
-          }
+        const stdoutTruncated =
+          result.stdout.length > 0 && Buffer.byteLength(result.stdout, "utf8") >= CAPTURE_MAX_BYTES;
+        const stderrTruncated =
+          result.stderr.length > 0 && Buffer.byteLength(result.stderr, "utf8") >= CAPTURE_MAX_BYTES;
+        if (stdoutTruncated || stderrTruncated) {
+          notes.push(`NOTE: output was truncated to ${CAPTURE_MAX_BYTES} bytes per stream.`);
+        }
 
         return [
           `Command: ${execution.command}`,
-            `EXIT: code=${result.exitCode ?? "null"}${result.signal ? ` signal=${result.signal}` : ""}`,
-            [...execution.notes, ...notes].join("\n"),
-            result.stdout ? `STDOUT:\n${result.stdout}` : "STDOUT: <empty>",
-            result.stderr ? `STDERR:\n${result.stderr}` : "STDERR: <empty>"
+          `EXIT: code=${result.exitCode ?? "null"}${result.signal ? ` signal=${result.signal}` : ""}`,
+          [...execution.notes, ...notes].join("\n"),
+          result.stdout ? `STDOUT:\n${result.stdout}` : "STDOUT: <empty>",
+          result.stderr ? `STDERR:\n${result.stderr}` : "STDERR: <empty>",
         ].join("\n\n");
-      }
-    }
+      },
+    },
   ]);
 }
 

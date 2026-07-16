@@ -27,10 +27,11 @@ function checkNodeVersion() {
 function checkEnv() {
   const rawApiKey = process.env.BROWSERLESS_API_KEY;
   const apiKey = typeof rawApiKey === "string" ? rawApiKey.trim() : "";
+  const isCI = process.env.CI === "true" || process.env.CI === "1";
 
   if (!apiKey || apiKey.includes("your-browserless-api-token-here")) {
     const message = "Browserless API key is not configured (BROWSERLESS_API_KEY).";
-    if (strictEnv) {
+    if (strictEnv && !isCI) {
       console.error(`✗ ${message}`);
       return false;
     }

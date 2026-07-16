@@ -1,6 +1,6 @@
 /**
  * RAG (Retrieval-Augmented Generation) MCP Server
- * 
+ *
  * Provides document ingestion, chunking, embedding, and semantic search capabilities.
  * Uses LM Studio's built-in embeddings endpoint for vector generation.
  * Stores vectors in-memory with file-based persistence.
@@ -18,12 +18,12 @@ const chunkTextArgs = z.object({
   text: z.string(),
   chunkSize: z.number().positive().max(5000).optional().default(1000),
   chunkOverlap: z.number().nonnegative().optional().default(200),
-  strategy: z.enum(["fixed", "sentence", "semantic"]).optional().default("fixed")
+  strategy: z.enum(["fixed", "sentence", "semantic"]).optional().default("fixed"),
 });
 
 const generateEmbeddingsArgs = z.object({
   texts: z.string().array(),
-  model: z.string().optional().default("nomic-embed-text")
+  model: z.string().optional().default("nomic-embed-text"),
 });
 
 const storeDocumentArgs = z.object({
@@ -33,34 +33,34 @@ const storeDocumentArgs = z.object({
   url: z.string().url().optional(),
   metadata: z.record(z.unknown()).optional(),
   chunkSize: z.number().positive().optional().default(1000),
-  chunkOverlap: z.number().nonnegative().optional().default(200)
+  chunkOverlap: z.number().nonnegative().optional().default(200),
 });
 
 const searchKnowledgeArgs = z.object({
   query: z.string(),
   topK: z.number().positive().max(20).optional().default(5),
-  includeSemanticScore: z.boolean().optional().default(true)
+  includeSemanticScore: z.boolean().optional().default(true),
 });
 
 const listDocumentsArgs = z.object({
-  limit: z.number().positive().optional().default(100)
+  limit: z.number().positive().optional().default(100),
 });
 
 const deleteDocumentArgs = z.object({
-  documentId: z.string()
+  documentId: z.string(),
 });
 
 const extractPdfArgs = z.object({
   filePath: z.string(),
-  maxPages: z.number().positive().optional()
+  maxPages: z.number().positive().optional(),
 });
 
 const extractDocxArgs = z.object({
-  filePath: z.string()
+  filePath: z.string(),
 });
 
 const extractMarkdownArgs = z.object({
-  filePath: z.string()
+  filePath: z.string(),
 });
 
 // ========== Types ==========
@@ -104,14 +104,14 @@ if (INSECURE_TLS) {
 const vectorStore: VectorStore = {
   documents: new Map(),
   chunks: new Map(),
-  nextChunkId: 0
+  nextChunkId: 0,
 };
 
 async function initializeVectorStore(): Promise<void> {
   try {
     await fs.mkdir(RAG_DATA_DIR, { recursive: true });
     const indexPath = path.join(RAG_DATA_DIR, "index.json");
-    
+
     try {
       const data = await fs.readFile(indexPath, "utf-8");
       const loaded = JSON.parse(data);
@@ -121,12 +121,14 @@ async function initializeVectorStore(): Promise<void> {
           key,
           {
             ...(chunk as Record<string, unknown>),
-            id: key
-          } as Chunk
-        ])
+            id: key,
+          } as Chunk,
+        ]),
       );
       vectorStore.nextChunkId = loaded.nextChunkId || 0;
-      console.log(`[RAG] Loaded vector store: ${vectorStore.documents.size} documents, ${vectorStore.chunks.size} chunks`);
+      console.log(
+        `[RAG] Loaded vector store: ${vectorStore.documents.size} documents, ${vectorStore.chunks.size} chunks`,
+      );
     } catch {
       console.log("[RAG] Starting with empty vector store");
     }
@@ -141,7 +143,7 @@ async function persisVectorStore(): Promise<void> {
     const data = {
       documents: Object.fromEntries(vectorStore.documents),
       chunks: Object.fromEntries(vectorStore.chunks),
-      nextChunkId: vectorStore.nextChunkId
+      nextChunkId: vectorStore.nextChunkId,
     };
     await fs.writeFile(indexPath, JSON.stringify(data, null, 2));
   } catch (error) {
@@ -228,8 +230,8 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "nomic-embed-text",
-        input: toFetch.map(t => t.text)
-      })
+        input: toFetch.map((t) => t.text),
+      }),
     });
 
     if (!response.ok) {
@@ -253,13 +255,15 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 
     return results;
   } catch (error) {
-    throw new Error(`Failed to generate embeddings: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to generate embeddings: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length === 0 || b.length === 0) return 0;
-  
+
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
@@ -281,14 +285,12 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 async function extractPdfText(filePath: string, _maxPages?: number): Promise<string> {
   // Dynamic import to avoid requiring pdf-parse in browser contexts
-  let pdfParse:
-    | ((dataBuffer: Buffer, options?: unknown) => Promise<{ text: string }>)
-    | undefined;
+  let pdfParse: ((dataBuffer: Buffer, options?: unknown) => Promise<{ text: string }>) | undefined;
   try {
     const module = await import("pdf-parse");
     pdfParse = (module.default ?? module) as unknown as (
       dataBuffer: Buffer,
-      options?: unknown
+      options?: unknown,
     ) => Promise<{ text: string }>;
   } catch {
     throw new Error("pdf-parse not available");
@@ -312,8 +314,10 @@ async function extractDocxText(filePath: string): Promise<string> {
   }
 
   const buffer = await fs.readFile(filePath);
-  const result = await (mammoth as { extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: string }> }).extractRawText({
-    buffer
+  const result = await (
+    mammoth as { extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: string }> }
+  ).extractRawText({
+    buffer,
   });
   return result.value;
 }
@@ -369,12 +373,21 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             text: { type: "string" },
-            chunkSize: { type: "number", minimum: 1, maximum: 5000, description: "Characters per chunk" },
+            chunkSize: {
+              type: "number",
+              minimum: 1,
+              maximum: 5000,
+              description: "Characters per chunk",
+            },
             chunkOverlap: { type: "number", minimum: 0, description: "Overlap between chunks" },
-            strategy: { type: "string", enum: ["fixed", "sentence", "semantic"], description: "Chunking strategy" }
+            strategy: {
+              type: "string",
+              enum: ["fixed", "sentence", "semantic"],
+              description: "Chunking strategy",
+            },
           },
-          required: ["text"]
-        }
+          required: ["text"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = chunkTextArgs.parse(args);
@@ -393,10 +406,12 @@ async function main(): Promise<void> {
 
         return JSON.stringify({
           chunkCount: chunks.length,
-          chunks: chunks.slice(0, 5).map((c, i) => ({ index: i, preview: c.slice(0, 100) + "..." })),
-          strategy: parsed.strategy
+          chunks: chunks
+            .slice(0, 5)
+            .map((c, i) => ({ index: i, preview: c.slice(0, 100) + "..." })),
+          strategy: parsed.strategy,
         });
-      }
+      },
     },
     {
       tool: {
@@ -406,10 +421,10 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             texts: { type: "array", items: { type: "string" } },
-            model: { type: "string" }
+            model: { type: "string" },
           },
-          required: ["texts"]
-        }
+          required: ["texts"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = generateEmbeddingsArgs.parse(args);
@@ -417,14 +432,15 @@ async function main(): Promise<void> {
         return JSON.stringify({
           count: embeddings.length,
           dimensions: embeddings[0]?.length || 0,
-          cached: EMBEDDING_CACHE.size
+          cached: EMBEDDING_CACHE.size,
         });
-      }
+      },
     },
     {
       tool: {
         name: "store_document",
-        description: "Store a document with automatic chunking and embedding. Returns document ID and chunk count.",
+        description:
+          "Store a document with automatic chunking and embedding. Returns document ID and chunk count.",
         inputSchema: {
           type: "object",
           properties: {
@@ -434,10 +450,10 @@ async function main(): Promise<void> {
             url: { type: "string", format: "uri" },
             metadata: { type: "object" },
             chunkSize: { type: "number" },
-            chunkOverlap: { type: "number" }
+            chunkOverlap: { type: "number" },
           },
-          required: ["documentId", "title", "content"]
-        }
+          required: ["documentId", "title", "content"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = storeDocumentArgs.parse(args);
@@ -462,7 +478,7 @@ async function main(): Promise<void> {
             documentId: parsed.documentId,
             text,
             index: i,
-            embedding: embeddings[i]
+            embedding: embeddings[i],
           };
           vectorStore.chunks.set(chunkId, chunk);
           chunkIds.push(chunkId);
@@ -475,7 +491,7 @@ async function main(): Promise<void> {
           url: parsed.url,
           addedAt: new Date().toISOString(),
           metadata: parsed.metadata,
-          chunkCount: chunks.length
+          chunkCount: chunks.length,
         };
         vectorStore.documents.set(parsed.documentId, doc);
 
@@ -486,9 +502,9 @@ async function main(): Promise<void> {
           documentId: parsed.documentId,
           title: parsed.title,
           chunkCount: chunks.length,
-          message: `Stored document with ${chunks.length} chunks`
+          message: `Stored document with ${chunks.length} chunks`,
         });
-      }
+      },
     },
     {
       tool: {
@@ -499,10 +515,10 @@ async function main(): Promise<void> {
           properties: {
             query: { type: "string" },
             topK: { type: "number", minimum: 1, maximum: 20 },
-            includeSemanticScore: { type: "boolean" }
+            includeSemanticScore: { type: "boolean" },
           },
-          required: ["query"]
-        }
+          required: ["query"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = searchKnowledgeArgs.parse(args);
@@ -511,7 +527,7 @@ async function main(): Promise<void> {
           return JSON.stringify({
             query: parsed.query,
             results: [],
-            message: "No documents in knowledge base"
+            message: "No documents in knowledge base",
           });
         }
 
@@ -533,19 +549,19 @@ async function main(): Promise<void> {
 
         // Sort by score and get top-k
         scored.sort((a, b) => b.score - a.score);
-        const results = scored.slice(0, parsed.topK).map(item => ({
+        const results = scored.slice(0, parsed.topK).map((item) => ({
           documentId: item.chunk.documentId,
           chunkIndex: item.chunk.index,
           text: item.chunk.text.slice(0, 500),
-          score: parsed.includeSemanticScore ? Math.round(item.score * 1000) / 1000 : undefined
+          score: parsed.includeSemanticScore ? Math.round(item.score * 1000) / 1000 : undefined,
         }));
 
         return JSON.stringify({
           query: parsed.query,
           resultCount: results.length,
-          results
+          results,
         });
-      }
+      },
     },
     {
       tool: {
@@ -554,27 +570,27 @@ async function main(): Promise<void> {
         inputSchema: {
           type: "object",
           properties: {
-            limit: { type: "number" }
-          }
-        }
+            limit: { type: "number" },
+          },
+        },
       },
       handler: async (args: unknown) => {
         const parsed = listDocumentsArgs.parse(args);
         const docs = Array.from(vectorStore.documents.values())
           .slice(0, parsed.limit)
-          .map(doc => ({
+          .map((doc) => ({
             id: doc.id,
             title: doc.title,
             url: doc.url,
             chunkCount: doc.chunkCount,
-            addedAt: doc.addedAt
+            addedAt: doc.addedAt,
           }));
 
         return JSON.stringify({
           documentCount: vectorStore.documents.size,
-          documents: docs
+          documents: docs,
         });
-      }
+      },
     },
     {
       tool: {
@@ -583,10 +599,10 @@ async function main(): Promise<void> {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string" }
+            documentId: { type: "string" },
           },
-          required: ["documentId"]
-        }
+          required: ["documentId"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = deleteDocumentArgs.parse(args);
@@ -613,9 +629,9 @@ async function main(): Promise<void> {
           documentId: parsed.documentId,
           title: doc.title,
           deletedChunks,
-          message: `Deleted document and ${deletedChunks} chunks`
+          message: `Deleted document and ${deletedChunks} chunks`,
         });
-      }
+      },
     },
     {
       tool: {
@@ -625,10 +641,10 @@ async function main(): Promise<void> {
           type: "object",
           properties: {
             filePath: { type: "string" },
-            maxPages: { type: "number" }
+            maxPages: { type: "number" },
           },
-          required: ["filePath"]
-        }
+          required: ["filePath"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractPdfArgs.parse(args);
@@ -636,9 +652,9 @@ async function main(): Promise<void> {
         return JSON.stringify({
           filePath: parsed.filePath,
           extractedChars: text.length,
-          preview: text.slice(0, 200)
+          preview: text.slice(0, 200),
         });
-      }
+      },
     },
     {
       tool: {
@@ -647,10 +663,10 @@ async function main(): Promise<void> {
         inputSchema: {
           type: "object",
           properties: {
-            filePath: { type: "string" }
+            filePath: { type: "string" },
           },
-          required: ["filePath"]
-        }
+          required: ["filePath"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractDocxArgs.parse(args);
@@ -658,9 +674,9 @@ async function main(): Promise<void> {
         return JSON.stringify({
           filePath: parsed.filePath,
           extractedChars: text.length,
-          preview: text.slice(0, 200)
+          preview: text.slice(0, 200),
         });
-      }
+      },
     },
     {
       tool: {
@@ -669,10 +685,10 @@ async function main(): Promise<void> {
         inputSchema: {
           type: "object",
           properties: {
-            filePath: { type: "string" }
+            filePath: { type: "string" },
           },
-          required: ["filePath"]
-        }
+          required: ["filePath"],
+        },
       },
       handler: async (args: unknown) => {
         const parsed = extractMarkdownArgs.parse(args);
@@ -680,14 +696,15 @@ async function main(): Promise<void> {
         return JSON.stringify({
           filePath: parsed.filePath,
           extractedChars: text.length,
-          preview: text.slice(0, 200)
+          preview: text.slice(0, 200),
         });
-      }
+      },
     },
     {
       tool: {
         name: "ingest_webpage",
-        description: "High-level tool to fetch, render, and store a webpage. Combines fetch_page_rendered + store_document.",
+        description:
+          "High-level tool to fetch, render, and store a webpage. Combines fetch_page_rendered + store_document.",
         inputSchema: {
           type: "object",
           properties: {
@@ -695,19 +712,21 @@ async function main(): Promise<void> {
             documentId: { type: "string", description: "Unique identifier for this document" },
             title: { type: "string", description: "Title for the document" },
             chunkSize: { type: "number", optional: true },
-            chunkOverlap: { type: "number", optional: true }
+            chunkOverlap: { type: "number", optional: true },
           },
-          required: ["url", "documentId", "title"]
-        }
+          required: ["url", "documentId", "title"],
+        },
       },
       handler: async (args: unknown) => {
-        const parsed = z.object({
-          url: z.string().url(),
-          documentId: z.string(),
-          title: z.string(),
-          chunkSize: z.number().optional(),
-          chunkOverlap: z.number().optional()
-        }).parse(args);
+        const parsed = z
+          .object({
+            url: z.string().url(),
+            documentId: z.string(),
+            title: z.string(),
+            chunkSize: z.number().optional(),
+            chunkOverlap: z.number().optional(),
+          })
+          .parse(args);
 
         try {
           const content = (await fetchWebpageContent(parsed.url)).slice(0, 20000);
@@ -721,7 +740,7 @@ async function main(): Promise<void> {
               url: parsed.url,
               metadata: { source: "webpage", ingestedAt: new Date().toISOString() },
               chunkSize: parsed.chunkSize,
-              chunkOverlap: parsed.chunkOverlap
+              chunkOverlap: parsed.chunkOverlap,
             };
 
             // Check if document already exists
@@ -746,7 +765,7 @@ async function main(): Promise<void> {
                 documentId: parsed.documentId,
                 text,
                 index: i,
-                embedding: embeddings[i]
+                embedding: embeddings[i],
               };
               vectorStore.chunks.set(chunkId, chunk);
               chunkIds.push(chunkId);
@@ -759,7 +778,7 @@ async function main(): Promise<void> {
               url: parsed.url,
               addedAt: new Date().toISOString(),
               metadata: docArgs.metadata,
-              chunkCount: chunks.length
+              chunkCount: chunks.length,
             };
             vectorStore.documents.set(parsed.documentId, doc);
 
@@ -770,7 +789,7 @@ async function main(): Promise<void> {
               documentId: parsed.documentId,
               title: parsed.title,
               chunkCount: chunks.length,
-              contentLength: content.length
+              contentLength: content.length,
             };
           })();
 
@@ -781,13 +800,15 @@ async function main(): Promise<void> {
             title: storeResult.title,
             chunks: storeResult.chunkCount,
             chars: storeResult.contentLength,
-            message: `Successfully ingested webpage: ${storeResult.title} (${storeResult.chunkCount} chunks)`
+            message: `Successfully ingested webpage: ${storeResult.title} (${storeResult.chunkCount} chunks)`,
           });
         } catch (error) {
-          throw new Error(`Webpage ingestion failed: ${error instanceof Error ? error.message : String(error)}`);
+          throw new Error(
+            `Webpage ingestion failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
-      }
-    }
+      },
+    },
   ]);
 }
 

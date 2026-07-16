@@ -2,18 +2,18 @@
 
 /**
  * Basic integration test suite for MCP Toolkit
- * 
+ *
  * Tests:
  * - Build compilation
  * - RAG vector store initialization
  * - Dependencies installation
  * - Configuration validity
- * 
+ *
  * Run: node scripts/test.js
  */
 
-import { promises as fs } from "fs";
 import { execSync } from "child_process";
+import { promises as fs } from "fs";
 
 const RESET = "\x1b[0m";
 const GREEN = "\x1b[32m";
@@ -53,7 +53,9 @@ function test(name, fn) {
       }
     }
   } catch (error) {
-    console.log(`${RED}✗${RESET} ${name}: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(
+      `${RED}✗${RESET} ${name}: ${error instanceof Error ? error.message : String(error)}`,
+    );
     failCount++;
   }
 }
@@ -80,7 +82,7 @@ async function runTests() {
       "dist/servers/calculator.js",
       "dist/servers/calendar.js",
       "dist/servers/proxy-gateway.js",
-      "dist/servers/rag.js"
+      "dist/servers/rag.js",
     ];
 
     for (const file of files) {
@@ -115,7 +117,7 @@ async function runTests() {
         "filesystem-tools",
         "calculator-tools",
         "calendar-tools",
-        "rag-tools"
+        "rag-tools",
       ];
 
       return expectedServers.every((server) => server in config.servers);
@@ -171,7 +173,7 @@ async function runTests() {
         "start:filesystem",
         "start:calculator",
         "start:calendar",
-        "start:rag"
+        "start:rag",
       ];
 
       return expectedScripts.every((script) => script in pkg.scripts);
@@ -198,7 +200,7 @@ async function runTests() {
       "cheerio",
       "zod",
       "pdf-parse",
-      "mammoth"
+      "mammoth",
     ];
 
     for (const pkg of packages) {

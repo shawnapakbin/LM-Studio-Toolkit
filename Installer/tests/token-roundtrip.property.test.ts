@@ -12,7 +12,7 @@ import * as path from "node:path";
 import * as fc from "fast-check";
 
 import { loadEnvState, resolveBrowserlessToken, saveEnvState } from "../src/main/env-manager";
-import { buildBridgeConfig, TOOL_DESCRIPTORS } from "../src/main/mcp-config";
+import { TOOL_DESCRIPTORS, buildBridgeConfig } from "../src/main/mcp-config";
 
 /**
  * **Validates: Requirements 2.2, 2.3, 4.2, 6.3, 8.1, 8.3, 8.4, 8.5**
@@ -94,7 +94,6 @@ describe("Feature: browserless-npx-migration, Property 2: Token Round-Trip Throu
   });
 });
 
-
 /**
  * **Validates: Requirements 2.4, 8.2**
  *
@@ -111,7 +110,9 @@ describe("Feature: browserless-npx-migration, Property 3: URL Pass-Through Prese
       // Realistic URL patterns
       fc.webUrl(),
       // Arbitrary non-empty strings to verify no transformation occurs
-      fc.string({ minLength: 1 }).filter((s) => s.trim().length > 0),
+      fc
+        .string({ minLength: 1 })
+        .filter((s) => s.trim().length > 0),
     )
     .map((s) => s.trim())
     .filter((s) => s.length > 0);

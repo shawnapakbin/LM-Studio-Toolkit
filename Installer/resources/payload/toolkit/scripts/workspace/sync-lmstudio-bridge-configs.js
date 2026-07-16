@@ -127,7 +127,11 @@ function main() {
     const existingPluginConfig = readJsonSafe(targetFile);
     const topLevelServerConfig =
       topLevelServers && typeof topLevelServers === "object" ? topLevelServers[serverName] : null;
-    const mergedConfig = mergeServerConfig(serverConfig, topLevelServerConfig, existingPluginConfig);
+    const mergedConfig = mergeServerConfig(
+      serverConfig,
+      topLevelServerConfig,
+      existingPluginConfig,
+    );
 
     const json = `${JSON.stringify(mergedConfig, null, 2)}\n`;
     writeUtf8NoBom(targetFile, json);

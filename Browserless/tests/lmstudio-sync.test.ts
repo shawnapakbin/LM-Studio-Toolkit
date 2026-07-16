@@ -88,7 +88,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     const result = syncTopLevelMcpJson({
       syncedConfigs,
       readExistingMcpJson: () => null,
-      writeMcpJson: (content) => { writtenContent = content; },
+      writeMcpJson: (content) => {
+        writtenContent = content;
+      },
     });
 
     // mcp.json should have been written
@@ -111,7 +113,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     const result = syncTopLevelMcpJson({
       syncedConfigs,
       readExistingMcpJson: () => null,
-      writeMcpJson: () => { throw new Error("EACCES: permission denied"); },
+      writeMcpJson: () => {
+        throw new Error("EACCES: permission denied");
+      },
     });
 
     // Should NOT throw — the function catches and logs
@@ -155,7 +159,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     const result = syncTopLevelMcpJson({
       syncedConfigs,
       readExistingMcpJson: () => null,
-      writeMcpJson: (content) => { writtenContent = content; },
+      writeMcpJson: (content) => {
+        writtenContent = content;
+      },
     });
 
     expect(result.written).toBe(true);
@@ -185,7 +191,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     const result = syncTopLevelMcpJson({
       syncedConfigs,
       readExistingMcpJson: () => existingContent,
-      writeMcpJson: (content) => { writtenContent = content; },
+      writeMcpJson: (content) => {
+        writtenContent = content;
+      },
     });
 
     expect(result.written).toBe(true);
@@ -194,7 +202,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     expect(writtenContent!.version).toBe("1.0");
     expect(writtenContent!.someCustomSetting).toBe(true);
     // Existing server preserved
-    expect(writtenContent!.mcpServers!["existing-server"]).toEqual(existingContent.mcpServers!["existing-server"]);
+    expect(writtenContent!.mcpServers!["existing-server"]).toEqual(
+      existingContent.mcpServers!["existing-server"],
+    );
     // New server added
     expect(writtenContent!.mcpServers!.browserless).toEqual(syncedConfigs.browserless);
   });
@@ -205,7 +215,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     const result = syncTopLevelMcpJson({
       syncedConfigs: {},
       readExistingMcpJson: () => null,
-      writeMcpJson: () => { writeWasCalled = true; },
+      writeMcpJson: () => {
+        writeWasCalled = true;
+      },
     });
 
     expect(result.written).toBe(false);
@@ -227,7 +239,9 @@ describe("Auto-trigger LM Studio top-level mcp.json sync (Req 11.1, 11.3, 11.4, 
     const result = syncTopLevelMcpJson({
       syncedConfigs,
       readExistingMcpJson: () => null, // Simulates parse failure returning null
-      writeMcpJson: (content) => { writtenContent = content; },
+      writeMcpJson: (content) => {
+        writtenContent = content;
+      },
     });
 
     expect(result.written).toBe(true);

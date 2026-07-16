@@ -1,0 +1,43 @@
+{
+  "name": "self-improvement-log",
+  "description": "After a failed or suboptimal attempt, document what went wrong and generate a steering rule or skill to prevent the same mistake in the future.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "incident": { "type": "string", "description": "Description of what went wrong" },
+      "attempted_approach": { "type": "string", "description": "What was tried and why it failed" },
+      "correct_approach": {
+        "type": "string",
+        "description": "What should have been done instead (if known)"
+      },
+      "category": {
+        "type": "string",
+        "description": "Category: 'code-error', 'wrong-assumption', 'missing-context', 'tool-misuse', 'communication'"
+      }
+    },
+    "required": ["incident", "attempted_approach"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Post-mortem analysis:\nIncident: {{incident}}\nAttempted: {{attempted_approach}}\nCorrect approach: {{correct_approach}}\nCategory: {{category}}\n\nStep 1 — Root cause analysis:\n- What was the immediate cause of failure?\n- What was the underlying root cause?\n- What assumption was wrong?\n- What information was missing?\n- Was there an earlier signal that was ignored?"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Generate prevention rule:\n\nSteering rule format:\n- Trigger: [when this situation is detected]\n- Rule: [what to do differently]\n- Rationale: [why this prevents the problem]\n- Example: [concrete before/after]\n\nShould this become:\n- A steering file rule (always/conditionally applied)?\n- A new skill (reusable workflow)?\n- A pre-tool-use hook (automated check)?\n- A memory entry (context for future)?"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Create the artifact:\n- Write the rule/skill/hook in its proper format\n- Include the incident as a cautionary example\n- Tag with category: {{category}}\n- Set priority: How often might this recur?\n\nMeta-learning:\n- Pattern: Is this an instance of a broader failure mode?\n- Related rules: Does this complement or conflict with existing rules?\n- Expiration: Will this rule become obsolete? When to review?"
+    },
+    {
+      "type": "tool_call",
+      "tool": "memory",
+      "args": {
+        "action": "store",
+        "label": "self-improvement-{{category}}",
+        "content": "{{incident}}"
+      }
+    }
+  ]
+}

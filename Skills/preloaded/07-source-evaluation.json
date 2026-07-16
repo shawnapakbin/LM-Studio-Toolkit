@@ -1,0 +1,29 @@
+{
+  "name": "source-evaluation",
+  "description": "Score and rank information sources by credibility, recency, and relevance. Produces a trust assessment for each source.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "sources": {
+        "type": "string",
+        "description": "List of sources to evaluate (URLs, titles, or descriptions, one per line)"
+      },
+      "topic": { "type": "string", "description": "The topic these sources claim to address" },
+      "criteria_weights": {
+        "type": "string",
+        "description": "Custom weights as JSON: {\"credibility\": 0.4, \"recency\": 0.3, \"relevance\": 0.3}"
+      }
+    },
+    "required": ["sources", "topic"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Evaluate the following sources for topic: '{{topic}}'\n\nSources:\n{{sources}}\n\nFor each source, assess on a 1-10 scale:\n1. Credibility: Author expertise, publication reputation, peer review status, citation count\n2. Recency: Publication date vs. topic volatility (tech changes fast, history doesn't)\n3. Relevance: Direct vs. tangential coverage, depth of treatment\n4. Bias: Funding sources, known affiliations, commercial interests\n5. Corroboration: How many other sources support its claims?"
+    },
+    {
+      "type": "prompt",
+      "template": "Apply weights: {{criteria_weights}}\n\nProduce final ranking:\n- Rank # | Source | Overall Score | Verdict (Trust/Use with caution/Discard)\n- For each, one-line justification\n- Flag any red flags (paywalled but unverified, known misinformation site, outdated)\n- Recommend: top 3 most reliable sources for this topic"
+    }
+  ]
+}

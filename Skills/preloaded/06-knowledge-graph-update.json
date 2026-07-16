@@ -1,0 +1,37 @@
+{
+  "name": "knowledge-graph-update",
+  "description": "Extract entities and relationships from text and update the knowledge graph with new nodes and edges.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "source_text": {
+        "type": "string",
+        "description": "Text to extract entities and relationships from"
+      },
+      "domain": {
+        "type": "string",
+        "description": "Domain context for entity extraction (e.g., 'software-architecture', 'business-process', 'research')"
+      },
+      "merge_strategy": {
+        "type": "string",
+        "description": "How to handle existing nodes: 'merge' (update), 'skip' (don't overwrite), 'replace' (overwrite)"
+      }
+    },
+    "required": ["source_text"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Extract entities and relationships from the following text.\nDomain: {{domain}}\n\nText:\n{{source_text}}\n\nFor each entity, identify:\n- Name (canonical form)\n- Type (person, system, concept, technology, organization, etc.)\n- Key attributes\n- Confidence level (high/medium/low)\n\nFor each relationship, identify:\n- Source entity → Relationship type → Target entity\n- Relationship properties (strength, temporal, conditional)\n- Evidence from text"
+    },
+    {
+      "type": "prompt",
+      "template": "Validate the extracted graph:\n- Remove duplicate entities (merge by canonical name)\n- Resolve conflicting relationships\n- Apply merge strategy: {{merge_strategy}}\n- Ensure relationship types are consistent and from a controlled vocabulary\n- Flag low-confidence extractions for review"
+    },
+    {
+      "type": "tool_call",
+      "tool": "memory",
+      "args": { "action": "store", "label": "kg-update", "content": "{{source_text}}" }
+    }
+  ]
+}

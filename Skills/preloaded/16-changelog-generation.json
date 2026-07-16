@@ -1,0 +1,29 @@
+{
+  "name": "changelog-generation",
+  "description": "From git history or conversation context, produce a structured changelog entry following Keep a Changelog conventions.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "changes": {
+        "type": "string",
+        "description": "Git log, commit messages, PR descriptions, or description of changes"
+      },
+      "version": { "type": "string", "description": "Version number for this release (semver)" },
+      "format": {
+        "type": "string",
+        "description": "Format: 'keep-a-changelog', 'conventional', 'github-release', 'slack-summary'"
+      }
+    },
+    "required": ["changes"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Generate changelog for version {{version}} from:\n{{changes}}\n\nFormat: {{format}}\n\nStep 1 — Categorize changes:\n- Added: New features\n- Changed: Changes to existing functionality\n- Deprecated: Features to be removed\n- Removed: Features removed\n- Fixed: Bug fixes\n- Security: Vulnerability fixes\n\nFor each item:\n- Write user-facing description (not commit message)\n- Link to PR/issue if available\n- Note breaking changes prominently"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Format output:\n\nFor '{{format}}':\n- keep-a-changelog: Markdown with ## [version] - date, grouped by category\n- conventional: Type(scope): description per line\n- github-release: Markdown with highlights, breaking changes callout, full list\n- slack-summary: Brief emoji-tagged summary for team notification\n\nEnsure:\n- Most impactful changes listed first in each category\n- Breaking changes have migration notes\n- Language is clear to end users (not internal jargon)"
+    }
+  ]
+}

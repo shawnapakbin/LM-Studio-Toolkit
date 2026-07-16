@@ -1,0 +1,36 @@
+{
+  "name": "comparative-analysis",
+  "description": "Compare two or more tools, libraries, or approaches with structured pros/cons, tradeoffs, and a context-aware recommendation.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "string",
+        "description": "Comma-separated items to compare (e.g., 'React, Vue, Svelte')"
+      },
+      "use_case": {
+        "type": "string",
+        "description": "Specific use case or context for the comparison"
+      },
+      "priorities": {
+        "type": "string",
+        "description": "What matters most (e.g., 'performance, DX, ecosystem, learning-curve')"
+      }
+    },
+    "required": ["items", "use_case"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Compare: {{items}}\nUse case: {{use_case}}\nPriorities: {{priorities}}\n\nStep 1 — Profile each option:\nFor each item:\n- What it is (one sentence)\n- Key strengths (top 3)\n- Key weaknesses (top 3)\n- Best suited for: [scenarios]\n- Not ideal for: [scenarios]\n- Maturity: [established/growing/emerging]\n- Community: [size, activity, support quality]"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Head-to-head comparison:\n| Criterion | {{items}} |\n\nCriteria to evaluate:\n- Performance (benchmarks if available)\n- Developer experience (tooling, docs, debugging)\n- Ecosystem (libraries, plugins, integrations)\n- Learning curve (time to productivity)\n- Scalability (grows with project complexity)\n- Maintenance (long-term cost, breaking changes)\n- Community (hiring, support, longevity)\n\nScore each 1-10 with brief justification."
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Recommendation:\n- For use case '{{use_case}}': Recommend [winner] because [reasons]\n- Runner-up: [option] — choose this if [different priorities]\n- Avoid: [option] — unless [specific edge case]\n\nMigration considerations:\n- Switching cost between options\n- Lock-in risk\n- Interoperability options\n\nFinal verdict: One paragraph with confident recommendation."
+    }
+  ]
+}

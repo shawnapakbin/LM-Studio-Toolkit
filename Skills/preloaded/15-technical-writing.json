@@ -1,0 +1,40 @@
+{
+  "name": "technical-writing",
+  "description": "Transform raw notes or findings into polished technical documentation (README, ADR, runbook, API docs, or design doc).",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "raw_content": {
+        "type": "string",
+        "description": "Raw notes, code comments, or findings to structure"
+      },
+      "doc_type": {
+        "type": "string",
+        "description": "Document type: 'readme', 'adr', 'runbook', 'api-docs', 'design-doc', 'tutorial'"
+      },
+      "audience": {
+        "type": "string",
+        "description": "Target audience: 'developers', 'ops', 'end-users', 'stakeholders'"
+      },
+      "project_context": {
+        "type": "string",
+        "description": "Brief project context for tone and scope alignment"
+      }
+    },
+    "required": ["raw_content", "doc_type"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Transform raw content into {{doc_type}} documentation.\nAudience: {{audience}}\nProject: {{project_context}}\n\nRaw content:\n{{raw_content}}\n\nStep 1 — Content analysis:\n- Identify key information that must be preserved\n- Determine logical structure for this doc type\n- Note gaps that need filling (missing context, undefined terms)\n- Identify code snippets, commands, or configs to include"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Write the document:\n\nTemplate for {{doc_type}}:\n- readme: Title, description, quick start, installation, usage, API, contributing\n- adr: Title, status, context, decision, consequences\n- runbook: Title, when to use, prerequisites, steps, troubleshooting, rollback\n- api-docs: Endpoint, method, params, request/response examples, errors\n- design-doc: Problem, goals, non-goals, proposed solution, alternatives, tradeoffs\n- tutorial: Objective, prerequisites, step-by-step, verification, next steps\n\nApply:\n- Clear headings and hierarchy\n- Code blocks with language tags\n- Concise sentences (active voice)\n- Examples for every non-trivial concept"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Quality check:\n- All acronyms defined on first use\n- No assumptions about reader's prior knowledge (for stated audience)\n- Commands are copy-pasteable\n- Links and cross-references are valid\n- Consistent formatting throughout\n- TOC if document exceeds 3 sections"
+    }
+  ]
+}

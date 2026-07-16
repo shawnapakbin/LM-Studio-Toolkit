@@ -1,0 +1,34 @@
+{
+  "name": "debug-workflow",
+  "description": "Systematic debugging workflow: reproduce, isolate, hypothesize, verify, and fix. Structured approach to finding and resolving bugs.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "bug_description": {
+        "type": "string",
+        "description": "Description of the bug or unexpected behavior"
+      },
+      "error_output": { "type": "string", "description": "Error messages, stack traces, or logs" },
+      "expected_behavior": { "type": "string", "description": "What should happen instead" },
+      "environment": {
+        "type": "string",
+        "description": "Runtime environment details (OS, versions, config)"
+      }
+    },
+    "required": ["bug_description"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Debug: {{bug_description}}\nError: {{error_output}}\nExpected: {{expected_behavior}}\nEnvironment: {{environment}}\n\nStep 1 — Reproduce:\n- Define exact reproduction steps\n- Identify minimum viable reproduction case\n- Note: Does it happen consistently? Under what conditions?\n- Isolate: What changed recently? (check git log)"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Hypothesize:\nBased on the error and reproduction:\n- List 3-5 possible root causes ranked by likelihood\n- For each hypothesis:\n  - What evidence supports it?\n  - What test would confirm/refute it?\n  - What would the fix look like?\n\nStep 3 — Isolate:\n- Binary search the problem space\n- Add targeted logging/breakpoints\n- Test each hypothesis systematically\n- Eliminate possibilities until one remains"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 4 — Fix:\n- Implement the minimal fix for confirmed root cause\n- Verify fix resolves the original reproduction case\n- Check for regressions (related functionality still works)\n- Add test that catches this bug if it returns\n\nStep 5 — Document:\n- Root cause: [what was wrong]\n- Fix: [what was changed]\n- Prevention: [how to avoid similar bugs]\n- Related: [other code that might have the same issue]"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "summarize-archive",
+  "description": "Condense a long conversation or document into a structured summary and store it in memory for future reference.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "The content to summarize (conversation transcript, document text, etc.)"
+      },
+      "context_label": {
+        "type": "string",
+        "description": "Label for the memory entry (e.g., 'auth-bug-fix-2024', 'api-design-decision')"
+      },
+      "detail_level": {
+        "type": "string",
+        "description": "Summary depth: 'brief' (1 paragraph), 'standard' (key points), 'detailed' (preserves nuance)"
+      }
+    },
+    "required": ["content", "context_label"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Summarize the following content for archival under label '{{context_label}}'.\nDetail level: {{detail_level}}\n\nContent:\n{{content}}\n\nExtract:\n- Key decisions made\n- Problems identified and solutions applied\n- Important context that would be needed to resume this work\n- Action items or follow-ups mentioned\n- Technical details worth preserving"
+    },
+    {
+      "type": "prompt",
+      "template": "Format the summary as a structured memory entry:\n- Title: {{context_label}}\n- Date: [current date]\n- Summary: [2-3 sentence overview]\n- Key Points: [numbered list]\n- Decisions: [what was decided and why]\n- Technical Notes: [implementation details, configs, commands]\n- Follow-ups: [open items]\n- Tags: [relevant keywords for future retrieval]"
+    },
+    {
+      "type": "tool_call",
+      "tool": "memory",
+      "args": { "action": "store", "label": "{{context_label}}", "content": "{{content}}" }
+    }
+  ]
+}

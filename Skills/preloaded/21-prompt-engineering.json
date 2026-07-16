@@ -1,0 +1,38 @@
+{
+  "name": "prompt-engineering",
+  "description": "Craft, test, and iterate on prompts for a specific LLM task. Applies prompt engineering best practices and produces optimized prompts.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "task": { "type": "string", "description": "The task the prompt should accomplish" },
+      "target_model": {
+        "type": "string",
+        "description": "Target LLM: 'gpt-4', 'claude', 'llama', 'mistral', 'gemini', 'generic'"
+      },
+      "input_example": { "type": "string", "description": "Example input the prompt will receive" },
+      "expected_output": {
+        "type": "string",
+        "description": "Example of desired output format/content"
+      },
+      "constraints": {
+        "type": "string",
+        "description": "Token budget, response format requirements, safety constraints"
+      }
+    },
+    "required": ["task"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Design a prompt for task: {{task}}\nTarget model: {{target_model}}\nInput example: {{input_example}}\nExpected output: {{expected_output}}\nConstraints: {{constraints}}\n\nStep 1 — Prompt architecture:\n- Role/persona: What role should the model adopt?\n- Context: What background info does it need?\n- Task: Clear, unambiguous instruction\n- Format: Output structure specification\n- Examples: Few-shot demonstrations\n- Constraints: Boundaries and guardrails"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Generate 3 prompt variants:\n\nVariant A — Direct instruction (minimal tokens):\n[concise, imperative style]\n\nVariant B — Structured with examples (higher quality):\n[includes role, context, examples, format spec]\n\nVariant C — Chain-of-thought (complex reasoning):\n[step-by-step reasoning instructions]\n\nFor each variant note:\n- Expected token usage\n- Best for: [what scenarios]\n- Tradeoff: [what you sacrifice]"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Optimization:\n- Test mentally against edge cases from {{input_example}}\n- Identify failure modes (ambiguity, instruction-following issues)\n- Apply model-specific tricks for {{target_model}}\n- Add guardrails for:\n  - Hallucination prevention\n  - Format compliance\n  - Edge case handling\n  - Graceful failure\n\nFinal output: Best prompt variant with iteration notes."
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "test-generation",
+  "description": "Generate unit and integration tests for a given function or module. Covers happy paths, edge cases, error handling, and boundary conditions.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "code": { "type": "string", "description": "The code/function to test (or file path)" },
+      "test_framework": {
+        "type": "string",
+        "description": "Testing framework: 'jest', 'vitest', 'pytest', 'mocha', 'xunit'"
+      },
+      "coverage_target": {
+        "type": "string",
+        "description": "Coverage goal: 'critical-paths', 'comprehensive', 'exhaustive'"
+      },
+      "test_style": {
+        "type": "string",
+        "description": "Style: 'arrange-act-assert', 'given-when-then', 'table-driven'"
+      }
+    },
+    "required": ["code"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Generate tests for:\n{{code}}\n\nFramework: {{test_framework}}\nCoverage: {{coverage_target}}\nStyle: {{test_style}}\n\nStep 1 — Analyze testable surface:\n- Identify all public functions/methods\n- Map input types and valid ranges\n- Identify side effects and dependencies\n- List error conditions and edge cases\n- Determine what needs mocking"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Generate test cases:\n\nFor each function:\n1. Happy path: Normal inputs → expected outputs\n2. Edge cases: Empty inputs, max values, boundary conditions\n3. Error cases: Invalid inputs, timeout, unavailable dependencies\n4. Integration: Interaction with other components\n\nEach test should:\n- Have a descriptive name explaining the scenario\n- Be independent (no shared mutable state)\n- Assert specific outcomes (not just 'no error')\n- Include setup/teardown if needed"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Output the test file:\n- Proper imports and test setup\n- Organized by describe/context blocks\n- Mocks defined clearly at top\n- Comments explaining non-obvious test logic\n- Helper functions for repeated setup\n\nVerify: All tests should pass when the code works correctly."
+    }
+  ]
+}

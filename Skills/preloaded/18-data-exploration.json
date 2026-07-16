@@ -1,0 +1,33 @@
+{
+  "name": "data-exploration",
+  "description": "Given a dataset or schema, produce summary statistics, detect anomalies, identify patterns, and suggest useful queries.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "data_source": {
+        "type": "string",
+        "description": "Dataset description, schema, sample rows, or file path"
+      },
+      "goal": { "type": "string", "description": "What you're trying to learn from the data" },
+      "data_type": {
+        "type": "string",
+        "description": "Type: 'tabular', 'time-series', 'graph', 'text-corpus', 'logs'"
+      }
+    },
+    "required": ["data_source"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Explore data: {{data_source}}\nGoal: {{goal}}\nType: {{data_type}}\n\nStep 1 — Schema analysis:\n- Identify all fields/columns with types\n- Determine primary keys and relationships\n- Note nullable vs. required fields\n- Identify categorical vs. continuous variables\n- Estimate cardinality of each field"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Statistical profiling:\n- Count: total records, nulls per field\n- Numeric fields: min, max, mean, median, std dev, distribution shape\n- Categorical fields: unique values, mode, frequency distribution\n- Date fields: range, gaps, seasonality\n- Text fields: avg length, common patterns\n\nAnomalies detected:\n- Outliers (beyond 3σ or IQR method)\n- Unexpected nulls or patterns\n- Data quality issues (duplicates, inconsistencies)"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Insights and recommendations:\n- Key patterns found\n- Correlations between fields\n- Suggested queries for goal: {{goal}}\n- Recommended visualizations\n- Data quality improvements needed\n- Next steps for deeper analysis"
+    }
+  ]
+}

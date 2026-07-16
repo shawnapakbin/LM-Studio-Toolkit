@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "dev:mcp": "tsx src/mcp-server.ts",
-    "build": "tsc -p tsconfig.json && node scripts/postbuild.js",
+    "build": "tsc -p tsconfig.json && node scripts/postbuild.js && node scripts/seed-skills.js",
+    "seed": "node scripts/seed-skills.js",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "start": "node dist/index.js",
     "start:mcp": "node dist/mcp-server.js",

@@ -1,0 +1,33 @@
+{
+  "name": "risk-assessment",
+  "description": "Identify risks for a plan or decision, rate likelihood and impact, and suggest mitigations. Produces a prioritized risk register.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "plan": { "type": "string", "description": "The plan, project, or decision to assess" },
+      "scope": {
+        "type": "string",
+        "description": "Assessment scope: 'technical', 'business', 'operational', 'all'"
+      },
+      "risk_appetite": {
+        "type": "string",
+        "description": "Organization's risk tolerance: 'conservative', 'moderate', 'aggressive'"
+      }
+    },
+    "required": ["plan"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Risk assessment for: {{plan}}\nScope: {{scope}}\nRisk appetite: {{risk_appetite}}\n\nStep 1 — Risk identification:\nBrainstorm risks across categories:\n- Technical: Technology failures, complexity, integration issues\n- Resource: Staffing, skills gaps, budget, timeline\n- External: Vendor dependencies, market changes, regulatory\n- Operational: Process failures, communication breakdowns\n- Security: Data breaches, unauthorized access, compliance\n\nFor each risk, define the specific scenario (not just the category)."
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Risk scoring:\nFor each identified risk:\n| Risk | Likelihood (1-5) | Impact (1-5) | Score (L×I) | Priority |\n\nLikelihood: 1=Rare, 2=Unlikely, 3=Possible, 4=Likely, 5=Almost certain\nImpact: 1=Negligible, 2=Minor, 3=Moderate, 4=Major, 5=Catastrophic\n\nCategorize by score:\n- Critical (20-25): Immediate action required\n- High (12-19): Mitigation plan needed\n- Medium (6-11): Monitor and prepare\n- Low (1-5): Accept or ignore"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Mitigation strategies:\nFor each Critical and High risk:\n- Avoid: Can we eliminate the risk entirely?\n- Reduce: How to lower likelihood or impact?\n- Transfer: Insurance, contracts, outsourcing?\n- Accept: Conscious decision with contingency plan?\n\nOutput:\n- Risk register (sorted by priority)\n- Top 5 risks with detailed mitigation plans\n- Early warning indicators for each critical risk\n- Recommended review cadence"
+    }
+  ]
+}

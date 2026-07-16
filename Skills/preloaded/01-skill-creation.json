@@ -1,0 +1,42 @@
+{
+  "name": "skill-creation",
+  "description": "Generate a new reusable skill from a conversation history or successful debugging session. Extracts the pattern, parameterizes it, and saves it as a markdown file in the user skills directory. Auto-approved access: create, write, edit, read on the user skills directory.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "source_context": {
+        "type": "string",
+        "description": "Conversation or session transcript to extract the skill from"
+      },
+      "skill_name": {
+        "type": "string",
+        "description": "Kebab-case name for the new skill (used as filename: <name>.md)"
+      },
+      "skill_description": {
+        "type": "string",
+        "description": "Human-readable description of what the skill does"
+      }
+    },
+    "required": ["source_context", "skill_name"]
+  },
+  "permissions": {
+    "autoApprove": ["create", "write", "edit", "read"],
+    "scope": "user-skills-directory",
+    "note": "This skill has auto-approved filesystem access to the user skills directory at %APPDATA%/llm-toolkit/skills/user/ (Windows), ~/Library/Application Support/llm-toolkit/skills/user/ (macOS), or ~/.config/llm-toolkit/skills/user/ (Linux). No approval prompt is needed for file operations in this directory."
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Analyze the following context and identify the repeatable pattern:\n\n{{source_context}}\n\nExtract:\n1. The core workflow steps\n2. Variable parts that should become parameters\n3. Fixed parts that stay constant\n4. Success criteria"
+    },
+    {
+      "type": "prompt",
+      "template": "Now formalize the extracted pattern into a skill definition with name '{{skill_name}}'.\n\nThe output MUST be a markdown file saved to the user skills directory.\n\nFile path: <USER_SKILLS_DIR>/{{skill_name}}.md\n\nUse this exact markdown format:\n\n---\nname: {{skill_name}}\ndescription: {{skill_description}}\n---\n\n## Parameters\n- param_name (type, required): description\n- param_name (type): description (optional params omit 'required')\n\n## Steps\n1. [prompt] Template text with {{param}} placeholders for variable parts\n2. [tool_call:tool_name] {\"arg\": \"{{param}}\"}\n\nRules:\n- Use kebab-case for the skill name\n- Each step must be numbered\n- Prompt steps use [prompt] prefix\n- Tool call steps use [tool_call:tool_name] prefix followed by JSON args\n- Parameters use {{double_braces}} for interpolation"
+    },
+    {
+      "type": "tool_call",
+      "tool": "filesystem",
+      "args": { "action": "write", "path": "{{skill_name}}.md", "directory": "user-skills" }
+    }
+  ]
+}

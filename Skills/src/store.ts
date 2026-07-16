@@ -1,6 +1,7 @@
 import path from "node:path";
 import Database from "better-sqlite3";
 import { v4 as uuid } from "uuid";
+import { ensureSkillDirectories, loadAllFileSkills } from "./file-loader";
 import type { SkillRecord, SkillSummary, SkillUpsertInput } from "./types";
 
 const _rawDbPath = process.env.SKILLS_DB_PATH ?? "./skills.db";
@@ -35,6 +36,26 @@ export class SkillsStore {
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     initSchema(this.db);
+    this.seedFromFiles();
+  }
+
+  /**
+   * Seeds skills from preloaded (JSON) and user (Markdown) directories.
+   * Only inserts skills that don't already exist (by name).
+   */
+  private seedFromFiles(): void {
+    try {
+      ensureSkillDirectories();
+      const fileSkills = loadAllFileSkills();
+      for (const skill of fileSkills) {
+        const existing = this.getSkillByName(skill.name);
+        if (!existing) {
+          this.upsertSkill(skill);
+        }
+      }
+    } catch {
+      // Non-fatal: if file loading fails, continue with DB-only skills
+    }
   }
 
   upsertSkill(input: SkillUpsertInput): SkillRecord {

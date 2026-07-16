@@ -1,0 +1,33 @@
+{
+  "name": "deep-research",
+  "description": "Conduct thorough online research on a topic. Finds genuine information sources, cross-references claims, evaluates credibility, and produces a structured findings report with citations.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "topic": { "type": "string", "description": "Research topic or question" },
+      "depth": {
+        "type": "string",
+        "description": "Research depth: 'quick' (3-5 sources), 'standard' (8-12 sources), 'deep' (15+ sources)"
+      },
+      "focus_areas": {
+        "type": "string",
+        "description": "Comma-separated areas to prioritize (e.g., 'technical, academic, industry')"
+      }
+    },
+    "required": ["topic"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Research topic: {{topic}}\nDepth: {{depth}}\nFocus: {{focus_areas}}\n\nStep 1 — Query formulation:\n- Generate 3-5 search queries from different angles\n- Include technical terms, synonyms, and related concepts\n- Prioritize official documentation, academic papers, and authoritative sources"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Source evaluation for '{{topic}}':\nFor each source found, assess:\n- Authority: Is the author/organization credible?\n- Recency: Is the information current?\n- Corroboration: Do multiple independent sources agree?\n- Bias: Does the source have conflicts of interest?\n\nDiscard sources scoring low on 2+ criteria."
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Synthesis:\n- Cross-reference key claims across sources\n- Identify consensus vs. disputed points\n- Note gaps in available information\n- Organize findings hierarchically\n\nStep 4 — Output structured report:\n- Executive summary (2-3 sentences)\n- Key findings (numbered, with confidence level)\n- Sources (title, URL, credibility score)\n- Open questions / areas needing further research"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "ask-user-interview",
+  "description": "Create structured interactive interviews to collect user input, approvals, or clarifications before proceeding. Renders a markdown form in chat for the user to respond to. Use for approval gates, configuration choices, ambiguity resolution, or any decision requiring human input.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Interview title displayed to the user (e.g., 'Confirm deployment target')"
+      },
+      "purpose": {
+        "type": "string",
+        "description": "Why this interview is needed — context shown to the user"
+      },
+      "questions": {
+        "type": "string",
+        "description": "JSON array of question objects. Each: {id, type, prompt, required?, options?}. Types: text, single_choice, multi_choice, number, confirm"
+      },
+      "expires_in": {
+        "type": "string",
+        "description": "Expiration in seconds (60-86400, default 3600)"
+      }
+    },
+    "required": ["title", "questions"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "You need to collect input from the user.\n\nTitle: {{title}}\nPurpose: {{purpose}}\n\nDesign the interview questions. Available question types:\n- text: Free-form text (supports minLength, maxLength)\n- single_choice: Pick one from options list\n- multi_choice: Pick multiple from options list (supports minSelections, maxSelections)\n- number: Numeric input (supports min, max, integerOnly)\n- confirm: Yes/no boolean\n\nQuestions to use:\n{{questions}}\n\nRules:\n- Each question needs a unique kebab-case id\n- Mark critical questions as required: true\n- For choice questions, each option needs {id, label}\n- Keep prompts concise and unambiguous\n- Order questions logically (context first, decisions after)"
+    },
+    {
+      "type": "prompt",
+      "template": "Now render the interview as a markdown interactive form in chat.\n\nFormat the output as:\n\n---\n**{{title}}**\n{{purpose}}\n\nFor each question, render based on type:\n- text → labeled input field description\n- single_choice → radio-style bullet list with options\n- multi_choice → checkbox-style bullet list with options\n- number → labeled numeric input with range hint\n- confirm → Yes/No prompt\n\nExample rendering:\n\n**1. Choose deployment target** (required)\n- ○ Staging\n- ○ Production\n- ○ Development\n\n**2. Add release notes?**\n- ◉ Yes\n- ○ No\n\n**3. Version number**\n[number: 1-99, integers only]\n\n---\n\nAfter rendering, call ask_user_interview to create the interview and wait for responses."
+    },
+    {
+      "type": "tool_call",
+      "tool": "ask_user_interview",
+      "args": {
+        "action": "create",
+        "payload": "{\"title\": \"{{title}}\", \"expiresInSeconds\": {{expires_in}}, \"questions\": {{questions}}}"
+      }
+    },
+    {
+      "type": "prompt",
+      "template": "The interview has been created. Poll for the user's response using action 'get' with the returned interviewId.\n\nOnce the user submits:\n- Parse their responses\n- Summarize the choices made\n- Proceed with the next action based on their input\n\nIf the interview expires before response, inform the user and offer to recreate it."
+    }
+  ]
+}

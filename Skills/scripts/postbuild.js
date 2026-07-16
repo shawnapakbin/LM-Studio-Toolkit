@@ -15,6 +15,7 @@ for (const fileName of [
   "policy.js",
   "store.js",
   "types.js",
+  "file-loader.js",
 ]) {
   const source = path.join(nestedDist, fileName);
   const target = path.join(rootDist, fileName);

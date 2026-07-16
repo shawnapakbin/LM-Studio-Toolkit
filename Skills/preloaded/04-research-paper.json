@@ -1,0 +1,37 @@
+{
+  "name": "research-paper-compilation",
+  "description": "Compile research findings into a structured academic-style paper with abstract, methodology, findings, and references.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "title": { "type": "string", "description": "Paper title" },
+      "findings": {
+        "type": "string",
+        "description": "Raw research findings, notes, or data to structure"
+      },
+      "format": {
+        "type": "string",
+        "description": "Output format: 'academic', 'technical-report', 'whitepaper', 'blog-post'"
+      },
+      "audience": {
+        "type": "string",
+        "description": "Target audience: 'experts', 'practitioners', 'general'"
+      }
+    },
+    "required": ["title", "findings"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Compile research paper: '{{title}}'\nFormat: {{format}}\nAudience: {{audience}}\n\nStep 1 — Structure the findings:\n- Identify thesis/main argument\n- Group related findings into sections\n- Determine logical flow (chronological, thematic, or argumentative)\n- Identify gaps needing additional evidence"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Write sections for '{{title}}':\n\n1. Abstract (150-300 words): Problem, approach, key findings, implications\n2. Introduction: Context, problem statement, scope\n3. Methodology: How information was gathered and evaluated\n4. Findings: Organized evidence with analysis\n5. Discussion: Interpretation, limitations, implications\n6. Conclusion: Summary, recommendations, future work\n7. References: Properly formatted citations\n\nSource material:\n{{findings}}"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Quality review:\n- Verify all claims have citations\n- Check logical consistency between sections\n- Ensure abstract accurately reflects content\n- Validate reference formatting\n- Review for appropriate tone given audience: {{audience}}"
+    }
+  ]
+}

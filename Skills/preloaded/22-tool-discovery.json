@@ -1,0 +1,33 @@
+{
+  "name": "tool-discovery",
+  "description": "Given a task description, identify which available MCP tools are relevant, how to compose them, and the optimal execution order.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "task": { "type": "string", "description": "The task to accomplish" },
+      "available_tools": {
+        "type": "string",
+        "description": "List of available tools (comma-separated names or 'auto-detect')"
+      },
+      "constraints": {
+        "type": "string",
+        "description": "Execution constraints: parallelism, token budget, time limit"
+      }
+    },
+    "required": ["task"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Task: {{task}}\nAvailable tools: {{available_tools}}\nConstraints: {{constraints}}\n\nStep 1 — Task analysis:\n- Break task into atomic operations\n- For each operation, identify:\n  - What capability is needed (search, read, write, compute, communicate)\n  - What input it requires\n  - What output it produces\n  - Dependencies on other operations"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Tool mapping:\nFor each operation, identify the best tool:\n| Operation | Tool | Why this tool | Input → Output | Confidence |\n\nConsider:\n- Direct match: Tool explicitly handles this\n- Composable: Combine multiple tools for the operation\n- Workaround: Use a tool creatively for an unintended purpose\n- Gap: No available tool handles this (flag for human)"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Execution plan:\n- Optimal order (respecting dependencies)\n- Parallel groups (independent operations)\n- Error handling: What if tool X fails? Fallback?\n- Data flow: How outputs feed into next tool's inputs\n\nOutput format:\n1. [tool_name] ← {input params}\n   └→ feeds into step N\n2. [tool_name] ← {input params from step 1}\n...\n\nEstimated total tool calls: N\nCritical path: steps [X, Y, Z]"
+    }
+  ]
+}

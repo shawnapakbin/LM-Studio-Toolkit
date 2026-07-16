@@ -1,0 +1,30 @@
+{
+  "name": "code-review",
+  "description": "Analyze code for bugs, style issues, performance problems, and security vulnerabilities. Produces actionable feedback with severity levels.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "code": { "type": "string", "description": "Code to review (or file path)" },
+      "language": { "type": "string", "description": "Programming language" },
+      "focus": {
+        "type": "string",
+        "description": "Review focus: 'all', 'security', 'performance', 'style', 'bugs', 'architecture'"
+      },
+      "severity_threshold": {
+        "type": "string",
+        "description": "Minimum severity to report: 'info', 'warning', 'error', 'critical'"
+      }
+    },
+    "required": ["code"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Review the following code (language: {{language}}, focus: {{focus}}):\n\n{{code}}\n\nAnalyze for:\n1. Bugs: Logic errors, off-by-one, null/undefined access, race conditions\n2. Security: Injection, XSS, auth bypass, secrets exposure, unsafe deserialization\n3. Performance: N+1 queries, unnecessary allocations, blocking operations, missing indexes\n4. Style: Naming conventions, code organization, DRY violations, complexity\n5. Architecture: SOLID violations, coupling, missing abstractions, testability"
+    },
+    {
+      "type": "prompt",
+      "template": "Format findings (threshold: {{severity_threshold}}):\n\nFor each issue:\n- [SEVERITY] Line X: Brief title\n  - What: Description of the problem\n  - Why: Impact if not fixed\n  - Fix: Suggested correction (code snippet if applicable)\n\nSummary:\n- Total issues: X (critical: N, error: N, warning: N, info: N)\n- Overall quality: [score/10]\n- Top 3 priorities to address\n- Positive observations (good patterns found)"
+    }
+  ]
+}

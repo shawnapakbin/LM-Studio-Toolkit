@@ -1,0 +1,37 @@
+{
+  "name": "document-ingestion",
+  "description": "Tokenize and save documents into the RAG system. Handles chunking strategy, metadata extraction, and embedding storage for later retrieval.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "document_path": { "type": "string", "description": "Path to the document file or URL" },
+      "collection": { "type": "string", "description": "RAG collection name to store chunks in" },
+      "chunk_strategy": {
+        "type": "string",
+        "description": "Chunking strategy: 'paragraph', 'semantic', 'fixed-size', 'heading-based'"
+      },
+      "metadata_tags": { "type": "string", "description": "Comma-separated tags for the document" }
+    },
+    "required": ["document_path", "collection"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Document ingestion pipeline for: {{document_path}}\nTarget collection: {{collection}}\nChunking: {{chunk_strategy}}\n\nStep 1 — Document analysis:\n- Detect document type (PDF, markdown, code, HTML, plain text)\n- Identify structure (headings, sections, code blocks)\n- Estimate total size and chunk count\n- Extract metadata: title, author, date, language"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Chunking strategy for '{{chunk_strategy}}':\n- Split document into semantically meaningful chunks\n- Maintain context overlap between adjacent chunks (10-15%)\n- Preserve code blocks and tables as atomic units\n- Tag each chunk with: source, position, section heading, metadata\n\nStep 3 — Quality checks:\n- Verify no chunk exceeds token limit\n- Ensure no critical context is split across chunks\n- Add cross-references between related chunks"
+    },
+    {
+      "type": "tool_call",
+      "tool": "rag",
+      "args": {
+        "action": "ingest",
+        "collection": "{{collection}}",
+        "source": "{{document_path}}",
+        "tags": "{{metadata_tags}}"
+      }
+    }
+  ]
+}

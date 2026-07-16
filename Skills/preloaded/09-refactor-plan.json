@@ -1,0 +1,40 @@
+{
+  "name": "refactor-plan",
+  "description": "Given a codebase problem (tech debt, complexity, poor structure), produce a step-by-step refactoring plan with risk assessment and rollback strategy.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "problem_description": {
+        "type": "string",
+        "description": "Description of the code problem to address"
+      },
+      "affected_files": {
+        "type": "string",
+        "description": "Files or modules affected (comma-separated paths)"
+      },
+      "constraints": {
+        "type": "string",
+        "description": "Constraints: backwards compatibility, timeline, test coverage requirements"
+      },
+      "target_pattern": {
+        "type": "string",
+        "description": "Desired end-state pattern or architecture"
+      }
+    },
+    "required": ["problem_description"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Refactoring plan for: {{problem_description}}\nAffected: {{affected_files}}\nConstraints: {{constraints}}\nTarget: {{target_pattern}}\n\nStep 1 — Assessment:\n- Current state: What does the code look like now?\n- Pain points: What specific problems does this cause?\n- Dependencies: What depends on the affected code?\n- Risk areas: Where are breaking changes most likely?"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Plan (ordered, incremental steps):\nFor each step:\n- What to change\n- Why (which problem it addresses)\n- Risk level (low/medium/high)\n- Verification: How to confirm it worked\n- Rollback: How to undo if it breaks\n\nPrinciples:\n- Each step should be independently deployable\n- Tests pass after every step\n- No big-bang rewrites — incremental transformation\n- Strangler fig pattern where applicable"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Execution checklist:\n- [ ] Ensure test coverage for affected code (add tests first)\n- [ ] Create feature branch\n- [ ] Execute steps in order, committing after each\n- [ ] Run full test suite between steps\n- [ ] Update documentation\n- [ ] PR with before/after comparison\n\nEstimated effort: [time]\nRisk summary: [overall risk level and mitigation]"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "decision-matrix",
+  "description": "Given options and criteria, produce a weighted comparison table with scoring and a clear recommendation.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "decision": { "type": "string", "description": "The decision to be made" },
+      "options": { "type": "string", "description": "Comma-separated list of options to compare" },
+      "criteria": { "type": "string", "description": "Comma-separated evaluation criteria" },
+      "weights": {
+        "type": "string",
+        "description": "Comma-separated weights for criteria (must sum to 1.0)"
+      },
+      "context": {
+        "type": "string",
+        "description": "Additional context about priorities and constraints"
+      }
+    },
+    "required": ["decision", "options", "criteria"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Decision: {{decision}}\nOptions: {{options}}\nCriteria: {{criteria}}\nWeights: {{weights}}\nContext: {{context}}\n\nStep 1 — Criteria definition:\nFor each criterion, define:\n- What it means specifically in this context\n- How to score it (1-10 scale with anchors)\n- 10 = [best case definition]\n- 1 = [worst case definition]\n- Weight justification"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Score each option:\nCreate a matrix:\n| Option | Criterion 1 (w) | Criterion 2 (w) | ... | Weighted Total |\n\nFor each cell:\n- Raw score (1-10) with brief justification\n- Weighted score = raw × weight\n\nHighlight:\n- Clear winners per criterion\n- Deal-breakers (any score ≤ 2)\n- Surprising results"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Recommendation:\n- Winner: [option with highest weighted total]\n- Runner-up: [second place]\n- Confidence: High/Medium/Low (based on score gap and uncertainty)\n- Caveats: Conditions where the recommendation would change\n- Sensitivity: Which criteria changes would flip the result?\n\nIf scores are too close (< 5% difference), recommend a tiebreaker criterion or suggest a prototype/trial approach."
+    }
+  ]
+}

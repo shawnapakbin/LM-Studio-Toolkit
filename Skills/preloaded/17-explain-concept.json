@@ -1,0 +1,37 @@
+{
+  "name": "explain-concept",
+  "description": "Take a complex topic and produce layered explanations at different expertise levels (ELI5 through expert).",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "topic": { "type": "string", "description": "The concept or topic to explain" },
+      "levels": {
+        "type": "string",
+        "description": "Explanation levels to generate: 'all', 'beginner', 'intermediate', 'expert'"
+      },
+      "context": {
+        "type": "string",
+        "description": "Why the person is asking (helps tailor the explanation)"
+      },
+      "analogies": {
+        "type": "string",
+        "description": "Domain for analogies: 'everyday', 'cooking', 'construction', 'sports', 'auto'"
+      }
+    },
+    "required": ["topic"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Explain: {{topic}}\nLevels: {{levels}}\nContext: {{context}}\nAnalogy domain: {{analogies}}\n\nGenerate layered explanations:\n\n**Level 1 — ELI5 (no prerequisites):**\n- Use a concrete analogy from {{analogies}} domain\n- No jargon, no acronyms\n- One key insight in one sentence\n\n**Level 2 — Beginner (knows basics):**\n- Introduce proper terminology with definitions\n- Explain the 'why' behind the concept\n- Simple example/diagram description"
+    },
+    {
+      "type": "prompt",
+      "template": "**Level 3 — Intermediate (working knowledge):**\n- Technical details and tradeoffs\n- Common pitfalls and misconceptions\n- How it relates to adjacent concepts\n- Practical usage example\n\n**Level 4 — Expert (deep understanding):**\n- Implementation details and edge cases\n- Performance characteristics and complexity\n- Historical context and design decisions\n- Current research / open problems\n- Comparison with alternative approaches"
+    },
+    {
+      "type": "prompt",
+      "template": "**Quick Reference Card:**\n- One-line definition\n- Key properties (3-5 bullet points)\n- When to use / when not to use\n- Common confusions (X is NOT Y)\n- Further reading (2-3 resources per level)"
+    }
+  ]
+}

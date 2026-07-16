@@ -1,0 +1,33 @@
+{
+  "name": "task-decomposition",
+  "description": "Break a complex goal into ordered subtasks with dependencies, acceptance criteria, and effort estimates.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "goal": { "type": "string", "description": "The complex goal or feature to decompose" },
+      "constraints": {
+        "type": "string",
+        "description": "Time, resource, or technical constraints"
+      },
+      "granularity": {
+        "type": "string",
+        "description": "Task size: 'epic' (days), 'story' (hours), 'task' (30-60 min)"
+      }
+    },
+    "required": ["goal"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Decompose goal: {{goal}}\nConstraints: {{constraints}}\nGranularity: {{granularity}}\n\nStep 1 — Scope analysis:\n- What is in scope vs. explicitly out of scope?\n- What are the unknowns/risks that need investigation?\n- What are the hard dependencies (must happen first)?\n- What can be parallelized?"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Task breakdown:\nFor each subtask:\n- ID: Sequential identifier\n- Title: Action-oriented (verb + noun)\n- Description: What specifically needs to be done\n- Dependencies: [IDs of tasks that must complete first]\n- Acceptance criteria: How to verify it's done\n- Effort estimate: [time]\n- Risk: Low/Medium/High\n\nOrder by: Dependencies first, then risk (high-risk early), then effort."
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Execution plan:\n- Critical path: [sequence of tasks that determines minimum total time]\n- Parallel tracks: [tasks that can run simultaneously]\n- Milestones: [key checkpoints with deliverables]\n- Decision points: [where choices need to be made before proceeding]\n\nTotal estimated effort: [sum]\nRecommended order of execution: [numbered list]"
+    }
+  ]
+}

@@ -36,6 +36,10 @@ async function poll() {
   if (newIds !== oldIds) {
     currentInterviews = interviews;
     render();
+    // Bring window to front when new interviews appear
+    if (interviews.length > 0 && newIds !== oldIds) {
+      bringToFront();
+    }
   }
 
   const count = interviews.length;
@@ -350,5 +354,39 @@ function formatTimeLeft(expiresAt) {
 }
 
 // ─── Init ───────────────────────────────────────────────────────────────────
+
+// Request window focus when page loads (for always-on-top behavior)
+window.focus();
+
+// If this page was opened programmatically, try to bring it to front
+if (window.opener || document.visibilityState === "visible") {
+  window.focus();
+}
+
+// Also re-focus when new interviews arrive
+function bringToFront() {
+  window.focus();
+  // Flash the title to grab attention if not focused
+  if (document.hidden) {
+    const originalTitle = document.title;
+    let flash = true;
+    const interval = setInterval(() => {
+      document.title = flash ? "⚡ New Interview!" : originalTitle;
+      flash = !flash;
+    }, 500);
+    const onFocus = () => {
+      clearInterval(interval);
+      document.title = originalTitle;
+      window.removeEventListener("focus", onFocus);
+    };
+    window.addEventListener("focus", onFocus);
+    // Stop flashing after 30s regardless
+    setTimeout(() => {
+      clearInterval(interval);
+      document.title = originalTitle;
+      window.removeEventListener("focus", onFocus);
+    }, 30000);
+  }
+}
 
 startPolling();

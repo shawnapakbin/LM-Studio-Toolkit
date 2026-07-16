@@ -4,6 +4,7 @@ import {
   createErrorResponse,
   createSuccessResponse,
 } from "@shared/types";
+import { exec } from "node:child_process";
 import { normalizeExpiresSeconds, validateCreateInput, validateSubmitInput } from "./policy";
 import { AskUserStore } from "./store";
 import type {
@@ -16,6 +17,36 @@ import type {
 
 const DB_PATH = process.env.ASK_USER_DB_PATH ?? "./memory.db";
 const store = new AskUserStore(DB_PATH);
+
+/**
+ * Opens the interview UI in the default browser and brings it to focus.
+ * Cross-platform: Windows (start), macOS (open), Linux (xdg-open).
+ */
+function launchInterviewUI(): void {
+  const port = process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338";
+  const url = `http://localhost:${port}/ui/`;
+
+  let cmd: string;
+  switch (process.platform) {
+    case "win32":
+      // 'start' on Windows opens the URL and brings the browser to front
+      cmd = `start "" "${url}"`;
+      break;
+    case "darwin":
+      cmd = `open "${url}"`;
+      break;
+    default:
+      cmd = `xdg-open "${url}"`;
+      break;
+  }
+
+  exec(cmd, (err) => {
+    if (err) {
+      // Non-fatal: log but don't fail the interview creation
+      console.error(`Failed to auto-launch interview UI: ${err.message}`);
+    }
+  });
+}
 
 function parseQuestions(raw: string): InterviewQuestion[] {
   try {
@@ -62,6 +93,9 @@ function createInterview(
   });
 
   const UI_PORT = process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338";
+
+  // Auto-launch the interview UI in the user's browser
+  launchInterviewUI();
 
   return createSuccessResponse(
     {

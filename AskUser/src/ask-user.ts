@@ -61,6 +61,8 @@ function createInterview(
     expiresAtIso: expiresAt,
   });
 
+  const UI_PORT = process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338";
+
   return createSuccessResponse(
     {
       action: "create",
@@ -69,6 +71,8 @@ function createInterview(
       expiresAt,
       questionCount: payload.questions.length,
       questions: payload.questions,
+      interviewUrl: `http://localhost:${UI_PORT}/ui/`,
+      instruction: "Direct the user to open the interview form at the interviewUrl above. The form renders interactive controls and submits responses automatically.",
     },
     timingMs,
     traceId,

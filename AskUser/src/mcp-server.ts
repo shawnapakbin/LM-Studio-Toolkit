@@ -66,7 +66,7 @@ export function createAskUserMcpServer(): McpServer {
     "ask_user_interview",
     {
       description:
-        "ask_user_interview: Structured interview tool for collecting human input/approval before agent actions.\n\nIMPORTANT: Before using this tool, read the 'ask-user-interview' skill first (action: get_skill, name: ask-user-interview) for full usage guidance and rendering instructions.\n\nActions:\n- create: Create interview with questions. Returns interviewId.\n- get: Poll interview status/responses by interviewId.\n- submit: Submit user answers to a pending interview.\n\nQuestion types: text, single_choice, multi_choice, number, confirm.\n\nInterviews expire (default 3600s). States: pending → answered | expired.\n\nUse ONLY for approval/clarification workflows. Do NOT use for general questions or data retrieval.\n\nCreate payload: { title?, taskRunId?, expiresInSeconds?, questions: [{ id, type, prompt, required?, options? }] }\nSubmit payload: { interviewId, responses: [{ questionId, value }] }\nGet payload: { interviewId }",
+        "ask_user_interview: Structured interview tool for collecting human input/approval before agent actions.\n\nIMPORTANT: Before using this tool, read the 'ask-user-interview' skill first (action: get_skill, name: ask-user-interview) for full usage guidance and rendering instructions.\n\nAfter creating an interview, ALWAYS tell the user to open the interactive form at: http://localhost:3338/ui/ — The form renders clickable controls and submits responses automatically. Do NOT render a text-based form in chat.\n\nActions:\n- create: Create interview with questions. Returns interviewId.\n- get: Poll interview status/responses by interviewId.\n- submit: Submit user answers to a pending interview.\n\nQuestion types: text, single_choice, multi_choice, number, confirm.\n\nInterviews expire (default 3600s). States: pending → answered | expired.\n\nUse ONLY for approval/clarification workflows. Do NOT use for general questions or data retrieval.\n\nCreate payload: { title?, taskRunId?, expiresInSeconds?, questions: [{ id, type, prompt, required?, options? }] }\nSubmit payload: { interviewId, responses: [{ questionId, value }] }\nGet payload: { interviewId }",
       inputSchema: {
         action: z
           .enum(["create", "submit", "get"])
@@ -191,6 +191,18 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("LM Studio AskUser MCP server running on stdio");
+
+  // Also start the HTTP server for the interview UI
+  try {
+    const { app } = await import("./index");
+    const UI_PORT = Number(process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? 3338);
+    app.listen(UI_PORT, () => {
+      console.error(`AskUser Interview UI available at http://localhost:${UI_PORT}/ui/`);
+    });
+  } catch (err) {
+    console.error("Failed to start Interview UI HTTP server:", err);
+    // Non-fatal: MCP server continues working without the UI
+  }
 }
 
 if (require.main === module) {

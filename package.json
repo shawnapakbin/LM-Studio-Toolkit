@@ -1,6 +1,6 @@
 {
   "name": "lm-studio-toolkit",
-  "version": "2.2.5",
+  "version": "2.3.0",
   "description": "Enterprise-grade LLM agent toolkit with multi-tool orchestration",
   "private": true,
   "main": "dist/index.js",
@@ -108,6 +108,7 @@
     "PackageManager",
     "Observability",
     "AgentRunner",
-    "BlenderBridge"
+    "BlenderBridge",
+    "3DTool"
   ]
 }

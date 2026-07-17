@@ -2,11 +2,21 @@
 
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
-Release target: `v2.2.0`
-Status: `released`
+Release target: `v2.3.0`
+Status: `in-progress`
 Owner: `core-maintainers`
 
-## Included vNext Features (v2.2.0 — Released)
+## Included vNext Features (v2.3.0 — In Progress)
+
+1. `3DTool` workspace (`3DTool/`)
+- Scope: MCP server providing a browser-based Three.js 3D model viewer/editor with multi-format support (OBJ, glTF/GLB). Exposes 13 tools: launch_viewer, edit_3d_file, poll_interactions, get_model_metadata, add_object, remove_object, transform_object, list_objects, set_material, list_materials, list_history, rollback, acknowledge_interaction.
+- Features: structured OBJ validation with error feedback, enriched annotations (face normal, face index, object path), scene management with multiple objects, PBR material support, undo/redo via history rollback, viewer UX (onboarding, info panel, theme toggle, annotation lifecycle states).
+- Key paths: `3DTool/src/`, `3DTool/tests/`, `3DTool/dist/viewer/`.
+- Branch: `2.3.x`
+
+---
+
+## Released: v2.2.0
 
 1. `CLI` workspace (`CLI/`)
 - Scope: `llm <command>` terminal binary for invoking all tools from the shell. Uses `commander` for argument parsing; routes to tool HTTP endpoints.
@@ -102,7 +112,7 @@ The following modules were fully integrated in the v2.2.0 release train and are 
 - Startup behavior: startup checks run Python 3 detection on every run, persist detection history to `scripts/workspace/logs/python-detection.json`, and provide install guidance from the official source when Python is missing.
 - Key paths: `PythonShell/src/`, `PythonShell/tests/`, `scripts/workspace/check-python.js`.
 
-## Planned for v2.3.0+
+## Planned for v2.4.0+
 
 - Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm file *`, `llm pkg *`, `llm build *`, `llm observe *`, `llm session *`
 - Corresponding slash commands: `/workflow`, `/git`, `/file`, `/build`, `/observe`, `/session`

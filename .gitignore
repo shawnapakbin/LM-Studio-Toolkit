@@ -108,4 +108,5 @@ tmp/
 
 # Linter & test output artifacts
 biome_output.txt
+biome-output.txt
 verify_output.txt

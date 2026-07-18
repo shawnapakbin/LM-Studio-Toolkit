@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.3.0  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅
+**Version**: 2.3.1  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -52,7 +52,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 19 Toolkit Modules (17 Tool Servers + CLI + SlashCommands)
+### 20 Toolkit Modules (18 Tool Servers + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
@@ -71,6 +71,7 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
 - **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
 - **[3DTool](3DTool/README.md)** — 3D model viewer/editor MCP server with multi-format support (OBJ, glTF/GLB), scene management, materials, undo/redo ✅
+- **[SubAgent](SubAgent/README.md)** — Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation ✅
 - **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
 - **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
@@ -457,6 +458,7 @@ See [Memory/README.md](Memory/README.md) for details.
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
 | [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
 | [3DTool/README.md](3DTool/README.md) | 3DTool MCP server — 3D viewer/editor with multi-format support |
+| [SubAgent/README.md](SubAgent/README.md) | SubAgent MCP server — parallel inference dispatch for sub-agent delegation |
 | [CLI/README.md](CLI/README.md) | CLI command reference |
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
@@ -468,8 +470,9 @@ See [Memory/README.md](Memory/README.md) for details.
 |---------|--------|-------|
 | CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | 3DTool MCP Server | ✅ | Multi-format 3D viewer/editor with scene management, materials, validation, undo/redo (v2.3.0) |
+| SubAgent MCP Server | ✅ | Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation (v2.3.1) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 17 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands, 3DTool |
+| 18 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands, 3DTool, SubAgent |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
 | ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |

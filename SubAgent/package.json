@@ -1,0 +1,30 @@
+{
+  "name": "llm-toolkit-subagent",
+  "version": "2.3.1",
+  "private": true,
+  "description": "Fan-out/fan-in parallel inference dispatcher MCP server for sub-agent task delegation",
+  "main": "dist/mcp-server.js",
+  "types": "dist/mcp-server.d.ts",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node --max-old-space-size=8192 ../node_modules/typescript/lib/tsc.js -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "keywords": ["subagent", "fan-out", "parallel", "mcp", "model-context-protocol", "inference"],
+  "author": "Shawna Pakbin",
+  "license": "LicenseRef-Shawna-NonCommercial",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@shared/types": "file:../shared",
+    "better-sqlite3": "^12.6.2",
+    "llm-toolkit-observability": "*",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "fast-check": "^3.23.2",
+    "nock": "^14.0.1"
+  }
+}

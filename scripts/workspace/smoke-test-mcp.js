@@ -26,6 +26,7 @@ const tools = [
   { name: "Skills", dist: "Skills/dist/mcp-server.js" },
   { name: "SlashCommands", dist: "SlashCommands/dist/mcp-server.js" },
   { name: "BlenderBridge", dist: "BlenderBridge/dist/mcp-server.js" },
+  { name: "SubAgent", dist: "SubAgent/dist/mcp-server.js" },
 ];
 
 function smokeTest(tool) {

@@ -2,11 +2,21 @@
 
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
-Release target: `v2.3.0`
+Add 0.0.1 to x.x.x for every push and update documentation.
+Release target: `v2.3.1`
 Status: `in-progress`
 Owner: `core-maintainers`
 
-## Included vNext Features (v2.3.0 — In Progress)
+## Included vNext Features (v2.3.1 — In Progress)
+
+1. `SubAgent` workspace (`SubAgent/`)
+- Scope: MCP server providing fan-out/fan-in parallel inference dispatch for sub-agent task delegation against LM Studio's OpenAI-compatible API.
+- Features: dispatch up to 20 sub-tasks with isolated contexts, concurrency management (1–10 parallel requests), SHA-256 deduplication and SQLite result caching, exponential backoff retries, checkpoint persistence with crash-resume, token budget estimation with auto-chunking, per-session telemetry, recursion guard (hard depth limit of 1), synthesis step for result aggregation, session registry with cross-dispatch duplicate prevention.
+- Exposed MCP tools: `dispatch_sub_tasks`, `cancel_dispatch`, `resume_dispatch`, `get_dispatch_status`, `dry_run_dispatch`, `clear_cache`, `list_sessions`.
+- Key paths: `SubAgent/src/`, `SubAgent/tests/`, `SubAgent/dist/`.
+- Branch: `2.3.x`
+
+## Released: v2.3.0
 
 1. `3DTool` workspace (`3DTool/`)
 - Scope: MCP server providing a browser-based Three.js 3D model viewer/editor with multi-format support (OBJ, glTF/GLB). Exposes 13 tools: launch_viewer, edit_3d_file, poll_interactions, get_model_metadata, add_object, remove_object, transform_object, list_objects, set_material, list_materials, list_history, rollback, acknowledge_interaction.

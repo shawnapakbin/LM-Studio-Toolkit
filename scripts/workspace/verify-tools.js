@@ -39,6 +39,11 @@ const tools = [
     dist: "BlenderBridge/dist/mcp-server.js",
     src: "BlenderBridge/src/mcp-server.ts",
   },
+  {
+    name: "SubAgent",
+    dist: "SubAgent/dist/mcp-server.js",
+    src: "SubAgent/src/mcp-server.ts",
+  },
 ];
 
 let failed = false;

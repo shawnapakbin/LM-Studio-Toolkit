@@ -7,7 +7,7 @@ const API_BASE = window.location.origin; // Dynamic: uses whatever port the page
 const POLL_INTERVAL = 2000; // 2 seconds
 
 let currentInterviews = [];
-let pollTimer = null;
+let _pollTimer = null;
 
 // ─── Polling ────────────────────────────────────────────────────────────────
 
@@ -46,13 +46,13 @@ async function poll() {
   updateStatusBar(
     count === 0
       ? "No pending interviews. Polling..."
-      : `${count} pending interview${count > 1 ? "s" : ""}`
+      : `${count} pending interview${count > 1 ? "s" : ""}`,
   );
 }
 
 function startPolling() {
   poll();
-  pollTimer = setInterval(poll, POLL_INTERVAL);
+  _pollTimer = setInterval(poll, POLL_INTERVAL);
 }
 
 function updateStatusBar(text) {
@@ -101,9 +101,7 @@ function renderInterviewCard(interview) {
 }
 
 function renderQuestion(question, index, interviewId) {
-  const requiredBadge = question.required
-    ? '<span class="required-badge">required</span>'
-    : "";
+  const requiredBadge = question.required ? '<span class="required-badge">required</span>' : "";
   const fieldId = `${interviewId}-${question.id}`;
 
   let inputHtml = "";
@@ -150,7 +148,7 @@ function renderSingleChoice(question, fieldId) {
         <input type="radio" name="${question.id}" id="${fieldId}-${opt.id}" value="${opt.id}">
         <label for="${fieldId}-${opt.id}">${escapeHtml(opt.label)}</label>
       </div>
-    `
+    `,
     )
     .join("");
   return `<div class="option-group">${options}</div>`;
@@ -164,7 +162,7 @@ function renderMultiChoice(question, fieldId) {
         <input type="checkbox" name="${question.id}" id="${fieldId}-${opt.id}" value="${opt.id}">
         <label for="${fieldId}-${opt.id}">${escapeHtml(opt.label)}</label>
       </div>
-    `
+    `,
     )
     .join("");
   return `<div class="option-group">${options}</div>`;
@@ -273,7 +271,7 @@ async function handleSubmit(event, interviewId) {
         if (!block.querySelector(".error-message")) {
           block.insertAdjacentHTML(
             "beforeend",
-            '<div class="error-message">This field is required</div>'
+            '<div class="error-message">This field is required</div>',
           );
         }
       } else {
@@ -323,7 +321,7 @@ async function handleSubmit(event, interviewId) {
       submitBtn.textContent = "Submit Responses";
       form.insertAdjacentHTML(
         "beforeend",
-        `<div class="error-message">${escapeHtml(data.errorMessage || "Submission failed")}</div>`
+        `<div class="error-message">${escapeHtml(data.errorMessage || "Submission failed")}</div>`,
       );
     }
   } catch (err) {
@@ -331,7 +329,7 @@ async function handleSubmit(event, interviewId) {
     submitBtn.textContent = "Submit Responses";
     form.insertAdjacentHTML(
       "beforeend",
-      `<div class="error-message">Network error: ${escapeHtml(err.message)}</div>`
+      `<div class="error-message">Network error: ${escapeHtml(err.message)}</div>`,
     );
   }
 }

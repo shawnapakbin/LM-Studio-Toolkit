@@ -1,10 +1,10 @@
+import { exec } from "node:child_process";
 import {
   ErrorCode,
   type ToolResponse,
   createErrorResponse,
   createSuccessResponse,
 } from "@shared/types";
-import { exec } from "node:child_process";
 import { normalizeExpiresSeconds, validateCreateInput, validateSubmitInput } from "./policy";
 import { AskUserStore } from "./store";
 import type {
@@ -114,7 +114,8 @@ function createInterview(
       questionCount: payload.questions.length,
       questions: payload.questions,
       interviewUrl: `http://localhost:${activeUIPort}/ui/`,
-      instruction: "The interview form has been auto-opened in the user's browser. You MUST now poll with action 'get' and this interviewId every few seconds until status changes to 'answered'. Only then read the responses and proceed.",
+      instruction:
+        "The interview form has been auto-opened in the user's browser. You MUST now poll with action 'get' and this interviewId every few seconds until status changes to 'answered'. Only then read the responses and proceed.",
     },
     timingMs,
     traceId,

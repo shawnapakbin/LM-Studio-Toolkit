@@ -89,16 +89,18 @@ export class AskUserStore {
 
   listPending(): InterviewRecord[] {
     // First, mark any expired interviews
-    this.db.prepare(
-      `UPDATE ask_user_interviews
+    this.db
+      .prepare(
+        `UPDATE ask_user_interviews
        SET status = 'expired'
        WHERE status = 'pending' AND expires_at <= datetime('now')`,
-    ).run();
+      )
+      .run();
 
     // Then delete all expired and cancelled interviews (cleanup)
-    this.db.prepare(
-      "DELETE FROM ask_user_interviews WHERE status IN ('expired', 'cancelled')",
-    ).run();
+    this.db
+      .prepare("DELETE FROM ask_user_interviews WHERE status IN ('expired', 'cancelled')")
+      .run();
 
     // Return only active pending interviews
     const stmt = this.db.prepare(
@@ -112,10 +114,12 @@ export class AskUserStore {
    * Called periodically to keep the DB clean.
    */
   cleanupOld(maxAgeSeconds = 86400): void {
-    this.db.prepare(
-      `DELETE FROM ask_user_interviews
+    this.db
+      .prepare(
+        `DELETE FROM ask_user_interviews
        WHERE status = 'answered' AND answered_at <= datetime('now', '-' || ? || ' seconds')`,
-    ).run(maxAgeSeconds);
+      )
+      .run(maxAgeSeconds);
   }
 
   close(): void {

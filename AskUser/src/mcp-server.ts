@@ -70,16 +70,15 @@ export function createAskUserMcpServer(): McpServer {
       inputSchema: {
         action: z
           .enum(["create", "submit", "get"])
-          .describe("The operation to perform: 'create' (new interview), 'submit' (answers), 'get' (check status)"),
+          .describe(
+            "The operation to perform: 'create' (new interview), 'submit' (answers), 'get' (check status)",
+          ),
         // create fields
         title: z
           .string()
           .optional()
           .describe("(create) Interview title (e.g., 'Approve document deletion')"),
-        taskRunId: z
-          .string()
-          .optional()
-          .describe("(create) Associated task ID"),
+        taskRunId: z.string().optional().describe("(create) Associated task ID"),
         expiresInSeconds: z
           .number()
           .int()
@@ -90,10 +89,17 @@ export function createAskUserMcpServer(): McpServer {
         questions: z
           .array(
             z.object({
-              id: z.string().describe("Unique kebab-case question identifier (e.g., 'confirm-delete')"),
-              type: z.enum(["text", "single_choice", "multi_choice", "number", "confirm"]).describe("Question type"),
+              id: z
+                .string()
+                .describe("Unique kebab-case question identifier (e.g., 'confirm-delete')"),
+              type: z
+                .enum(["text", "single_choice", "multi_choice", "number", "confirm"])
+                .describe("Question type"),
               prompt: z.string().describe("The question text shown to the user"),
-              required: z.boolean().optional().describe("Whether an answer is required (default false)"),
+              required: z
+                .boolean()
+                .optional()
+                .describe("Whether an answer is required (default false)"),
               options: z
                 .array(z.object({ id: z.string(), label: z.string() }))
                 .optional()
@@ -103,8 +109,14 @@ export function createAskUserMcpServer(): McpServer {
               min: z.number().optional().describe("(number only) Minimum value"),
               max: z.number().optional().describe("(number only) Maximum value"),
               integerOnly: z.boolean().optional().describe("(number only) Restrict to integers"),
-              minSelections: z.number().optional().describe("(multi_choice only) Minimum selections"),
-              maxSelections: z.number().optional().describe("(multi_choice only) Maximum selections"),
+              minSelections: z
+                .number()
+                .optional()
+                .describe("(multi_choice only) Minimum selections"),
+              maxSelections: z
+                .number()
+                .optional()
+                .describe("(multi_choice only) Maximum selections"),
             }),
           )
           .optional()
@@ -211,7 +223,9 @@ async function main() {
           httpServer.close();
           tryListen(port + 1, retries - 1);
         } else if (err.code === "EADDRINUSE") {
-          console.error(`Interview UI: all ports ${basePort}-${port} in use. UI unavailable (MCP tool still works).`);
+          console.error(
+            `Interview UI: all ports ${basePort}-${port} in use. UI unavailable (MCP tool still works).`,
+          );
         } else {
           console.error(`Interview UI HTTP server error: ${err.message}`);
         }

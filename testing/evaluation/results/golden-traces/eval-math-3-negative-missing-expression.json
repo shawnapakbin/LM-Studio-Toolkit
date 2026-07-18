@@ -1,5 +1,5 @@
 {
-  "traceId": "1784091573730-yq76vjot",
+  "traceId": "1784369142631-csiqepsc",
   "workflowId": "eval-math-3-negative",
   "workflowName": "Math Engineering - Missing Expression",
   "status": "error",
@@ -15,5 +15,5 @@
       "errorMessage": "expression required"
     }
   ],
-  "generatedAt": "2026-07-15T04:59:33.730Z"
+  "generatedAt": "2026-07-18T10:05:42.631Z"
 }

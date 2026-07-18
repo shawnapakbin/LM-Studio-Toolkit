@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
+import { startHttpServer } from "./http-server";
 import { acknowledgeInteraction } from "./tools/acknowledge-interaction";
 import { handleAddObject } from "./tools/add-object";
 import { handleEdit3dFile } from "./tools/edit-3d-file";
@@ -228,7 +229,6 @@ async function main() {
 
   // Start the HTTP server for the browser-based viewer
   try {
-    const { startHttpServer } = await import("./http-server");
     startHttpServer({ openBrowser: false });
   } catch (err) {
     console.error("Failed to start HTTP server:", err);

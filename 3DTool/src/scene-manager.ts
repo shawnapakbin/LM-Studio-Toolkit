@@ -14,6 +14,7 @@ import type {
 export class SceneManager {
   private objects: Map<string, SceneObject> = new Map();
   private interactions: InteractionEvent[] = [];
+  private polledIds: Set<string> = new Set();
   private clients: Response[] = [];
   private delegatePort: number | null = null;
   private cameraPosition: CameraState | null = null;
@@ -128,8 +129,10 @@ export class SceneManager {
   }
 
   pollInteractions(): PollResult {
-    const events = [...this.interactions];
-    this.interactions = [];
+    const events = this.interactions.filter((i) => !this.polledIds.has(i.id));
+    for (const event of events) {
+      this.polledIds.add(event.id);
+    }
     return {
       events,
       cameraPosition: this.cameraPosition,
@@ -137,12 +140,16 @@ export class SceneManager {
   }
 
   acknowledgeInteraction(id: string): boolean {
-    const interaction = this.interactions.find((i) => i.id === id);
-    if (!interaction) {
+    const index = this.interactions.findIndex((i) => i.id === id);
+    if (index === -1) {
       return false;
     }
+    const interaction = this.interactions[index];
     interaction.state = "resolved";
     this.broadcast("pin_state", { id, state: "resolved" });
+    // Remove from interactions array and polledIds to prevent memory leaks
+    this.interactions.splice(index, 1);
+    this.polledIds.delete(id);
     return true;
   }
 

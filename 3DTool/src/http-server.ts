@@ -3,15 +3,11 @@ import path from "path";
 import express, { Request, Response } from "express";
 
 import { sceneManager } from "./shared-state";
-import type { InteractionEvent } from "./types";
 
 // --- In-memory state (minimal until SceneManager is wired in task 6) ---
 
 /** Connected SSE clients */
 const sseClients: Response[] = [];
-
-/** Interaction event queue (retained for backward compat; SceneManager is the source of truth for poll_interactions) */
-const interactionQueue: InteractionEvent[] = [];
 
 /** Active model file path (set via POST /api/load or launch_viewer) */
 let activeModelPath: string | null = null;
@@ -54,16 +50,6 @@ export function triggerReload(): void {
   broadcast("reload", {});
 }
 
-export function getInteractionQueue(): InteractionEvent[] {
-  return interactionQueue;
-}
-
-export function drainInteractionQueue(): InteractionEvent[] {
-  const events = [...interactionQueue];
-  interactionQueue.length = 0;
-  return events;
-}
-
 export function broadcastEvent(event: string, data: unknown): void {
   broadcast(event, data);
 }
@@ -104,9 +90,8 @@ export function createApp(): express.Application {
   app.post("/api/interactions", (req: Request, res: Response) => {
     const body = req.body;
 
-    const event: InteractionEvent = {
-      id: generateId(),
-      timestamp: Date.now(),
+    // Use SceneManager as the single source of truth for interaction tracking
+    const interaction = sceneManager.addInteraction({
       x: body.x ?? 0,
       y: body.y ?? 0,
       z: body.z ?? 0,
@@ -116,28 +101,12 @@ export function createApp(): express.Application {
       faceIndex: body.faceIndex ?? -1,
       objectPath: body.objectPath ?? "",
       objectId: body.objectId ?? "",
-      state: "pending",
-    };
-
-    interactionQueue.push(event);
-
-    // Also add to shared SceneManager so poll_interactions can drain it
-    sceneManager.addInteraction({
-      x: event.x,
-      y: event.y,
-      z: event.z,
-      meshId: event.meshId,
-      prompt: event.prompt,
-      faceNormal: event.faceNormal,
-      faceIndex: event.faceIndex,
-      objectPath: event.objectPath,
-      objectId: event.objectId,
     });
 
-    // Broadcast pin_state to all SSE clients
-    broadcast("pin_state", { id: event.id, state: "pending" });
+    // Broadcast pin_state using the canonical ID from SceneManager
+    broadcast("pin_state", { id: interaction.id, state: "pending" });
 
-    res.json({ success: true, id: event.id });
+    res.json({ success: true, id: interaction.id });
   });
 
   // --- GET /api/scene ---
@@ -285,10 +254,4 @@ function openInBrowser(url: string): void {
       console.error(`Failed to open browser: ${err.message}`);
     }
   });
-}
-
-// --- Utilities ---
-
-function generateId(): string {
-  return `evt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }

@@ -107,8 +107,8 @@ describe("HTTP API Integration Tests", () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      // The server assigns default values for missing enriched fields
-      expect(response.body.id).toMatch(/^evt_/);
+      // The server uses SceneManager's canonical ID format
+      expect(response.body.id).toMatch(/^int_/);
     });
   });
 

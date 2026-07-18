@@ -271,10 +271,21 @@ async function runSetup({ send, repair }) {
     const pluginDir = path.join(pluginRoot, serverName);
     const targetFile = path.join(pluginDir, "mcp-bridge-config.json");
 
+    let provisioned = false;
     if (!fs.existsSync(pluginDir)) {
-      send("dim", `  skipped ${serverName} (plugin not installed in LM Studio)`);
-      skipped++;
-      continue;
+      fs.mkdirSync(pluginDir, { recursive: true });
+      provisioned = true;
+    }
+
+    const manifestFile = path.join(pluginDir, "manifest.json");
+    if (!fs.existsSync(manifestFile)) {
+      const manifest = { type: "plugin", runner: "mcpBridge", owner: "mcp", name: serverName };
+      fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    }
+
+    const installStateFile = path.join(pluginDir, "install-state.json");
+    if (!fs.existsSync(installStateFile)) {
+      fs.writeFileSync(installStateFile, `${JSON.stringify({ by: "mcp-bridge-v1", at: Date.now() })}\n`, "utf8");
     }
 
     // Run preflight check for command-based tools before writing bridge config
@@ -292,7 +303,7 @@ async function runSetup({ send, repair }) {
 
     const config = buildBridgeConfig(tool);
     fs.writeFileSync(targetFile, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-    send("ok", `Synced ${serverName}`);
+    send("ok", `${provisioned ? "Provisioned" : "Synced"} ${serverName}`);
 
     // Warn if Browserless token is empty (Req 2.5)
     if (COMMAND_BASED_TOOLS.includes(tool) && tool === "Browserless" && !config.env.BROWSERLESS_TOKEN) {

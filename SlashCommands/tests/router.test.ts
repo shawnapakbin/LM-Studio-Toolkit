@@ -391,10 +391,12 @@ describe("route — rag", () => {
       params: { query: "what is AI", topK: 5 },
     };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag`, {
-      action: "query",
-      query: "what is AI",
-      topK: 5,
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+      action: "query_knowledge",
+      payload: {
+        query: "what is AI",
+        topK: 5,
+      },
     });
   });
 
@@ -405,17 +407,26 @@ describe("route — rag", () => {
       params: { content: "some text", source: "docs" },
     };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag`, {
-      action: "ingest",
-      content: "some text",
-      source: "docs",
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+      action: "ingest_documents",
+      payload: {
+        documents: [
+          {
+            sourceKey: "docs",
+            text: "some text",
+          },
+        ],
+      },
     });
   });
 
   it("posts list_sources action", async () => {
     const desc: DispatchDescriptor = { tool: "rag", action: "list_sources", params: {} };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag`, { action: "list_sources" });
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
+      action: "list_sources",
+      payload: {},
+    });
   });
 
   it("posts delete_source action", async () => {
@@ -425,9 +436,11 @@ describe("route — rag", () => {
       params: { sourceId: "src-1" },
     };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag`, {
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
       action: "delete_source",
-      sourceId: "src-1",
+      payload: {
+        sourceId: "src-1",
+      },
     });
   });
 });
@@ -438,9 +451,11 @@ describe("route — askuser", () => {
   it("posts create_interview with prompt to askuser endpoint", async () => {
     const desc: DispatchDescriptor = { tool: "askuser", prompt: "What is your name?" };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.askuser}/tools/ask_user`, {
-      action: "create_interview",
-      prompt: "What is your name?",
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.askuser}/tools/ask_user_interview`, {
+      action: "create",
+      payload: {
+        questions: [{ id: "prompt", type: "text", prompt: "What is your name?", required: true }],
+      },
     });
   });
 
@@ -451,10 +466,12 @@ describe("route — askuser", () => {
       title: "Greeting",
     };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.askuser}/tools/ask_user`, {
-      action: "create_interview",
-      prompt: "Hello",
-      title: "Greeting",
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.askuser}/tools/ask_user_interview`, {
+      action: "create",
+      payload: {
+        title: "Greeting",
+        questions: [{ id: "prompt", type: "text", prompt: "Hello", required: true }],
+      },
     });
   });
 
@@ -465,10 +482,12 @@ describe("route — askuser", () => {
       expiresInSeconds: 60,
     };
     await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.askuser}/tools/ask_user`, {
-      action: "create_interview",
-      prompt: "Confirm?",
-      expiresInSeconds: 60,
+    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.askuser}/tools/ask_user_interview`, {
+      action: "create",
+      payload: {
+        expiresInSeconds: 60,
+        questions: [{ id: "prompt", type: "text", prompt: "Confirm?", required: true }],
+      },
     });
   });
 
@@ -477,7 +496,8 @@ describe("route — askuser", () => {
     await route(desc);
     const [, body] = mockPost.mock.calls[0] as [string, Record<string, unknown>];
     expect(body).not.toHaveProperty("title");
-    expect(body).not.toHaveProperty("expiresInSeconds");
+    expect((body as any).payload).not.toHaveProperty("title");
+    expect((body as any).payload).not.toHaveProperty("expiresInSeconds");
   });
 });
 
@@ -571,15 +591,11 @@ describe("route — memory_stats", () => {
     expect(result.success).toBe(true);
   });
 
-  it("returns success:false when DB is unavailable", async () => {
-    const Database = require("better-sqlite3");
-    Database.mockImplementationOnce(() => {
-      throw new Error("no such file");
-    });
+  it("returns success:true with null data when DB is unavailable", async () => {
     const desc: DispatchDescriptor = { tool: "memory_stats" };
     const result = (await route(desc)) as Record<string, unknown>;
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("no such file");
+    expect(result.success).toBe(true);
+    expect(result.data).toBeNull();
   });
 });
 

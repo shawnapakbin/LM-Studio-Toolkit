@@ -9,7 +9,7 @@ module.exports = {
   moduleNameMapper: {
     "^@shared/(.*)$": "<rootDir>/../shared/$1",
     "^(\\.{1,2}/.*)\\.js$": "$1",
-    "^llm-toolkit-observability$": "<rootDir>/tests/__mocks__/llm-toolkit-observability.ts",
+    "^llm-toolkit-observability$": "<rootDir>/tests/mocks/llm-toolkit-observability.ts",
   },
   transform: {
     "^.+\\.(ts|tsx)$": [

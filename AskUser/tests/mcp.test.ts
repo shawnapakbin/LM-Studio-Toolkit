@@ -71,21 +71,19 @@ describe("AskUser MCP integration", () => {
       name: "ask_user_interview",
       arguments: {
         action: "create",
-        payload: {
-          title: "Clarify scope",
-          questions: [
-            {
-              id: "scope",
-              type: "single_choice",
-              prompt: "Which scope?",
-              required: true,
-              options: [
-                { id: "mvp", label: "MVP" },
-                { id: "full", label: "Full" },
-              ],
-            },
-          ],
-        },
+        title: "Clarify scope",
+        questions: [
+          {
+            id: "scope",
+            type: "single_choice",
+            prompt: "Which scope?",
+            required: true,
+            options: [
+              { id: "mvp", label: "MVP" },
+              { id: "full", label: "Full" },
+            ],
+          },
+        ],
       },
     });
 
@@ -100,10 +98,8 @@ describe("AskUser MCP integration", () => {
       name: "ask_user_interview",
       arguments: {
         action: "submit",
-        payload: {
-          interviewId,
-          responses: [{ questionId: "scope", value: "mvp" }],
-        },
+        interviewId,
+        responses: [{ questionId: "scope", value: "mvp" }],
       },
     });
 
@@ -115,7 +111,7 @@ describe("AskUser MCP integration", () => {
       name: "ask_user_interview",
       arguments: {
         action: "get",
-        payload: { interviewId },
+        interviewId,
       },
     });
 

@@ -20,7 +20,7 @@
     "check:ci": "biome check --diagnostic-level=error .",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
-    "test:ci": "jest --ci --coverage --maxWorkers=2 && npm run -w CLI test:ci && npm run -w SlashCommands test:ci",
+    "test:ci": "jest --ci --coverage --maxWorkers=2 && npm run -w CLI test:ci && npm run -w SlashCommands test:ci && npm run -w 3DTool test",
     "test:all": "jest --coverage && npm run -w CLI test && npm run -w SlashCommands test && npm run -w AgentRunner test && npm run -w Memory test && npm run -w Skills test",
     "test:mcp": "jest AskUser/tests/mcp.test.ts RAG/tests/mcp.test.ts Terminal/tests/mcp.test.ts PythonShell/tests/mcp.test.ts",
     "test:mcp:live": "jest RAG/tests/mcp.live.test.ts",

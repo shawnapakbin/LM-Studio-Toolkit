@@ -17,6 +17,7 @@ describe("AskUser HTTP Endpoints", () => {
     expect(response.body).toEqual({
       ok: true,
       service: "lm-studio-ask-user-tool",
+      version: "2.2.6",
     });
   });
 

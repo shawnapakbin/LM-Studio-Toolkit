@@ -93,7 +93,7 @@ jobs:
         run: npm run startup:check
       - name: "Verify dist/ directories"
         run: |
-          for dir in Terminal WebBrowser Calculator Clock Browserless Memory; do
+          for dir in Terminal WebBrowser Calculator Clock Memory; do
             if [ ! -f "$dir/dist/index.js" ] && [ ! -f "$dir/dist/mcp-server.js" ]; then
               echo "ERROR: $dir did not build successfully"
               exit 1

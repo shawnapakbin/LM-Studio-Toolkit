@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LAN Sub Agent — Endpoint Configuration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 8px; color: #fff; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-left { display: flex; flex-direction: column; gap: 4px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .discovery-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #16213e;
+      padding: 8px 16px;
+      border-radius: 8px;
+    }
+    .discovery-toggle label { font-size: 0.85rem; color: #aaa; }
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #555;
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+    .toggle-slider::before {
+      content: "";
+      position: absolute;
+      height: 18px; width: 18px;
+      left: 3px; bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #4caf50; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #4a90d9; color: #fff; }
+    .btn-danger { background: #f44336; color: #fff; }
+    .btn-secondary { background: #555; color: #fff; }
+    .btn-success { background: #4caf50; color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+    /* Endpoint cards */
+    .endpoints-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .endpoint-card {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #2a2a4a;
+      transition: border-color 0.2s;
+    }
+    .endpoint-card:hover { border-color: #4a90d9; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      word-break: break-all;
+    }
+    .health-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .health-healthy { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+    .health-unhealthy { background: #f44336; box-shadow: 0 0 6px #f44336; }
+    .health-disabled, .health-unknown { background: #9e9e9e; }
+    .card-details {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 12px;
+    }
+    .card-details p { margin-bottom: 4px; }
+    .card-details .models-list {
+      color: #7ec8e3;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .card-enabled {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-left: auto;
+    }
+    .test-result {
+      font-size: 0.8rem;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+    }
+    .test-result.success { background: rgba(76, 175, 80, 0.15); color: #4caf50; }
+    .test-result.failure { background: rgba(244, 67, 54, 0.15); color: #f44336; }
+    .test-result.pending { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal h2 { font-size: 1.2rem; margin-bottom: 20px; color: #fff; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      background: #0f0f23;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #4a90d9;
+    }
+    .form-group input.invalid { border-color: #f44336; }
+    .field-error {
+      color: #f44336;
+      font-size: 0.75rem;
+      margin-top: 3px;
+      min-height: 16px;
+    }
+    .form-group .enabled-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    .save-error {
+      color: #f44336;
+      font-size: 0.8rem;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Confirm dialog */
+    .confirm-dialog {
+      text-align: center;
+    }
+    .confirm-dialog p {
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+    .confirm-dialog .endpoint-name {
+      color: #fff;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+    .empty-state p { margin-bottom: 16px; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>LAN Sub Agent</h1>
+      <span style="font-size:0.85rem;color:#888;">Endpoint Configuration</span>
+    </div>
+    <div class="header-right">
+      <div class="discovery-toggle">
+        <label>Discovery</label>
+        <div class="toggle-switch">
+          <input type="checkbox" id="discoveryToggle">
+          <span class="toggle-slider" id="discoverySlider"></span>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="addBtn">+ Add Endpoint</button>
+    </div>
+  </div>
+
+  <div id="endpointsList" class="endpoints-grid"></div>
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <p>No endpoints configured</p>
+    <button class="btn btn-primary" id="addBtnEmpty">+ Add Endpoint</button>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="formModal">
+    <div class="modal">
+      <h2 id="formTitle">Add Endpoint</h2>
+      <form id="endpointForm" novalidate>
+        <input type="hidden" id="formId">
+        <div class="form-group">
+          <label for="formHost">Host Address</label>
+          <input type="text" id="formHost" placeholder="e.g. 192.168.1.100">
+          <div class="field-error" id="errorHost"></div>
+        </div>
+        <div class="form-group">
+          <label for="formPort">Port (1–65535)</label>
+          <input type="number" id="formPort" placeholder="1234" min="1" max="65535">
+          <div class="field-error" id="errorPort"></div>
+        </div>
+        <div class="form-group">
+          <label for="formModels">Models (comma-separated)</label>
+          <input type="text" id="formModels" placeholder="e.g. llama-3, codellama">
+          <div class="field-error" id="errorModels"></div>
+        </div>
+        <div class="form-group">
+          <label for="formConcurrency">Max Concurrency (1–32)</label>
+          <input type="number" id="formConcurrency" placeholder="4" min="1" max="32" value="4">
+          <div class="field-error" id="errorConcurrency"></div>
+        </div>
+        <div class="form-group">
+          <label>Enabled</label>
+          <div class="enabled-row">
+            <div class="toggle-switch">
+              <input type="checkbox" id="formEnabled" checked>
+              <span class="toggle-slider"></span>
+            </div>
+            <span style="font-size:0.8rem;color:#aaa;" id="enabledLabel">Yes</span>
+          </div>
+        </div>
+        <div class="save-error" id="saveError"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitBtn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal confirm-dialog">
+      <h2>Delete Endpoint</h2>
+      <p>Are you sure you want to delete <span class="endpoint-name" id="deleteEndpointName"></span>?</p>
+      <div class="confirm-actions">
+        <button class="btn btn-secondary" id="deleteCancelBtn">Cancel</button>
+        <button class="btn btn-danger" id="deleteConfirmBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let endpoints = [];
+    let healthMap = {};
+    let discoveryEnabled = false;
+    let healthInterval = null;
+    let deleteTargetId = null;
+
+    // DOM refs
+    const endpointsList = document.getElementById('endpointsList');
+    const emptyState = document.getElementById('emptyState');
+    const formModal = document.getElementById('formModal');
+    const deleteModal = document.getElementById('deleteModal');
+    const endpointForm = document.getElementById('endpointForm');
+    const discoveryToggle = document.getElementById('discoveryToggle');
+    const discoverySlider = document.getElementById('discoverySlider');
+
+    // --- API Helpers ---
+    async function apiGet(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+      return res.json();
+    }
+
+    async function apiPost(url, body) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return res;
+    }
+
+    async function apiPut(url, body) {
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return res;
+    }
+
+    async function apiDelete(url) {
+      const res = await fetch(url, { method: 'DELETE' });
+      return res;
+    }
+
+    // --- Data Loading ---
+    async function loadEndpoints() {
+      try {
+        endpoints = await apiGet('/api/endpoints');
+        renderEndpoints();
+      } catch (e) {
+        console.error('Failed to load endpoints:', e);
+      }
+    }
+
+    async function loadHealth() {
+      try {
+        const healthData = await apiGet('/api/health');
+        healthMap = {};
+        for (const h of healthData) {
+          healthMap[h.id] = h;
+        }
+        renderEndpoints();
+      } catch (e) {
+        console.error('Failed to load health:', e);
+      }
+    }
+
+    async function loadDiscoveryStatus() {
+      try {
+        const status = await apiGet('/api/discovery/status');
+        discoveryEnabled = status.enabled;
+        discoveryToggle.checked = discoveryEnabled;
+      } catch (e) {
+        console.error('Failed to load discovery status:', e);
+      }
+    }
+
+    // --- Rendering ---
+    function getHealthClass(endpoint) {
+      if (!endpoint.enabled) return 'health-disabled';
+      const h = healthMap[endpoint.id];
+      if (!h || h.health === 'unknown') return 'health-unknown';
+      return h.health === 'healthy' ? 'health-healthy' : 'health-unhealthy';
+    }
+
+    function getHealthLabel(endpoint) {
+      if (!endpoint.enabled) return 'Disabled';
+      const h = healthMap[endpoint.id];
+      if (!h || h.health === 'unknown') return 'Unknown';
+      return h.health === 'healthy' ? 'Healthy' : 'Unhealthy';
+    }
+
+    function renderEndpoints() {
+      if (endpoints.length === 0) {
+        endpointsList.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+      }
+      endpointsList.style.display = 'grid';
+      emptyState.style.display = 'none';
+
+      endpointsList.innerHTML = endpoints.map(ep => {
+        const healthClass = getHealthClass(ep);
+        const healthLabel = getHealthLabel(ep);
+        const models = (ep.models || []).join(', ') || 'None';
+        return `
+          <div class="endpoint-card" data-id="${ep.id}">
+            <div class="card-header">
+              <span class="card-title">${escapeHtml(ep.host)}:${ep.port}</span>
+              <div class="health-dot ${healthClass}" title="${healthLabel}"></div>
+            </div>
+            <div class="card-details">
+              <p><strong>Models:</strong> <span class="models-list">${escapeHtml(models)}</span></p>
+              <p><strong>Max Concurrency:</strong> ${ep.maxConcurrency || 1}</p>
+              <p><strong>Status:</strong> ${healthLabel}</p>
+            </div>
+            <div class="card-actions">
+              <button class="btn btn-sm btn-secondary" onclick="editEndpoint('${ep.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="confirmDelete('${ep.id}')">Delete</button>
+              <button class="btn btn-sm btn-success" id="test-${ep.id}" onclick="testConnection('${ep.id}')">Test Connection</button>
+              <div class="card-enabled">
+                <span>${ep.enabled ? 'Enabled' : 'Disabled'}</span>
+              </div>
+            </div>
+            <div id="test-result-${ep.id}"></div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // --- Form Handling ---
+    function openAddForm() {
+      document.getElementById('formTitle').textContent = 'Add Endpoint';
+      document.getElementById('formId').value = '';
+      document.getElementById('formHost').value = '';
+      document.getElementById('formPort').value = '';
+      document.getElementById('formModels').value = '';
+      document.getElementById('formConcurrency').value = '4';
+      document.getElementById('formEnabled').checked = true;
+      document.getElementById('enabledLabel').textContent = 'Yes';
+      clearErrors();
+      document.getElementById('saveError').textContent = '';
+      formModal.classList.add('active');
+    }
+
+    function editEndpoint(id) {
+      const ep = endpoints.find(e => e.id === id);
+      if (!ep) return;
+      document.getElementById('formTitle').textContent = 'Edit Endpoint';
+      document.getElementById('formId').value = ep.id;
+      document.getElementById('formHost').value = ep.host || '';
+      document.getElementById('formPort').value = ep.port || '';
+      document.getElementById('formModels').value = (ep.models || []).join(', ');
+      document.getElementById('formConcurrency').value = ep.maxConcurrency || 4;
+      document.getElementById('formEnabled').checked = ep.enabled !== false;
+      document.getElementById('enabledLabel').textContent = ep.enabled !== false ? 'Yes' : 'No';
+      clearErrors();
+      document.getElementById('saveError').textContent = '';
+      formModal.classList.add('active');
+    }
+
+    function closeForm() {
+      formModal.classList.remove('active');
+    }
+
+    function clearErrors() {
+      document.getElementById('errorHost').textContent = '';
+      document.getElementById('errorPort').textContent = '';
+      document.getElementById('errorModels').textContent = '';
+      document.getElementById('errorConcurrency').textContent = '';
+      document.querySelectorAll('.form-group input').forEach(i => i.classList.remove('invalid'));
+    }
+
+    function validateForm() {
+      clearErrors();
+      let valid = true;
+
+      const host = document.getElementById('formHost').value.trim();
+      const portStr = document.getElementById('formPort').value.trim();
+      const modelsStr = document.getElementById('formModels').value.trim();
+      const concurrencyStr = document.getElementById('formConcurrency').value.trim();
+
+      if (!host) {
+        document.getElementById('errorHost').textContent = 'Host address is required';
+        document.getElementById('formHost').classList.add('invalid');
+        valid = false;
+      }
+
+      const port = parseInt(portStr, 10);
+      if (!portStr || isNaN(port) || port < 1 || port > 65535) {
+        document.getElementById('errorPort').textContent = 'Port must be an integer between 1 and 65535';
+        document.getElementById('formPort').classList.add('invalid');
+        valid = false;
+      }
+
+      const models = modelsStr ? modelsStr.split(',').map(m => m.trim()).filter(m => m.length > 0) : [];
+      if (models.length === 0) {
+        document.getElementById('errorModels').textContent = 'At least one model name is required';
+        document.getElementById('formModels').classList.add('invalid');
+        valid = false;
+      } else {
+        for (const m of models) {
+          if (m.length > 200) {
+            document.getElementById('errorModels').textContent = 'Each model name must be 200 characters or fewer';
+            document.getElementById('formModels').classList.add('invalid');
+            valid = false;
+            break;
+          }
+        }
+      }
+
+      const concurrency = parseInt(concurrencyStr, 10);
+      if (!concurrencyStr || isNaN(concurrency) || concurrency < 1 || concurrency > 32) {
+        document.getElementById('errorConcurrency').textContent = 'Max concurrency must be between 1 and 32';
+        document.getElementById('formConcurrency').classList.add('invalid');
+        valid = false;
+      }
+
+      return valid;
+    }
+
+    async function submitForm(e) {
+      e.preventDefault();
+      if (!validateForm()) return;
+
+      const id = document.getElementById('formId').value;
+      const host = document.getElementById('formHost').value.trim();
+      const port = parseInt(document.getElementById('formPort').value.trim(), 10);
+      const modelsStr = document.getElementById('formModels').value.trim();
+      const models = modelsStr.split(',').map(m => m.trim()).filter(m => m.length > 0);
+      const maxConcurrency = parseInt(document.getElementById('formConcurrency').value.trim(), 10);
+      const enabled = document.getElementById('formEnabled').checked;
+
+      const body = { host, port, models, maxConcurrency, enabled };
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+      document.getElementById('saveError').textContent = '';
+
+      try {
+        let res;
+        if (id) {
+          res = await apiPut(`/api/endpoints/${id}`, body);
+        } else {
+          res = await apiPost('/api/endpoints', body);
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: 'Save failed' }));
+          document.getElementById('saveError').textContent = errData.error || 'Failed to save endpoint';
+          return;
+        }
+
+        closeForm();
+        await loadEndpoints();
+        await loadHealth();
+      } catch (err) {
+        document.getElementById('saveError').textContent = 'Network error: ' + err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save';
+      }
+    }
+
+    // --- Delete Handling ---
+    function confirmDelete(id) {
+      const ep = endpoints.find(e => e.id === id);
+      if (!ep) return;
+      deleteTargetId = id;
+      document.getElementById('deleteEndpointName').textContent = `${ep.host}:${ep.port}`;
+      deleteModal.classList.add('active');
+    }
+
+    function closeDeleteDialog() {
+      deleteModal.classList.remove('active');
+      deleteTargetId = null;
+    }
+
+    async function executeDelete() {
+      if (!deleteTargetId) return;
+      try {
+        const res = await apiDelete(`/api/endpoints/${deleteTargetId}`);
+        if (!res.ok) {
+          console.error('Delete failed:', res.status);
+        }
+      } catch (e) {
+        console.error('Delete error:', e);
+      }
+      closeDeleteDialog();
+      await loadEndpoints();
+      await loadHealth();
+    }
+
+    // --- Test Connection ---
+    async function testConnection(id) {
+      const resultEl = document.getElementById(`test-result-${id}`);
+      const btn = document.getElementById(`test-${id}`);
+      if (!resultEl || !btn) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+      resultEl.innerHTML = '<div class="test-result pending">Testing connection...</div>';
+
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Connection test timed out (10s)')), 10000)
+      );
+
+      try {
+        const res = await Promise.race([
+          apiPost(`/api/endpoints/${id}/test`, {}),
+          timeout
+        ]);
+
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          const modelsInfo = data.models ? ` — Models: ${data.models.join(', ')}` : '';
+          resultEl.innerHTML = `<div class="test-result success">✓ Connection successful${escapeHtml(modelsInfo)}</div>`;
+        } else {
+          resultEl.innerHTML = `<div class="test-result failure">✗ ${escapeHtml(data.error || 'Connection failed')}</div>`;
+        }
+      } catch (err) {
+        resultEl.innerHTML = `<div class="test-result failure">✗ ${escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Test Connection';
+      }
+    }
+
+    // --- Discovery Toggle ---
+    async function toggleDiscovery() {
+      try {
+        const res = await apiPost('/api/discovery/toggle', {});
+        if (res.ok) {
+          const data = await res.json();
+          discoveryEnabled = data.enabled;
+          discoveryToggle.checked = discoveryEnabled;
+        }
+      } catch (e) {
+        console.error('Failed to toggle discovery:', e);
+        discoveryToggle.checked = discoveryEnabled;
+      }
+    }
+
+    // --- Enabled toggle label ---
+    document.getElementById('formEnabled').addEventListener('change', function() {
+      document.getElementById('enabledLabel').textContent = this.checked ? 'Yes' : 'No';
+    });
+
+    // --- Event Bindings ---
+    document.getElementById('addBtn').addEventListener('click', openAddForm);
+    document.getElementById('addBtnEmpty').addEventListener('click', openAddForm);
+    document.getElementById('cancelBtn').addEventListener('click', closeForm);
+    endpointForm.addEventListener('submit', submitForm);
+    document.getElementById('deleteCancelBtn').addEventListener('click', closeDeleteDialog);
+    document.getElementById('deleteConfirmBtn').addEventListener('click', executeDelete);
+    discoverySlider.addEventListener('click', toggleDiscovery);
+
+    // Close modals on overlay click
+    formModal.addEventListener('click', function(e) {
+      if (e.target === formModal) closeForm();
+    });
+    deleteModal.addEventListener('click', function(e) {
+      if (e.target === deleteModal) closeDeleteDialog();
+    });
+
+    // --- Initialization ---
+    async function init() {
+      await loadEndpoints();
+      await loadHealth();
+      await loadDiscoveryStatus();
+
+      // Auto-refresh health every 5 seconds
+      healthInterval = setInterval(async () => {
+        await loadHealth();
+      }, 5000);
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -87,60 +87,36 @@ export interface ServerContext {
 export const TaskDefinitionSchema = z.object({
   taskId: z.string().min(1).max(64).describe("Unique task identifier"),
   prompt: z.string().min(1).max(100_000).describe("Task prompt"),
-  systemPrompt: z
-    .string()
-    .min(1)
-    .max(100_000)
-    .optional()
-    .describe("Task-specific system prompt override"),
+  systemPrompt: z.string().optional().describe("Task-specific system prompt override"),
   allowedTools: z
     .array(z.string())
     .max(20)
     .optional()
-    .describe("Tool names the sub-agent may invoke (max 20)"),
+    .describe("Tool names the sub-agent may invoke"),
 });
 
 export const TaskManifestSchema = z.object({
   tasks: z.array(TaskDefinitionSchema).min(1).max(20).describe("Sub-tasks to dispatch (1–20)"),
-  systemPrompt: z.string().min(1).max(100_000).optional().describe("Shared system prompt"),
-  synthesisPrompt: z
-    .string()
-    .min(1)
-    .max(100_000)
-    .optional()
-    .describe("Post-completion aggregation prompt"),
-  mergePrompt: z.string().min(1).max(100_000).optional().describe("Chunk merge prompt"),
+  systemPrompt: z.string().optional().describe("Shared system prompt"),
+  synthesisPrompt: z.string().optional().describe("Post-completion aggregation prompt"),
+  mergePrompt: z.string().optional().describe("Chunk merge prompt"),
   temperature: z.number().min(0).max(2).optional().describe("Temperature (0.0–2.0, default 0.7)"),
   maxTokens: z
     .number()
-    .int()
     .min(1)
     .max(32_768)
     .optional()
     .describe("Max tokens (1–32768, default 4096)"),
-  modelContextSize: z
-    .number()
-    .int()
-    .min(1024)
-    .max(1_048_576)
-    .optional()
-    .describe("Model context window size (default 8192)"),
+  modelContextSize: z.number().optional().describe("Model context window size (default 8192)"),
   concurrency: z.number().int().min(1).max(10).optional().describe("Concurrency override (1–10)"),
   maxRetries: z
     .number()
-    .int()
     .min(0)
     .max(10)
     .optional()
     .describe("Max retries per task (0–10, default 3)"),
   skipCache: z.boolean().optional().describe("Bypass cache lookups (default false)"),
-  cacheMaxAge: z
-    .number()
-    .int()
-    .min(0)
-    .max(31_536_000)
-    .optional()
-    .describe("Max cache age in seconds (default 86400)"),
+  cacheMaxAge: z.number().optional().describe("Max cache age in seconds (default 86400)"),
   autoChunk: z.boolean().optional().describe("Auto-chunk oversized inputs (default false)"),
   keepCheckpoints: z
     .boolean()
@@ -155,7 +131,6 @@ export const TaskManifestSchema = z.object({
     .describe("Per-task timeout in seconds (default 3600)"),
   dispatchTimeout: z
     .number()
-    .int()
     .min(120)
     .max(172_800)
     .optional()
@@ -163,18 +138,18 @@ export const TaskManifestSchema = z.object({
 });
 
 export const DispatchIdSchema = z.object({
-  dispatchId: z.string().min(1).max(128).describe("Dispatch identifier"),
+  dispatchId: z.string().describe("Dispatch identifier"),
 });
 
 export const ClearCacheSchema = z.object({
   prefix: z.string().optional().describe("Input hash prefix to filter by"),
-  olderThan: z.number().int().min(0).optional().describe("Age threshold in seconds"),
+  olderThan: z.number().optional().describe("Age threshold in seconds"),
 });
 
 export const ListSessionsSchema = z.object({
   status: z.string().optional().describe("Filter by session status"),
   dispatchId: z.string().optional().describe("Filter by dispatch identifier"),
-  hashPrefix: z.string().min(1).max(64).optional().describe("Filter by input hash prefix"),
+  hashPrefix: z.string().optional().describe("Filter by input hash prefix"),
 });
 
 // ─── MCP Server Creation ─────────────────────────────────────────────────────

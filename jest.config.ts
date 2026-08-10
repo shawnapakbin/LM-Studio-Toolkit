@@ -50,6 +50,8 @@ const config: Config = {
           jsx: "react",
           esModuleInterop: true,
           baseUrl: ".",
+          noUnusedLocals: false,
+          noUnusedParameters: false,
           paths: {
             "@shared/*": ["shared/*"],
           },

@@ -111,6 +111,7 @@
     "AgentRunner",
     "BlenderBridge",
     "3DTool",
-    "SubAgent"
+    "SubAgent",
+    "LanSubAgent"
   ]
 }

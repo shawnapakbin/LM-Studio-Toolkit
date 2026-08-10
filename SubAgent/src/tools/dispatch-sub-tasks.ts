@@ -50,6 +50,43 @@ export async function handleDispatchSubTasks(
     }
     const manifest: TaskManifest = parseResult.data;
 
+    // Runtime bounds validation (kept out of schema to avoid complex JSON Schema grammar)
+    if (manifest.tasks.length === 0 || manifest.tasks.length > 20) {
+      return errorResponse(`tasks must contain 1–20 items (got ${manifest.tasks.length})`);
+    }
+    for (const task of manifest.tasks) {
+      if (!task.taskId || task.taskId.length > 64)
+        return errorResponse(`taskId must be 1–64 chars: "${task.taskId}"`);
+      if (!task.prompt || task.prompt.length > 100_000)
+        return errorResponse(`prompt must be 1–100000 chars for task "${task.taskId}"`);
+      if (task.allowedTools && task.allowedTools.length > 20)
+        return errorResponse(`allowedTools max 20 for task "${task.taskId}"`);
+    }
+    if (
+      manifest.temperature !== undefined &&
+      (manifest.temperature < 0 || manifest.temperature > 2)
+    )
+      return errorResponse("temperature must be 0–2");
+    if (manifest.maxTokens !== undefined && (manifest.maxTokens < 1 || manifest.maxTokens > 32_768))
+      return errorResponse("maxTokens must be 1–32768");
+    if (
+      manifest.concurrency !== undefined &&
+      (manifest.concurrency < 1 || manifest.concurrency > 10)
+    )
+      return errorResponse("concurrency must be 1–10");
+    if (manifest.maxRetries !== undefined && (manifest.maxRetries < 0 || manifest.maxRetries > 10))
+      return errorResponse("maxRetries must be 0–10");
+    if (
+      manifest.taskTimeout !== undefined &&
+      (manifest.taskTimeout < 60 || manifest.taskTimeout > 86_400)
+    )
+      return errorResponse("taskTimeout must be 60–86400");
+    if (
+      manifest.dispatchTimeout !== undefined &&
+      (manifest.dispatchTimeout < 120 || manifest.dispatchTimeout > 172_800)
+    )
+      return errorResponse("dispatchTimeout must be 120–172800");
+
     // 2. Validate unique task IDs
     const taskIds = manifest.tasks.map((t) => t.taskId);
     const uniqueIds = new Set(taskIds);

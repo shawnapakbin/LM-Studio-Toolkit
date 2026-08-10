@@ -61,7 +61,7 @@ export function buildToolDefinitions(
     function: {
       name,
       description: `Tool: ${name}`,
-      parameters: { type: "object", properties: {} },
+      parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   }));
 }

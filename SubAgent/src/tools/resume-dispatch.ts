@@ -335,7 +335,6 @@ async function runSynthesis(
     };
   } catch (err: unknown) {
     const error = err as Error & { httpStatus?: number };
-    const _wallClockMs = Date.now() - startTime;
 
     logger.error("Synthesis failed", {
       dispatchId,

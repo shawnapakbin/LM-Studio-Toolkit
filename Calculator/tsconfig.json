@@ -4,14 +4,11 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "dist",
+    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "baseUrl": "../",
-    "paths": {
-      "@shared/*": ["shared/*"]
-    }
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

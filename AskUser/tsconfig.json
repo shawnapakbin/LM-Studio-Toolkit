@@ -4,6 +4,7 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "dist",
+    "rootDir": "..",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -13,5 +14,5 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../shared/toolCallNormalizer.ts"]
 }

@@ -26,6 +26,7 @@ const config: Config = {
     "SlashCommands/src/**/*.ts",
     "FileEditor/src/**/*.ts",
     "Git/src/**/*.ts",
+    "!Git/src/index.ts",
     "PackageManager/src/**/*.ts",
     "Observability/src/**/*.ts",
     "!**/*.d.ts",

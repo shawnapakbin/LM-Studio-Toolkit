@@ -4,6 +4,16 @@
   "description": "Shared types and utilities for LLM Toolkit",
   "main": "dist/types.js",
   "types": "dist/types.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./toolCallNormalizer": {
+      "types": "./dist/toolCallNormalizer.d.ts",
+      "default": "./dist/toolCallNormalizer.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

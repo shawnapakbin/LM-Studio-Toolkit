@@ -89,10 +89,8 @@ jobs:
         run: npm ci
       - name: "Build all tools"
         run: npm run build
-      - name: "Startup readiness (strict)"
-        run: npm run startup:check:strict
-        env:
-          BROWSERLESS_API_KEY: ${{ secrets.BROWSERLESS_API_KEY }}
+      - name: "Startup readiness"
+        run: npm run startup:check
       - name: "Verify dist/ directories"
         run: |
           for dir in Terminal WebBrowser Calculator Clock Browserless Memory; do

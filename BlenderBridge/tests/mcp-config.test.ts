@@ -76,7 +76,7 @@ describe("mcp-config.js registry", () => {
 
       // Other servers should still be present regardless of blender-bridge state
       expect(mcpServers["terminal"]).toBeDefined();
-      expect(mcpServers["calculator"]).toBeDefined();
+      expect(mcpServers["common"]).toBeDefined();
     });
   });
 });

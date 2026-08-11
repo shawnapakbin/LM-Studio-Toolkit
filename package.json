@@ -88,6 +88,9 @@
   "lint-staged": {
     "*.{ts,js,json}": ["biome check --diagnostic-level=error --no-errors-on-unmatched"]
   },
+  "jest": {
+    "testPathIgnorePatterns": ["/node_modules/", "/mcp/common/"]
+  },
   "workspaces": [
     "shared",
     "Terminal",

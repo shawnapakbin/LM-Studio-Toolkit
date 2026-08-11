@@ -32,6 +32,7 @@ const TOOLS = [
   "AskUser",
   "RAG",
   "BlenderBridge",
+  "3DTool",
   "SubAgent",
 ];
 
@@ -357,6 +358,7 @@ function toolToServerName(tool) {
     AskUser: "ask-user",
     RAG: "rag",
     BlenderBridge: "blender-bridge",
+    "3DTool": "3dtool",
     SubAgent: "sub-agent",
   };
   return map[tool] || tool.toLowerCase();
@@ -398,6 +400,7 @@ function buildBridgeConfig(tool) {
     AskUser: { ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
     RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview" },
     BlenderBridge: { BLENDER_MCP_HOST: readEnvKey("BLENDER_MCP_HOST") || "127.0.0.1", BLENDER_MCP_PORT: readEnvKey("BLENDER_MCP_PORT") || "9876", BLENDER_MCP_COMMAND: readEnvKey("BLENDER_MCP_COMMAND") || "blender-mcp" },
+    "3DTool": { THREEDTOOL_HTTP_PORT: "3344" },
     SubAgent: { SUBAGENT_MAX_CONCURRENCY: "3", SUBAGENT_CACHE_PATH: path.join(REPO_ROOT, "SubAgent", "subagent-cache.db"), SUBAGENT_CHECKPOINT_DIR: path.join(REPO_ROOT, "SubAgent", ".subagent-checkpoints"), SUBAGENT_API_URL: "http://localhost:1234/v1/chat/completions", SUBAGENT_MODEL: "default", SUBAGENT_PROMPT_TOKEN_COST: "0", SUBAGENT_COMPLETION_TOKEN_COST: "0" },
   };
 

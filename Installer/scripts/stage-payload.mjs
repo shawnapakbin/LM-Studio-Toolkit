@@ -25,6 +25,7 @@ const PAYLOAD_ITEMS = [
   "Skills",
   "SlashCommands",
   "BlenderBridge",
+  "3DTool",
   "scripts",
   "package.json",
   "package-lock.json",

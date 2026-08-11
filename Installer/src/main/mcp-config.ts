@@ -125,6 +125,14 @@ export const TOOL_DESCRIPTORS: ToolDescriptor[] = [
       BLENDER_MCP_ARGS: "",
     },
   },
+  {
+    id: "3dtool",
+    displayName: "3DTool",
+    relativeScript: "3DTool/dist/mcp-server.js",
+    env: {
+      THREEDTOOL_HTTP_PORT: "3344",
+    },
+  },
 ];
 
 export function buildBridgeConfig(installRoot: string, tool: ToolDescriptor, nodePath = "node") {

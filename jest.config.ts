@@ -6,7 +6,7 @@ const config: Config = {
   testTimeout: 15000,
   roots: ["<rootDir>"],
   testMatch: ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
-  testPathIgnorePatterns: ["/node_modules/", "/Installer/", "/dist/", "/3DTool/"],
+  testPathIgnorePatterns: ["/node_modules/", "/Installer/", "/dist/", "/3DTool/", "/mcp/common/"],
   modulePathIgnorePatterns: ["<rootDir>/Installer/"],
   collectCoverageFrom: [
     "Terminal/src/**/*.ts",

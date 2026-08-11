@@ -26,15 +26,15 @@ const MIN_NPM_MAJOR = 8;
 const TOOLS = [
   "Terminal",
   "WebBrowser",
-  "Calculator",
-  "DocumentScraper",
-  "Clock",
-  "AskUser",
+  "mcp/common",
   "RAG",
   "BlenderBridge",
   "3DTool",
   "SubAgent",
 ];
+
+// Legacy individual tools now bundled in mcp/common (for cleanup during sync)
+const LEGACY_BUNDLED_TOOLS = ["calculator", "document-scraper", "clock", "ask-user"];
 
 // Tools that use npx command-based MCP (no local binary to verify)
 const COMMAND_BASED_TOOLS = ["Browserless"];
@@ -239,7 +239,12 @@ async function runSetup({ send, repair }) {
   send("section", "Step 5/6 — Verifying tool binaries");
   let allPresent = true;
   for (const tool of TOOLS) {
-    const distPath = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
+    let distPath;
+    if (tool === "mcp/common") {
+      distPath = path.join(REPO_ROOT, "mcp", "common", "dist", "mcp-server.js");
+    } else {
+      distPath = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
+    }
     if (fs.existsSync(distPath)) {
       send("ok", `${tool} — dist/mcp-server.js`);
     } else {
@@ -317,6 +322,20 @@ async function runSetup({ send, repair }) {
 
   send("info", `LM Studio sync: ${synced} updated, ${skipped} skipped (not installed).`);
 
+  // Clean up legacy plugin directories that are now bundled in mcp/common
+  const legacyDirs = [...LEGACY_BUNDLED_TOOLS, "basic"];
+  for (const legacy of legacyDirs) {
+    const legacyDir = path.join(pluginRoot, legacy);
+    if (fs.existsSync(legacyDir)) {
+      try {
+        fs.rmSync(legacyDir, { recursive: true, force: true });
+        send("ok", `Removed legacy ${legacy}/ plugin directory`);
+      } catch (err) {
+        send("warn", `Failed to remove legacy ${legacy}/ directory: ${err.message}`);
+      }
+    }
+  }
+
   // Write top-level ~/.lmstudio/mcp.json with all synced tool entries
   if (synced > 0) {
     try {
@@ -330,6 +349,15 @@ async function runSetup({ send, repair }) {
           existing = {};
         }
       }
+
+      // Remove legacy individual tool entries from mcp.json
+      if (existing.mcpServers) {
+        for (const legacy of LEGACY_BUNDLED_TOOLS) {
+          delete existing.mcpServers[legacy];
+        }
+        delete existing.mcpServers.basic;
+      }
+
       existing.mcpServers = { ...(existing.mcpServers || {}), ...syncedConfigs };
       fs.writeFileSync(topLevelMcpPath, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
       send("info", "LM Studio MCP bridge configs are up to date");
@@ -351,11 +379,8 @@ function toolToServerName(tool) {
   const map = {
     Terminal: "terminal",
     WebBrowser: "web-browser",
-    Calculator: "calculator",
-    DocumentScraper: "document-scraper",
-    Clock: "clock",
+    "mcp/common": "common",
     Browserless: "browserless",
-    AskUser: "ask-user",
     RAG: "rag",
     BlenderBridge: "blender-bridge",
     "3DTool": "3dtool",
@@ -389,15 +414,36 @@ function buildBridgeConfig(tool) {
     };
   }
 
+  // mcp/common — unified common tools plugin
+  if (tool === "mcp/common") {
+    const distScript = path.join(REPO_ROOT, "mcp", "common", "dist", "mcp-server.js");
+    return {
+      command: "node",
+      args: [distScript.replace(/\\/g, "/")],
+      cwd: REPO_ROOT.replace(/\\/g, "/"),
+      env: {
+        CALCULATOR_DEFAULT_PRECISION: "12",
+        CALCULATOR_MAX_PRECISION: "20",
+        DOC_SCRAPER_DEFAULT_TIMEOUT_MS: "20000",
+        DOC_SCRAPER_MAX_TIMEOUT_MS: "60000",
+        DOC_SCRAPER_MAX_CONTENT_BYTES: "52428800",
+        DOC_SCRAPER_MAX_CONTENT_CHARS: "50000",
+        DOC_SCRAPER_WORKSPACE_ROOT: REPO_ROOT,
+        CLOCK_DEFAULT_TIMEZONE: "",
+        CLOCK_DEFAULT_LOCALE: "en-US",
+        ASK_USER_DB_PATH: path.join(REPO_ROOT, "mcp", "common", "memory.db"),
+        ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800",
+        ASK_USER_MAX_EXPIRES_SECONDS: "86400",
+        ASK_USER_MAX_QUESTIONS: "20",
+      },
+    };
+  }
+
   // Node-based tools (local binary)
   const distScript = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
   const envMap = {
     Terminal: { TERMINAL_DEFAULT_TIMEOUT_MS: "60000", TERMINAL_MAX_TIMEOUT_MS: "120000" },
     WebBrowser: { BROWSER_DEFAULT_TIMEOUT_MS: "20000", BROWSER_MAX_TIMEOUT_MS: "60000", BROWSER_MAX_CONTENT_CHARS: "12000" },
-    Calculator: { CALCULATOR_DEFAULT_PRECISION: "12", CALCULATOR_MAX_PRECISION: "20" },
-    DocumentScraper: { DOC_SCRAPER_DEFAULT_TIMEOUT_MS: "20000", DOC_SCRAPER_MAX_TIMEOUT_MS: "60000", DOC_SCRAPER_MAX_CONTENT_BYTES: "52428800", DOC_SCRAPER_MAX_CONTENT_CHARS: "50000", DOC_SCRAPER_WORKSPACE_ROOT: REPO_ROOT },
-    Clock: { CLOCK_DEFAULT_TIMEZONE: "", CLOCK_DEFAULT_LOCALE: "en-US" },
-    AskUser: { ASK_USER_DB_PATH: path.join(REPO_ROOT, "AskUser", "memory.db"), ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800", ASK_USER_MAX_EXPIRES_SECONDS: "86400", ASK_USER_MAX_QUESTIONS: "20" },
     RAG: { RAG_DB_PATH: path.join(REPO_ROOT, "RAG", "rag.db"), RAG_EMBEDDINGS_MODE: "lmstudio", RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5", RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document", RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview" },
     BlenderBridge: { BLENDER_MCP_HOST: readEnvKey("BLENDER_MCP_HOST") || "127.0.0.1", BLENDER_MCP_PORT: readEnvKey("BLENDER_MCP_PORT") || "9876", BLENDER_MCP_COMMAND: readEnvKey("BLENDER_MCP_COMMAND") || "blender-mcp" },
     "3DTool": { THREEDTOOL_HTTP_PORT: "3344" },

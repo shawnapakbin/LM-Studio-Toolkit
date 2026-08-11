@@ -1,0 +1,26 @@
+{
+  "name": "llm-toolkit-mcp-common",
+  "version": "2.3.2",
+  "private": true,
+  "description": "Unified common tools MCP plugin bundling calculator, clock, ask-user, and document-scraper",
+  "main": "dist/mcp-server.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:mcp": "node dist/mcp-server.js",
+    "dev:mcp": "tsx src/mcp-server.ts",
+    "test": "jest",
+    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@shared/types": "file:../../shared",
+    "llm-toolkit-calculator": "*",
+    "llm-toolkit-clock": "*",
+    "llm-toolkit-ask-user": "*",
+    "llm-toolkit-document-scraper": "*",
+    "llm-toolkit-observability": "*",
+    "zod": "^3.25.76"
+  }
+}

@@ -21,43 +21,28 @@ const servers = {
       BROWSER_HEADLESS: "true",
     },
   },
-  calculator: {
-    relativeScript: "Calculator/dist/mcp-server.js",
+  common: {
+    relativeScript: "mcp/common/dist/mcp-server.js",
     env: {
       CALCULATOR_DEFAULT_PRECISION: "12",
       CALCULATOR_MAX_PRECISION: "20",
-    },
-  },
-  "document-scraper": {
-    relativeScript: "DocumentScraper/dist/mcp-server.js",
-    env: {
       DOC_SCRAPER_DEFAULT_TIMEOUT_MS: "20000",
       DOC_SCRAPER_MAX_TIMEOUT_MS: "60000",
       DOC_SCRAPER_MAX_CONTENT_BYTES: "52428800",
       DOC_SCRAPER_MAX_CONTENT_CHARS: "50000",
       DOC_SCRAPER_WORKSPACE_ROOT: "",
-    },
-  },
-  clock: {
-    relativeScript: "Clock/dist/mcp-server.js",
-    env: {
       CLOCK_DEFAULT_TIMEZONE: "",
       CLOCK_DEFAULT_LOCALE: "en-US",
+      ASK_USER_DB_PATH: "./memory.db",
+      ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800",
+      ASK_USER_MAX_EXPIRES_SECONDS: "86400",
+      ASK_USER_MAX_QUESTIONS: "20",
     },
   },
   browserless: {
     relativeScript: "Browserless/scripts/schema-proxy.js",
     env: {
       BROWSERLESS_TOKEN: "", // Mapped from BROWSERLESS_API_KEY at sync time
-    },
-  },
-  "ask-user": {
-    relativeScript: "AskUser/dist/mcp-server.js",
-    env: {
-      ASK_USER_DB_PATH: "./memory.db",
-      ASK_USER_DEFAULT_EXPIRES_SECONDS: "1800",
-      ASK_USER_MAX_EXPIRES_SECONDS: "86400",
-      ASK_USER_MAX_QUESTIONS: "20",
     },
   },
   rag: {

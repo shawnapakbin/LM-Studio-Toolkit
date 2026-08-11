@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.3.1  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅
+**Version**: 2.3.2  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -22,7 +22,7 @@ Preferred: GUI installer artifacts from Releases (Windows portable EXE, macOS DM
 Fallback: script setup from a repo clone.
 
 ```bash
-git clone https://github.com/shawnapakbin/llm-toolkit-by-shawna.git llm-toolkit
+git clone https://github.com/shawnapakbin/llm-toolkit llm-toolkit
 cd llm-toolkit
 node scripts/setup/setup.js --gui   # Browser GUI (fallback when installer artifact is unavailable)
 # or
@@ -52,7 +52,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 21 Toolkit Modules (19 Tool Servers + CLI + SlashCommands)
+### 22 Toolkit Modules (19 Tool Servers + Common Plugin + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
@@ -73,6 +73,7 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[3DTool](3DTool/README.md)** — 3D model viewer/editor MCP server with multi-format support (OBJ, glTF/GLB), scene management, materials, undo/redo ✅
 - **[SubAgent](SubAgent/README.md)** — Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation ✅
 - **[LanSubAgent](LanSubAgent/README.md)** — LAN-aware multi-endpoint inference dispatcher — distributes tasks across LM Studio instances on the local network ✅
+- **[mcp/common](mcp/common/README.md)** — Unified common tools plugin bundling calculator, clock, ask-user, and document-scraper ✅
 - **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
 - **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
@@ -90,7 +91,7 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (17 runtime servers) → memory
+npm run build   # shared → observability → tools (17 runtime servers) → common → memory
 ```
 
 ### Phases Complete ✅
@@ -237,31 +238,23 @@ npm run mcp:sync-lmstudio
 				"BROWSER_HEADLESS": "true"
 			}
 		},
-		"calculator": {
+		"common": {
 			"command": "node",
-			"args": ["Calculator/dist/mcp-server.js"],
+			"args": ["mcp/common/dist/mcp-server.js"],
 			"env": {
 				"CALCULATOR_DEFAULT_PRECISION": "12",
-				"CALCULATOR_MAX_PRECISION": "20"
-			}
-		},
-		"document-scraper": {
-			"command": "node",
-			"args": ["DocumentScraper/dist/mcp-server.js"],
-			"env": {
+				"CALCULATOR_MAX_PRECISION": "20",
 				"DOC_SCRAPER_DEFAULT_TIMEOUT_MS": "20000",
 				"DOC_SCRAPER_MAX_TIMEOUT_MS": "60000",
 				"DOC_SCRAPER_MAX_CONTENT_BYTES": "52428800",
 				"DOC_SCRAPER_MAX_CONTENT_CHARS": "50000",
-				"DOC_SCRAPER_WORKSPACE_ROOT": ""
-			}
-		},
-		"clock": {
-			"command": "node",
-			"args": ["Clock/dist/mcp-server.js"],
-			"env": {
+				"DOC_SCRAPER_WORKSPACE_ROOT": "",
 				"CLOCK_DEFAULT_TIMEZONE": "",
-				"CLOCK_DEFAULT_LOCALE": "en-US"
+				"CLOCK_DEFAULT_LOCALE": "en-US",
+				"ASK_USER_DB_PATH": "./memory.db",
+				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
+				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
+				"ASK_USER_MAX_QUESTIONS": "20"
 			}
 		},
 		"browserless": {
@@ -270,16 +263,6 @@ npm run mcp:sync-lmstudio
 			"env": {
 				"BROWSERLESS_TOKEN": "",
 				"BROWSERLESS_API_URL": ""
-			}
-		},
-		"ask-user": {
-			"command": "node",
-			"args": ["AskUser/dist/mcp-server.js"],
-			"env": {
-				"ASK_USER_DB_PATH": "./memory.db",
-				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
-				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
-				"ASK_USER_MAX_QUESTIONS": "20"
 			}
 		},
 		"rag": {

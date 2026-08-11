@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "llm-toolkit-calculator/dist/calculator": ["../../Calculator/src/calculator.ts"],
+      "llm-toolkit-clock/dist/clock": ["../../Clock/src/clock.ts"],
+      "llm-toolkit-ask-user/dist/*": ["../../AskUser/src/*"],
+      "llm-toolkit-document-scraper/dist/*": ["../../DocumentScraper/src/*"],
+      "@shared/types": ["../../shared/types"]
+    }
+  },
+  "include": ["tests/**/*.ts", "src/vendor.d.ts"]
+}

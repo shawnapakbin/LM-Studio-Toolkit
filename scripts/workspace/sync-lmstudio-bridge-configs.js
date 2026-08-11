@@ -152,6 +152,20 @@ function main() {
     console.log(`${provisioned ? "✓ provisioned" : "+"} wrote ${targetFile}`);
   }
 
+  // Clean up legacy plugin directories (tools now bundled in mcp/common)
+  const legacyPluginNames = ["basic", "calculator", "document-scraper", "clock", "ask-user"];
+  for (const legacy of legacyPluginNames) {
+    const legacyDir = path.join(pluginRoot, legacy);
+    if (fs.existsSync(legacyDir)) {
+      try {
+        fs.rmSync(legacyDir, { recursive: true, force: true });
+        console.log(`✓ removed legacy ${legacy}/ plugin directory`);
+      } catch (err) {
+        console.warn(`Warning: failed to remove legacy ${legacy}/ directory: ${err.message}`);
+      }
+    }
+  }
+
   if (missingBuilds.length > 0) {
     console.warn("\nWarning: some MCP binaries are missing. Run `npm run build` first.");
     for (const missing of missingBuilds) {

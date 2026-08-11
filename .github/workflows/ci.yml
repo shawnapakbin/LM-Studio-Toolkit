@@ -50,7 +50,7 @@ jobs:
         run: npm ci
       - name: "Build foundation packages (shared + observability)"
         run: npm run build:shared && npm run build:observability
-      - name: "Type check"
+      - name: "Type check (root + mcp/common)"
         run: npm run type-check
 
   test:
@@ -99,3 +99,7 @@ jobs:
               exit 1
             fi
           done
+          if [ ! -f "mcp/common/dist/mcp-server.js" ]; then
+            echo "ERROR: mcp/common did not build successfully"
+            exit 1
+          fi

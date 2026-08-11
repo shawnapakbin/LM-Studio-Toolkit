@@ -7,7 +7,7 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
 **Version**: 2.3.1  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -52,7 +52,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 20 Toolkit Modules (18 Tool Servers + CLI + SlashCommands)
+### 21 Toolkit Modules (19 Tool Servers + CLI + SlashCommands)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
@@ -72,6 +72,7 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
 - **[3DTool](3DTool/README.md)** — 3D model viewer/editor MCP server with multi-format support (OBJ, glTF/GLB), scene management, materials, undo/redo ✅
 - **[SubAgent](SubAgent/README.md)** — Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation ✅
+- **[LanSubAgent](LanSubAgent/README.md)** — LAN-aware multi-endpoint inference dispatcher — distributes tasks across LM Studio instances on the local network ✅
 - **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
 - **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 
@@ -89,7 +90,7 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (16 runtime servers) → memory
+npm run build   # shared → observability → tools (17 runtime servers) → memory
 ```
 
 ### Phases Complete ✅
@@ -118,13 +119,11 @@ During hardening for the next release:
 npm run verify:vnext-scope # Enforce vNext manifest updates for new tool scope
 npm run check:ci       # Biome: format + lint ✓
 npm run type-check     # TypeScript strict mode ✓
-npm run test:ci        # Jest: 80%+ coverage ✓
+npm run test:ci        # Jest: coverage threshold ✓
 npm run build          # Compilation check ✓
-npm run startup:check:strict # Startup readiness + strict env gate ✓
+npm run startup:check  # Startup readiness ✓
 npm run verify:all     # Combined release hardening gate ✓
 ```
-
-`startup:check:strict` requires `BROWSERLESS_API_KEY` to be set.
 
 ### Standards
 
@@ -329,6 +328,14 @@ npm run mcp:sync-lmstudio
 			"env": {
 				"SLASH_DEFAULT_SESSION": "default"
 			}
+		},
+		"lan-subagent": {
+			"command": "node",
+			"args": ["LanSubAgent/dist/LanSubAgent/src/mcp-server.js"],
+			"env": {
+				"SUBAGENT_LOCAL_HOST": "localhost",
+				"SUBAGENT_LOCAL_PORT": "1234"
+			}
 		}
 	}
 }
@@ -388,11 +395,7 @@ Automated on every push/PR:
 - Biome format + lint check
 - TypeScript compilation + type check
 - Jest test suite + coverage threshold
-- Build verification
-- Startup readiness gate (`startup:check:strict`)
-
-Required GitHub Actions secret:
-- `BROWSERLESS_API_KEY`
+- Build verification + startup readiness gate
 
 ## Troubleshooting Readiness Checks
 
@@ -459,6 +462,7 @@ See [Memory/README.md](Memory/README.md) for details.
 | [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
 | [3DTool/README.md](3DTool/README.md) | 3DTool MCP server — 3D viewer/editor with multi-format support |
 | [SubAgent/README.md](SubAgent/README.md) | SubAgent MCP server — parallel inference dispatch for sub-agent delegation |
+| [LanSubAgent/README.md](LanSubAgent/README.md) | LAN SubAgent — distributed multi-endpoint inference with health checking, load balancing, and GUI |
 | [CLI/README.md](CLI/README.md) | CLI command reference |
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
@@ -471,8 +475,9 @@ See [Memory/README.md](Memory/README.md) for details.
 | CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
 | 3DTool MCP Server | ✅ | Multi-format 3D viewer/editor with scene management, materials, validation, undo/redo (v2.3.0) |
 | SubAgent MCP Server | ✅ | Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation (v2.3.1) |
+| LAN SubAgent | ✅ | Distributed inference across LAN — multi-endpoint load balancing, health checking, UDP discovery, GUI config (v2.3.1) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| 18 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands, 3DTool, SubAgent |
+| 19 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands, 3DTool, SubAgent, LanSubAgent |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
 | ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |
@@ -510,5 +515,5 @@ Original Author: Shawna Pakbin
 
 ---
 
-**Last Updated**: July 16, 2026  
+**Last Updated**: August 10, 2026  
 Built with ❤️ for LLM-powered software engineering

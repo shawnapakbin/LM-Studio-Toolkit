@@ -6,8 +6,8 @@ All tool calls—whether originating from HTTP, MCP, or internal workflows—are
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.3.2  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅
+**Version**: 2.4.0  
+**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅ + unified config ✅ + Tauri installer ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -16,6 +16,8 @@ Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-
 ## Quick Start
 
 ### Installation
+
+Run '.\setup.bat' in the root folder.
 
 Preferred: GUI installer artifacts from Releases (Windows portable EXE, macOS DMG, Linux AppImage).
 
@@ -52,7 +54,7 @@ npm run startup:check   # Workspace readiness check
 
 All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
 
-### 22 Toolkit Modules (19 Tool Servers + Common Plugin + CLI + SlashCommands)
+### 23 Toolkit Modules (19 Tool Servers + Common Plugin + CLI + SlashCommands + Installer)
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
@@ -76,6 +78,7 @@ All tool calls are normalized to a canonical format before dispatch, regardless 
 - **[mcp/common](mcp/common/README.md)** — Unified common tools plugin bundling calculator, clock, ask-user, and document-scraper ✅
 - **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
 - **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
+- **[Installer](Installer/README.md)** — Tauri-based native GUI installer for cross-platform distribution (Windows EXE, macOS DMG, Linux AppImage) ✅
 
 ### Foundation Layer (Phase 0 ✅)
 
@@ -191,13 +194,23 @@ Update your LM Studio `mcp.json`:
 npm run mcp:print-config
 ```
 
-Use the generated JSON as-is (paths are resolved for your current local folder). Avoid editing paths manually.
-
 To auto-deploy BOM-free bridge configs into installed LM Studio MCP plugins:
 
 ```bash
 npm run mcp:sync-lmstudio
 ```
+
+This writes exclusively to per-plugin directories (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`). The toolkit **never** writes to the top-level `~/.lmstudio/mcp.json`. Each plugin directory is tagged with `_owner: "llm-toolkit"` so the toolkit can safely identify and manage its own entries without touching plugins from other applications.
+
+On each sync, old toolkit-owned plugin directories are removed before fresh ones are provisioned. User-customized env values (e.g., API keys you've set manually in a bridge config) are preserved across re-syncs.
+
+To remove all toolkit plugins from LM Studio:
+
+```bash
+npm run uninstall
+```
+
+Optional override for non-default plugin location:
 
 Optional override for non-default plugin location:
 
@@ -211,10 +224,11 @@ npm run mcp:sync-lmstudio
 
 > **⚠ WARNING — Do NOT copy-paste this directly into LM Studio.**
 > The paths below are **relative** (illustration only). LM Studio resolves relative paths from its own plugin directory, not your project root, which will cause `Cannot find module` errors for every server.
-> Always generate the correct absolute-path config for your machine:
+> The toolkit writes per-plugin bridge configs directly — it does **not** write to `~/.lmstudio/mcp.json`. Use the commands below to manage plugins:
 > ```bash
-> npm run mcp:print-config   # print to stdout
-> npm run mcp:sync-lmstudio  # auto-deploy into LM Studio
+> npm run mcp:print-config   # print config to stdout (for reference)
+> npm run mcp:sync-lmstudio  # auto-deploy into LM Studio plugin directories
+> npm run uninstall           # remove all toolkit plugins from LM Studio
 > ```
 
 ```json
@@ -323,6 +337,8 @@ npm run mcp:sync-lmstudio
 	}
 }
 ```
+
+> **Note**: From v2.4.0, `llm-toolkit.config.yaml` is the preferred single-source configuration. The `mcp.json` example above remains valid but environment variable overrides are now read from the unified config file when present.
 
 Phase 2 will introduce unified orchestrator MCP server and multi-interface launchers.
 
@@ -449,6 +465,7 @@ See [Memory/README.md](Memory/README.md) for details.
 | [CLI/README.md](CLI/README.md) | CLI command reference |
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Slash command reference |
 | [SlashCommands/README.md](SlashCommands/README.md) | SlashCommands MCP server setup |
+| [Installer/README.md](Installer/README.md) | Tauri installer setup, build, and usage guide |
 
 
 ## Features & Status
@@ -460,6 +477,8 @@ See [Memory/README.md](Memory/README.md) for details.
 | SubAgent MCP Server | ✅ | Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation (v2.3.1) |
 | LAN SubAgent | ✅ | Distributed inference across LAN — multi-endpoint load balancing, health checking, UDP discovery, GUI config (v2.3.1) |
 | Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
+| Unified configuration | ✅ | Single-source `llm-toolkit.config.yaml` for all tool settings (v2.4.0) |
+| Tauri installer | ✅ | Cross-platform native GUI installer — Windows EXE, macOS DMG, Linux AppImage (v2.4.0) |
 | 19 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands, 3DTool, SubAgent, LanSubAgent |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
@@ -498,5 +517,5 @@ Original Author: Shawna Pakbin
 
 ---
 
-**Last Updated**: August 10, 2026  
+**Last Updated**: August 21, 2026  
 Built with ❤️ for LLM-powered software engineering

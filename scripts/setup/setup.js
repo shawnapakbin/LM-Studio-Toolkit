@@ -13,13 +13,15 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { execSync, spawnSync } = require("child_process");
+const https = require("https");
+const { execSync, spawnSync, spawn } = require("child_process");
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const ENV_FILE = path.join(REPO_ROOT, ".env");
 const ENV_EXAMPLE = path.join(REPO_ROOT, ".env.example");
+const CONFIG_FILE = path.join(REPO_ROOT, "llm-toolkit.config.yaml");
 const MIN_NODE_MAJOR = 18;
 const MIN_NPM_MAJOR = 8;
 
@@ -32,9 +34,6 @@ const TOOLS = [
   "3DTool",
   "SubAgent",
 ];
-
-// Legacy individual tools now bundled in mcp/common (for cleanup during sync)
-const LEGACY_BUNDLED_TOOLS = ["calculator", "document-scraper", "clock", "ask-user"];
 
 // Tools that use npx command-based MCP (no local binary to verify)
 const COMMAND_BASED_TOOLS = ["Browserless"];
@@ -145,33 +144,118 @@ runSetup({ send: consoleSend, repair: IS_REPAIR }).then(() => {
 
 // ─── Core setup logic (shared by CLI and GUI) ─────────────────────────────────
 
+/**
+ * Runs a shell command with realtime streaming output.
+ * Each line of stdout/stderr is forwarded to the send callback as it arrives.
+ * Returns a promise that resolves on success, rejects on failure.
+ */
+function runStreaming(command, args, { cwd, send, label }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: cwd || REPO_ROOT,
+      shell: true,
+      env: { ...process.env },
+    });
+
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      const lines = data.toString().split(/\r?\n/).filter((l) => l.trim());
+      for (const line of lines) {
+        send("dim", `  ${label}: ${line}`);
+      }
+    });
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+      const lines = data.toString().split(/\r?\n/).filter((l) => l.trim());
+      for (const line of lines) {
+        // npm often writes progress to stderr, treat as info not error
+        send("dim", `  ${label}: ${line}`);
+      }
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${label} failed (exit ${code}): ${stderr.slice(0, 500)}`));
+      }
+    });
+
+    child.on("error", (err) => {
+      reject(new Error(`${label} failed to start: ${err.message}`));
+    });
+  });
+}
+
 async function runSetup({ send, repair }) {
   const errors = [];
 
-  // ── Step 1: Check Node version ──────────────────────────────────────────────
-  send("section", "Step 1/6 — Checking prerequisites");
-  const nodeMajor = Number(process.versions.node.split(".")[0]);
-  if (nodeMajor < MIN_NODE_MAJOR) {
-    const msg = `Node ${process.versions.node} detected. Node ${MIN_NODE_MAJOR}+ required. Download: https://nodejs.org`;
-    send("error", msg);
-    throw new Error(msg);
-  }
-  send("ok", `Node ${process.versions.node}`);
+  // ── Step 1: Detect and install prerequisites ────────────────────────────────
+  send("section", "Step 1/7 — Checking prerequisites");
 
-  // ── Check npm version ────────────────────────────────────────────────────────
+  // ── Node.js detection ────────────────────────────────────────────────────────
+  let nodeAvailable = false;
+  let nodeVersion = null;
+  try {
+    nodeVersion = execSync("node --version", { encoding: "utf8" }).trim();
+    const nodeMajor = Number(nodeVersion.replace(/^v/, "").split(".")[0]);
+    if (nodeMajor >= MIN_NODE_MAJOR) {
+      nodeAvailable = true;
+      send("ok", `Node ${nodeVersion} detected — skipping install`);
+    } else {
+      send("warn", `Node ${nodeVersion} detected but ${MIN_NODE_MAJOR}+ required — will upgrade`);
+    }
+  } catch {
+    send("info", "Node.js not found — will install automatically");
+  }
+
+  if (!nodeAvailable) {
+    await installNode({ send });
+    // Verify install succeeded
+    try {
+      nodeVersion = execSync("node --version", { encoding: "utf8" }).trim();
+      const nodeMajor = Number(nodeVersion.replace(/^v/, "").split(".")[0]);
+      if (nodeMajor < MIN_NODE_MAJOR) {
+        throw new Error(`Installed Node ${nodeVersion} but ${MIN_NODE_MAJOR}+ required`);
+      }
+      send("ok", `Node ${nodeVersion} installed successfully`);
+    } catch (err) {
+      const msg = `Node.js installation failed: ${err.message}`;
+      send("error", msg);
+      throw new Error(msg);
+    }
+  }
+
+  // ── npm detection ────────────────────────────────────────────────────────────
+  let npmAvailable = false;
   try {
     const npmVersion = execSync("npm --version", { encoding: "utf8" }).trim();
     const npmMajor = Number(npmVersion.split(".")[0]);
-    if (npmMajor < MIN_NPM_MAJOR) {
-      send("warn", `npm ${npmVersion} detected. npm ${MIN_NPM_MAJOR}+ recommended. Run: npm install -g npm`);
+    if (npmMajor >= MIN_NPM_MAJOR) {
+      npmAvailable = true;
+      send("ok", `npm ${npmVersion} detected — skipping install`);
     } else {
-      send("ok", `npm ${npmVersion}`);
+      send("warn", `npm ${npmVersion} detected. npm ${MIN_NPM_MAJOR}+ recommended. Run: npm install -g npm`);
+      npmAvailable = true; // Old but usable
     }
   } catch {
-    send("warn", "Could not detect npm version.");
+    send("warn", "npm not found. It should have been installed with Node.js.");
+    send("info", "Attempting to install npm...");
+    try {
+      execSync("node -e \"require('child_process').execSync('npx npm@latest --yes -- --version')\"", { encoding: "utf8" });
+      const npmVersion = execSync("npm --version", { encoding: "utf8" }).trim();
+      send("ok", `npm ${npmVersion} installed`);
+      npmAvailable = true;
+    } catch {
+      const msg = "npm is not available and could not be installed. Please install Node.js from https://nodejs.org which includes npm.";
+      send("error", msg);
+      throw new Error(msg);
+    }
   }
 
-  // ── Check git ────────────────────────────────────────────────────────────────
+  // ── git detection (optional) ─────────────────────────────────────────────────
   try {
     const gitVersion = execSync("git --version", { encoding: "utf8" }).trim();
     send("ok", gitVersion);
@@ -180,7 +264,7 @@ async function runSetup({ send, repair }) {
   }
 
   // ── Step 2: Scaffold .env ────────────────────────────────────────────────────
-  send("section", "Step 2/6 — Environment configuration");
+  send("section", "Step 2/7 — Environment configuration");
   if (!fs.existsSync(ENV_FILE) || repair) {
     if (fs.existsSync(ENV_EXAMPLE)) {
       fs.copyFileSync(ENV_EXAMPLE, ENV_FILE);
@@ -210,33 +294,44 @@ async function runSetup({ send, repair }) {
   }
 
   // ── Step 3: npm install ──────────────────────────────────────────────────────
-  send("section", "Step 3/6 — Installing dependencies");
+  send("section", "Step 3/7 — Installing dependencies");
   try {
-    send("info", "Running npm install (this may take a minute)...");
-    execSync("npm install", { cwd: REPO_ROOT, stdio: "pipe", encoding: "utf8" });
+    send("info", "Running npm install (streaming output below)...");
+    await runStreaming("npm", ["install"], { cwd: REPO_ROOT, send, label: "npm install" });
     send("ok", "Dependencies installed");
   } catch (err) {
-    const msg = `npm install failed: ${err.stderr || err.message}`;
+    const msg = `npm install failed: ${err.message}`;
     send("error", msg);
     errors.push(msg);
     throw new Error(msg);
   }
 
   // ── Step 4: Build ────────────────────────────────────────────────────────────
-  send("section", "Step 4/6 — Building all tools");
+  send("section", "Step 4/7 — Building all tools");
   try {
-    send("info", "Running npm run build...");
-    execSync("npm run build", { cwd: REPO_ROOT, stdio: "pipe", encoding: "utf8" });
+    send("info", "Running npm run build (streaming output below)...");
+    await runStreaming("npm", ["run", "build"], { cwd: REPO_ROOT, send, label: "build" });
     send("ok", "All tools built successfully");
   } catch (err) {
-    const msg = `Build failed: ${err.stderr || err.message}`;
+    const msg = `Build failed: ${err.message}`;
     send("error", msg);
     errors.push(msg);
     throw new Error(msg);
   }
 
-  // ── Step 5: Verify binaries ──────────────────────────────────────────────────
-  send("section", "Step 5/6 — Verifying tool binaries");
+  // ── Step 5: Generate unified config file ───────────────────────────────────
+  send("section", "Step 5/7 — Unified configuration");
+  try {
+    generateUnifiedConfig({ send, repair });
+  } catch (err) {
+    const msg = `Config generation failed: ${err.message}`;
+    send("error", msg);
+    errors.push(msg);
+    throw new Error(msg);
+  }
+
+  // ── Step 6: Verify binaries ──────────────────────────────────────────────────
+  send("section", "Step 6/7 — Verifying tool binaries");
   let allPresent = true;
   for (const tool of TOOLS) {
     let distPath;
@@ -257,9 +352,18 @@ async function runSetup({ send, repair }) {
     throw new Error("One or more tool binaries are missing. Check build output above.");
   }
 
-  // ── Step 6: Sync LM Studio bridge configs ────────────────────────────────────
-  send("section", "Step 6/6 — Syncing LM Studio bridge configs");
-  const pluginRoot = resolvePluginRoot();
+  // ── Step 7: Sync LM Studio bridge configs ────────────────────────────────────
+  send("section", "Step 7/7 — Syncing LM Studio bridge configs");
+  const {
+    OWNER_ID,
+    resolvePluginRoot: resolvePluginRootOwnership,
+    readJsonSafe,
+    cleanOwnedPlugins,
+    migrateTopLevelMcpJson,
+    getOwnedPluginDirs,
+  } = require("../workspace/plugin-ownership");
+
+  const pluginRoot = resolvePluginRootOwnership();
 
   if (!fs.existsSync(pluginRoot)) {
     send("warn", `LM Studio plugin root not found: ${pluginRoot}`);
@@ -268,33 +372,40 @@ async function runSetup({ send, repair }) {
     return;
   }
 
+  // One-time migration: remove toolkit entries from top-level mcp.json
+  const migrationResult = migrateTopLevelMcpJson({ send });
+  if (migrationResult.cleaned) {
+    send("ok", `Migrated mcp.json: removed ${migrationResult.removedKeys.length} toolkit entries`);
+  }
+
+  // Pass 1: Read existing bridge configs from owned plugins (preserve user env values)
+  const existingConfigs = {};
+  const ownedDirs = getOwnedPluginDirs(pluginRoot);
+
+  for (const dir of ownedDirs) {
+    const dirName = path.basename(dir);
+    const bridgeConfig = readJsonSafe(path.join(dir, "mcp-bridge-config.json"));
+    if (bridgeConfig) {
+      existingConfigs[dirName] = bridgeConfig;
+    }
+  }
+
+  // Pass 2: Clean all owned plugin directories
+  const cleanResult = cleanOwnedPlugins(pluginRoot, { send });
+  if (cleanResult.removed.length > 0) {
+    send("info", `Cleaned ${cleanResult.removed.length} previous toolkit plugin(s)`);
+  }
+
+  // Pass 3: Provision fresh plugin directories with ownership markers
   let synced = 0;
   let skipped = 0;
-  const syncedConfigs = {}; // Collect all successfully synced configs for top-level mcp.json
 
   for (const tool of ALL_TOOLS) {
     const serverName = toolToServerName(tool);
     const pluginDir = path.join(pluginRoot, serverName);
     const targetFile = path.join(pluginDir, "mcp-bridge-config.json");
 
-    let provisioned = false;
-    if (!fs.existsSync(pluginDir)) {
-      fs.mkdirSync(pluginDir, { recursive: true });
-      provisioned = true;
-    }
-
-    const manifestFile = path.join(pluginDir, "manifest.json");
-    if (!fs.existsSync(manifestFile)) {
-      const manifest = { type: "plugin", runner: "mcpBridge", owner: "mcp", name: serverName };
-      fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-    }
-
-    const installStateFile = path.join(pluginDir, "install-state.json");
-    if (!fs.existsSync(installStateFile)) {
-      fs.writeFileSync(installStateFile, `${JSON.stringify({ by: "mcp-bridge-v1", at: Date.now() })}\n`, "utf8");
-    }
-
-    // Run preflight check for command-based tools before writing bridge config
+    // Run preflight check for command-based tools before provisioning
     if (COMMAND_BASED_TOOLS.includes(tool)) {
       const preflightScript = path.join(REPO_ROOT, "Browserless", "scripts", "preflight-check.js");
       if (fs.existsSync(preflightScript)) {
@@ -307,72 +418,164 @@ async function runSetup({ send, repair }) {
       }
     }
 
+    // Create plugin directory
+    fs.mkdirSync(pluginDir, { recursive: true });
+
+    // Write manifest.json with ownership marker (always)
+    const manifestFile = path.join(pluginDir, "manifest.json");
+    const manifest = {
+      type: "plugin",
+      runner: "mcpBridge",
+      owner: "mcp",
+      name: serverName,
+      _owner: OWNER_ID,
+    };
+    fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+    // Write install-state.json with ownership marker (always)
+    const installStateFile = path.join(pluginDir, "install-state.json");
+    const installState = {
+      by: "mcp-bridge-v1",
+      at: Date.now(),
+      _owner: OWNER_ID,
+    };
+    fs.writeFileSync(installStateFile, `${JSON.stringify(installState, null, 2)}\n`, "utf8");
+
+    // Build bridge config and merge user-customized env values from previous install
     const config = buildBridgeConfig(tool);
-    fs.writeFileSync(targetFile, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-    send("ok", `${provisioned ? "Provisioned" : "Synced"} ${serverName}`);
+    const existingPluginConfig = existingConfigs[serverName] || null;
+    const mergedConfig = mergePluginEnv(config, existingPluginConfig);
+
+    fs.writeFileSync(targetFile, `${JSON.stringify(mergedConfig, null, 2)}\n`, "utf8");
+    send("ok", `Provisioned ${serverName}`);
 
     // Warn if Browserless token is empty (Req 2.5)
-    if (COMMAND_BASED_TOOLS.includes(tool) && tool === "Browserless" && !config.env.BROWSERLESS_TOKEN) {
+    if (COMMAND_BASED_TOOLS.includes(tool) && tool === "Browserless" && !mergedConfig.env.BROWSERLESS_TOKEN) {
       send("warn", "BROWSERLESS_TOKEN is empty — Browserless tools will not authenticate. Set BROWSERLESS_API_KEY in .env.");
     }
 
-    syncedConfigs[serverName] = config;
     synced++;
   }
 
-  send("info", `LM Studio sync: ${synced} updated, ${skipped} skipped (not installed).`);
-
-  // Clean up legacy plugin directories that are now bundled in mcp/common
-  const legacyDirs = [...LEGACY_BUNDLED_TOOLS, "basic"];
-  for (const legacy of legacyDirs) {
-    const legacyDir = path.join(pluginRoot, legacy);
-    if (fs.existsSync(legacyDir)) {
-      try {
-        fs.rmSync(legacyDir, { recursive: true, force: true });
-        send("ok", `Removed legacy ${legacy}/ plugin directory`);
-      } catch (err) {
-        send("warn", `Failed to remove legacy ${legacy}/ directory: ${err.message}`);
-      }
-    }
-  }
-
-  // Write top-level ~/.lmstudio/mcp.json with all synced tool entries
-  if (synced > 0) {
-    try {
-      const topLevelMcpPath = path.join(os.homedir(), ".lmstudio", "mcp.json");
-      let existing = {};
-      if (fs.existsSync(topLevelMcpPath)) {
-        try {
-          existing = JSON.parse(fs.readFileSync(topLevelMcpPath, "utf8"));
-        } catch {
-          // If existing file is malformed, overwrite it
-          existing = {};
-        }
-      }
-
-      // Remove legacy individual tool entries from mcp.json
-      if (existing.mcpServers) {
-        for (const legacy of LEGACY_BUNDLED_TOOLS) {
-          delete existing.mcpServers[legacy];
-        }
-        delete existing.mcpServers.basic;
-      }
-
-      existing.mcpServers = { ...(existing.mcpServers || {}), ...syncedConfigs };
-      fs.writeFileSync(topLevelMcpPath, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
-      send("info", "LM Studio MCP bridge configs are up to date");
-    } catch (err) {
-      send("warn", `LM Studio top-level mcp.json sync failed: ${err.message}. Continuing setup.`);
-    }
-  }
+  send("info", `LM Studio sync: ${synced} provisioned, ${skipped} skipped.`);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function resolvePluginRoot() {
-  const custom = process.env.LMSTUDIO_MCP_PLUGIN_ROOT;
-  if (typeof custom === "string" && custom.trim()) return path.resolve(custom.trim());
-  return path.join(os.homedir(), ".lmstudio", "extensions", "plugins", "mcp");
+/**
+ * Generates (or regenerates) the unified config file.
+ * - First run: generates with schema defaults + any collected user values
+ * - Existing file + no repair: skips
+ * - Repair mode: regenerates preserving existing custom values
+ */
+function generateUnifiedConfig({ send, repair }) {
+  const { generateConfigFile } = require("../../shared/config/dist/generate");
+  const configExists = fs.existsSync(CONFIG_FILE);
+
+  if (configExists && !repair) {
+    send("ok", "Config file already exists — skipping (use --repair to regenerate)");
+    return;
+  }
+
+  if (repair && configExists) {
+    // Repair mode: read existing config values, regenerate with new schema defaults + preserve custom values
+    send("info", "Repair mode: regenerating config with current schema defaults, preserving custom values...");
+    let existingValues = {};
+    try {
+      const { parse: parseYaml } = require("yaml");
+      const rawContent = fs.readFileSync(CONFIG_FILE, "utf-8");
+      existingValues = parseYaml(rawContent) || {};
+    } catch (parseErr) {
+      send("warn", `Could not parse existing config (${parseErr.message}), generating fresh config`);
+      existingValues = {};
+    }
+
+    try {
+      generateConfigFile({
+        format: "yaml",
+        outputPath: CONFIG_FILE,
+        envOutputPath: ENV_FILE,
+        existingValues,
+      });
+      send("ok", "Config file regenerated with preserved custom values");
+    } catch (writeErr) {
+      throw new Error(`Failed to write config file to ${CONFIG_FILE}: ${writeErr.message}`);
+    }
+    return;
+  }
+
+  // First run: generate config with defaults + any API key values from .env
+  send("info", "Generating unified config file...");
+  const overrides = {};
+
+  // Pull any API key values the user already has in .env
+  const browserlessApiKey = readEnvKey("BROWSERLESS_API_KEY");
+  if (browserlessApiKey) {
+    overrides.browserless = { apiKey: browserlessApiKey };
+  }
+
+  const browserlessApiUrl = readEnvKey("BROWSERLESS_API_URL");
+  if (browserlessApiUrl) {
+    if (!overrides.browserless) overrides.browserless = {};
+    overrides.browserless.apiUrl = browserlessApiUrl;
+  }
+
+  const blenderHost = readEnvKey("BLENDER_MCP_HOST");
+  if (blenderHost) {
+    overrides.blenderbridge = overrides.blenderbridge || {};
+    overrides.blenderbridge.host = blenderHost;
+  }
+
+  const blenderPort = readEnvKey("BLENDER_MCP_PORT");
+  if (blenderPort) {
+    overrides.blenderbridge = overrides.blenderbridge || {};
+    overrides.blenderbridge.port = Number(blenderPort) || 9876;
+  }
+
+  try {
+    generateConfigFile({
+      format: "yaml",
+      outputPath: CONFIG_FILE,
+      envOutputPath: ENV_FILE,
+      overrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+    });
+    send("ok", "Config file generated: llm-toolkit.config.yaml");
+    send("ok", "Companion .env file generated for backward compatibility");
+  } catch (writeErr) {
+    throw new Error(`Failed to write config file to ${CONFIG_FILE}: ${writeErr.message}`);
+  }
+}
+
+/**
+ * Merge user-customized env values from an existing bridge config into a new config.
+ * Non-empty, non-placeholder values from the existing config take precedence.
+ */
+function mergePluginEnv(config, existingConfig) {
+  if (!existingConfig || typeof existingConfig !== "object") return config;
+
+  const mergedEnv = { ...(config.env ?? {}) };
+  const env = existingConfig.env;
+
+  if (env && typeof env === "object") {
+    for (const [key, value] of Object.entries(env)) {
+      if (typeof value !== "string") continue;
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      // Skip known placeholder values
+      if (key === "BROWSERLESS_API_KEY" && trimmed === "your-browserless-api-key-here") continue;
+      if (key === "BROWSERLESS_TOKEN" && trimmed === "your-browserless-api-token-here") continue;
+      mergedEnv[key] = value;
+    }
+  }
+
+  // Remove empty-string env values
+  for (const k of Object.keys(mergedEnv)) {
+    if (typeof mergedEnv[k] === "string" && !mergedEnv[k].trim()) {
+      delete mergedEnv[k];
+    }
+  }
+
+  return { ...config, env: mergedEnv };
 }
 
 function toolToServerName(tool) {
@@ -463,4 +666,255 @@ function readEnvKey(key) {
   const match = fs.readFileSync(ENV_FILE, "utf8").match(new RegExp(`^${key}=(.*)$`, "m"));
   const val = match ? match[1].trim() : "";
   return val === "your-browserless-api-token-here" ? "" : val;
+}
+
+// ─── Node.js auto-installer ──────────────────────────────────────────────────
+
+const NODE_INSTALL_VERSION = "20"; // LTS major version to install
+
+/**
+ * Downloads and installs Node.js if not present or too old.
+ * Strategy per platform:
+ *   - Windows: downloads the MSI installer and runs it silently
+ *   - macOS: uses the .pkg installer or falls back to curl+tar
+ *   - Linux: uses NodeSource setup script or falls back to prebuilt tarball
+ */
+async function installNode({ send }) {
+  const platform = os.platform();
+  const arch = os.arch() === "x64" ? "x64" : os.arch() === "arm64" ? "arm64" : "x64";
+
+  send("info", `Installing Node.js ${NODE_INSTALL_VERSION}.x for ${platform}/${arch}...`);
+
+  // Resolve the latest LTS version in the major line
+  const version = await resolveLatestNodeVersion(NODE_INSTALL_VERSION);
+  send("info", `Resolved latest version: ${version}`);
+
+  if (platform === "win32") {
+    await installNodeWindows({ send, version, arch });
+  } else if (platform === "darwin") {
+    await installNodeMacOS({ send, version, arch });
+  } else {
+    await installNodeLinux({ send, version, arch });
+  }
+
+  // Refresh PATH so subsequent execSync calls find the new node
+  refreshPath();
+}
+
+/**
+ * Resolves the latest Node.js version for a given major line using the dist index.
+ */
+function resolveLatestNodeVersion(major) {
+  return new Promise((resolve, reject) => {
+    https.get("https://nodejs.org/dist/index.json", (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        try {
+          const versions = JSON.parse(data);
+          const match = versions.find((v) => v.version.startsWith(`v${major}.`) && v.lts);
+          if (match) {
+            resolve(match.version);
+          } else {
+            // Fallback: first match in major line regardless of LTS
+            const any = versions.find((v) => v.version.startsWith(`v${major}.`));
+            resolve(any ? any.version : `v${major}.0.0`);
+          }
+        } catch (err) {
+          reject(new Error(`Failed to parse Node.js version index: ${err.message}`));
+        }
+      });
+      res.on("error", reject);
+    }).on("error", reject);
+  });
+}
+
+/**
+ * Downloads a file from a URL to a local path, reporting progress via send.
+ */
+function downloadFile(url, destPath, send) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    const request = (reqUrl) => {
+      https.get(reqUrl, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          // Follow redirect
+          request(res.headers.location);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error(`Download failed: HTTP ${res.statusCode} for ${reqUrl}`));
+          return;
+        }
+        const totalBytes = parseInt(res.headers["content-length"] || "0", 10);
+        let downloaded = 0;
+        let lastReport = 0;
+
+        res.on("data", (chunk) => {
+          downloaded += chunk.length;
+          file.write(chunk);
+          // Report progress every 10% (or every 1MB if size unknown)
+          if (totalBytes > 0) {
+            const pct = Math.floor((downloaded / totalBytes) * 100);
+            if (pct >= lastReport + 10) {
+              lastReport = pct;
+              if (send) send("dim", `  Download: ${pct}% (${(downloaded / 1048576).toFixed(1)} MB)`);
+            }
+          } else if (downloaded - lastReport > 1048576) {
+            lastReport = downloaded;
+            if (send) send("dim", `  Downloaded: ${(downloaded / 1048576).toFixed(1)} MB`);
+          }
+        });
+
+        res.on("end", () => { file.end(resolve); });
+      }).on("error", (err) => {
+        fs.unlinkSync(destPath);
+        reject(err);
+      });
+    };
+    request(url);
+  });
+}
+
+/**
+ * Windows: download and run Node.js MSI installer silently.
+ */
+async function installNodeWindows({ send, version, arch }) {
+  const msiArch = arch === "arm64" ? "arm64" : "x64";
+  const fileName = `node-${version}-${msiArch}.msi`;
+  const url = `https://nodejs.org/dist/${version}/${fileName}`;
+  const tmpDir = os.tmpdir();
+  const msiPath = path.join(tmpDir, fileName);
+
+  send("info", `Downloading ${fileName}...`);
+  await downloadFile(url, msiPath, send);
+
+  send("info", "Running installer (this may request admin privileges)...");
+  try {
+    execSync(`msiexec /i "${msiPath}" /qn /norestart`, {
+      encoding: "utf8",
+      stdio: "pipe",
+      timeout: 300000, // 5 min timeout
+    });
+  } catch (err) {
+    // msiexec may need elevation — try with Start-Process
+    try {
+      execSync(
+        `powershell -Command "Start-Process msiexec -ArgumentList '/i','${msiPath}','/qn','/norestart' -Verb RunAs -Wait"`,
+        { encoding: "utf8", stdio: "pipe", timeout: 300000 }
+      );
+    } catch (elevatedErr) {
+      throw new Error(`Node.js MSI install failed: ${elevatedErr.message}. Download manually from https://nodejs.org`);
+    }
+  }
+
+  // Clean up
+  try { fs.unlinkSync(msiPath); } catch {}
+  send("ok", "Node.js MSI installer completed");
+}
+
+/**
+ * macOS: download and run Node.js .pkg installer.
+ */
+async function installNodeMacOS({ send, version, arch }) {
+  const pkgArch = arch === "arm64" ? "arm64" : "x64";
+  const fileName = `node-${version}.pkg`;
+  const url = `https://nodejs.org/dist/${version}/node-${version}-darwin-${pkgArch}.tar.gz`;
+  const tmpDir = os.tmpdir();
+  const tarPath = path.join(tmpDir, `node-${version}-darwin-${pkgArch}.tar.gz`);
+  const installDir = `/usr/local`;
+
+  send("info", `Downloading Node.js ${version} for macOS/${pkgArch}...`);
+  await downloadFile(url, tarPath, send);
+
+  send("info", "Extracting to /usr/local (may require sudo)...");
+  try {
+    execSync(`tar -xzf "${tarPath}" --strip-components=1 -C "${installDir}"`, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+  } catch {
+    // Try with sudo
+    try {
+      execSync(`sudo tar -xzf "${tarPath}" --strip-components=1 -C "${installDir}"`, {
+        encoding: "utf8",
+        stdio: "inherit",
+      });
+    } catch (err) {
+      throw new Error(`Failed to extract Node.js: ${err.message}. Install manually from https://nodejs.org`);
+    }
+  }
+
+  // Clean up
+  try { fs.unlinkSync(tarPath); } catch {}
+  send("ok", "Node.js extracted to /usr/local");
+}
+
+/**
+ * Linux: download prebuilt tarball and extract to /usr/local.
+ */
+async function installNodeLinux({ send, version, arch }) {
+  const linuxArch = arch === "arm64" ? "arm64" : "x64";
+  const fileName = `node-${version}-linux-${linuxArch}.tar.xz`;
+  const url = `https://nodejs.org/dist/${version}/${fileName}`;
+  const tmpDir = os.tmpdir();
+  const tarPath = path.join(tmpDir, fileName);
+  const installDir = `/usr/local`;
+
+  send("info", `Downloading ${fileName}...`);
+  await downloadFile(url, tarPath, send);
+
+  send("info", "Extracting to /usr/local (may require sudo)...");
+  try {
+    execSync(`tar -xJf "${tarPath}" --strip-components=1 -C "${installDir}"`, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+  } catch {
+    try {
+      execSync(`sudo tar -xJf "${tarPath}" --strip-components=1 -C "${installDir}"`, {
+        encoding: "utf8",
+        stdio: "inherit",
+      });
+    } catch (err) {
+      throw new Error(`Failed to extract Node.js: ${err.message}. Install manually from https://nodejs.org`);
+    }
+  }
+
+  // Clean up
+  try { fs.unlinkSync(tarPath); } catch {}
+  send("ok", "Node.js extracted to /usr/local");
+}
+
+/**
+ * Refreshes the PATH environment variable so newly installed binaries are found.
+ * On Windows, reads the registry to get the updated system/user PATH.
+ */
+function refreshPath() {
+  if (os.platform() === "win32") {
+    try {
+      const systemPath = execSync(
+        'powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\',\'Machine\')"',
+        { encoding: "utf8" }
+      ).trim();
+      const userPath = execSync(
+        'powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\',\'User\')"',
+        { encoding: "utf8" }
+      ).trim();
+      process.env.PATH = `${userPath};${systemPath}`;
+    } catch {
+      // Best effort — add common Node install locations
+      const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+      process.env.PATH = `${programFiles}\\nodejs;${process.env.PATH}`;
+    }
+  } else {
+    // Unix: add common locations if not already present
+    const additions = ["/usr/local/bin", "/usr/local/sbin"];
+    const currentPath = process.env.PATH || "";
+    for (const dir of additions) {
+      if (!currentPath.includes(dir)) {
+        process.env.PATH = `${dir}:${currentPath}`;
+      }
+    }
+  }
 }

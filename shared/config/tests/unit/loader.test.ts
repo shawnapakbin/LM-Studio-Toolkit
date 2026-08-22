@@ -260,7 +260,7 @@ describe("Config Loader - Merge & Validation", () => {
 
       try {
         loader.getConfig();
-        fail("Expected ConfigValidationError");
+        throw new Error("Expected ConfigValidationError");
       } catch (err) {
         const validationErr = err as ConfigValidationError;
         expect(validationErr.issues.length).toBeGreaterThanOrEqual(1);

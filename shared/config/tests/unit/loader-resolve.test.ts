@@ -169,7 +169,7 @@ describe("resolveConfigFile", () => {
 
       try {
         resolveConfigFile(tmpDir);
-        fail("Expected ConfigParseError");
+        throw new Error("Expected ConfigParseError");
       } catch (err) {
         expect(err).toBeInstanceOf(ConfigParseError);
         const parseErr = err as ConfigParseError;
@@ -213,7 +213,7 @@ describe("resolveConfigFile", () => {
 
       try {
         resolveConfigFile(tmpDir);
-        fail("Expected ConfigParseError");
+        throw new Error("Expected ConfigParseError");
       } catch (err) {
         expect(err).toBeInstanceOf(ConfigParseError);
         const parseErr = err as ConfigParseError;

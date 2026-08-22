@@ -24,6 +24,15 @@ function getStagedFiles() {
     .filter(Boolean);
 }
 
+/** Paths that are excluded from secret scanning (test fixtures use fake credentials) */
+const pathExcludePatterns = [
+  /[/\\]tests?[/\\]/i,
+  /[/\\]__tests__[/\\]/i,
+  /\.test\.[jt]sx?$/i,
+  /\.spec\.[jt]sx?$/i,
+  /[/\\]fixtures?[/\\]/i,
+];
+
 function getStagedContent(filePath) {
   const result = spawnSync("git", ["show", `:${filePath}`], {
     encoding: "utf8",
@@ -127,6 +136,11 @@ function main() {
   const findings = [];
 
   for (const file of files) {
+    // Skip test files — they legitimately contain fake credential values
+    if (pathExcludePatterns.some((re) => re.test(file))) {
+      continue;
+    }
+
     const content = getStagedContent(file);
     if (!content || isLikelyBinary(content)) {
       continue;

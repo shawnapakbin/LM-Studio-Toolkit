@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * Pre-commit Secrets & Privacy Scanner
+ *
+ * Developed by: revDigit.link | Shawna Pakbin
+ */
 
 const { spawnSync } = require("node:child_process");
 

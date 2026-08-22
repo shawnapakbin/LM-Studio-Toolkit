@@ -5,6 +5,8 @@
  * Removes all llm-toolkit MCP plugins from LM Studio and cleans up
  * any toolkit entries from the top-level mcp.json user config.
  *
+ * Developed by: revDigit.link | Shawna Pakbin
+ *
  * Usage:
  *   node scripts/setup/uninstall.js
  *   npm run uninstall

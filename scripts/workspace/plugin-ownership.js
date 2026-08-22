@@ -7,6 +7,8 @@
  *
  * Ownership is determined by the presence of `_owner: "llm-toolkit"` in
  * either `manifest.json` or `install-state.json` within a plugin directory.
+ *
+ * Developed by: revDigit.link | Shawna Pakbin
  */
 
 "use strict";

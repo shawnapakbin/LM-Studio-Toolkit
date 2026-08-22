@@ -5,6 +5,8 @@
  * Provisions per-plugin directories under ~/.lmstudio/extensions/plugins/mcp/
  * with bridge configs, manifests, and install-state files.
  *
+ * Developed by: revDigit.link | Shawna Pakbin
+ *
  * Key behaviors:
  * - Writes exclusively to per-plugin directories (never to top-level mcp.json)
  * - Tags all plugin directories with _owner: "llm-toolkit" for safe identification

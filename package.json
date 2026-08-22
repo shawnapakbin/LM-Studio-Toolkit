@@ -40,7 +40,7 @@
     "prepare": "husky",
     "verify:all": "npm run verify:vnext-scope && npm run check:ci && npm run type-check && npm run test:ci && npm run build && npm run startup:check",
     "build": "npm run build:shared && npm run build:observability && npm run build:tools && npm run build:common && npm run build:memory",
-    "build:shared": "npm run -w shared build && npm run -w shared/config build",
+    "build:shared": "npm run -w shared build",
     "build:observability": "npm run -w Observability build",
     "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w AskUser build && npm run -w RAG build && npm run -w PythonShell build && npm run -w Skills build && npm run -w SlashCommands build && npm run -w CSVExporter build && npm run -w Git build && npm run -w FileEditor build && npm run -w PackageManager build && npm run -w BlenderBridge build && npm run -w 3DTool build && npm run -w SubAgent build && npm run -w LanSubAgent build",
     "build:common": "npm run -w mcp/common build",
@@ -91,7 +91,6 @@
   },
   "workspaces": [
     "shared",
-    "shared/config",
     "Terminal",
     "WebBrowser",
     "Calculator",

@@ -20,7 +20,6 @@ const config: Config = {
     "PythonShell/src/**/*.ts",
     "Memory/src/**/*.ts",
     "CSVExporter/src/**/*.ts",
-    "ECM/src/**/*.ts",
     "Skills/src/**/*.ts",
     "CLI/src/**/*.ts",
     "SlashCommands/src/**/*.ts",
@@ -41,6 +40,10 @@ const config: Config = {
   },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    // The `@shared/types` workspace package re-exports the normalizer under a
+    // `/toolCallNormalizer` subpath that maps to shared/toolCallNormalizer.ts.
+    // This more-specific entry must precede the generic `@shared/*` mapping.
+    "^@shared/types/toolCallNormalizer$": "<rootDir>/shared/toolCallNormalizer",
     "^@shared/(.*)$": "<rootDir>/shared/$1",
   },
   transform: {

@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-file-editor",
-  "version": "2.1.0",
+  "version": "5.1.1",
   "private": true,
   "description": "Safe file system operations for LLM agents - read, write, search, and edit files with workspace sandboxing",
   "main": "dist/index.js",
@@ -9,8 +9,8 @@
     "dev": "tsx src/index.ts",
     "dev:mcp": "tsx src/mcp-server.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "start:mcp": "node dist/mcp-server.js",
+    "start": "node dist/FileEditor/src/index.js",
+    "start:mcp": "node dist/FileEditor/src/mcp-server.js",
     "test": "jest",
     "clean": "rm -rf dist"
   },

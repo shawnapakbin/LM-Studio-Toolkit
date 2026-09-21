@@ -332,7 +332,6 @@ console.log(`Running workflows: ${running.join(", ")}`);
         ├───────► AskUser (3338)
         ├───────► RAG (3339)
         ├───────► Skills (3341)
-        ├───────► ECM (3342)
         └───────► Browserless (3003)
 ```
 

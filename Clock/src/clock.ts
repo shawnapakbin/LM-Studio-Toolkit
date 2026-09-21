@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import { isValidTimeZone, normalizeLocale } from "./policy";
 
 export type ClockRequest = {
@@ -145,7 +146,7 @@ export function getClockSnapshot(request: ClockRequest): ClockResult {
   const now = new Date();
   const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const requestedTimeZone =
-    request.timeZone?.trim() || process.env.CLOCK_DEFAULT_TIMEZONE?.trim() || systemTimeZone;
+    request.timeZone?.trim() || getConfig().clock.defaultTimezone?.trim() || systemTimeZone;
 
   if (!isValidTimeZone(requestedTimeZone)) {
     return {
@@ -154,7 +155,7 @@ export function getClockSnapshot(request: ClockRequest): ClockResult {
     };
   }
 
-  const locale = normalizeLocale(request.locale?.trim() || process.env.CLOCK_DEFAULT_LOCALE);
+  const locale = normalizeLocale(request.locale?.trim() || getConfig().clock.defaultLocale);
   const parts = getDateAndTimeParts(now, locale, requestedTimeZone);
   const offsetMinutes = getOffsetMinutes(now, requestedTimeZone);
   const timeZoneNames = getTimeZoneNames(now, locale, requestedTimeZone);

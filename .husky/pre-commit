@@ -6,3 +6,8 @@ echo "Running quality gates..."
 npm run check:ci || { echo "❌ Biome check failed. Run 'npm run check' to auto-fix."; exit 1; }
 npm run type-check || { echo "❌ TypeScript type-check failed."; exit 1; }
 echo "✓ Quality gates passed."
+
+# Config schema validation
+echo "Validating config schema..."
+node scripts/workspace/validate-config-schema.js || { echo "❌ Config schema validation failed."; exit 1; }
+echo "✓ Config schema valid."

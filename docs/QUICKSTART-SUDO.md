@@ -20,15 +20,15 @@ The LLM only knows **what command to run** and **what output it produced**. Your
 
 ## Step 1: Confirm Your Setup
 
-Interactive capture mode is enabled by default after running the installer. Check that your `terminal-tools` config in LM Studio contains these three settings:
+Interactive capture mode is enabled by default. The `terminal` server reads these three settings from the unified `llm-toolkit.config.yaml`:
 
-```json
-"TERMINAL_PUNCHOUT": "1",
-"TERMINAL_CAPTURE_WITH_PUNCHOUT": "1",
-"TERMINAL_PUNCHOUT_WAIT_FOR_EXIT": "1"
+```yaml
+TERMINAL_PUNCHOUT: "1"
+TERMINAL_CAPTURE_WITH_PUNCHOUT: "1"
+TERMINAL_PUNCHOUT_WAIT_FOR_EXIT: "1"
 ```
 
-If you used `install.sh`, these are already in `.generated/lmstudio-mcp.json`. Open LM Studio → Settings → MCP Servers → terminal-tools to verify.
+These defaults are applied automatically when you run `npm run mcp:sync-lmstudio` to provision the `terminal` plugin. Restart LM Studio after syncing to pick up changes.
 
 ---
 
@@ -156,33 +156,31 @@ chmod +x .generated/mcp-askpass.sh
 
 A dialog should appear. Cancel it — this confirms the helper is working.
 
-**4. Add environment variables in LM Studio**
+**4. Set the askpass environment variables**
 
-Open LM Studio → Settings → MCP Servers → terminal-tools and add to the `env` block:
+Add these values to the `terminal` server settings in the unified `llm-toolkit.config.yaml`:
 
-```json
-"TERMINAL_REQUIRE_ASKPASS_FOR_SUDO": "1",
-"TERMINAL_SUDO_ASKPASS": "/absolute/path/to/.generated/mcp-askpass.sh"
+```yaml
+TERMINAL_REQUIRE_ASKPASS_FOR_SUDO: "1"
+TERMINAL_SUDO_ASKPASS: "/absolute/path/to/mcp-askpass.sh"
 ```
 
-Replace `/absolute/path/to/` with your actual install path. Your full install path is shown in `.generated/lmstudio-mcp.json` next to the `args` value.
+Replace `/absolute/path/to/` with your actual install path.
 
 Example:
 
-```json
-"env": {
-  "ALLOWED_TERMINAL_COMMANDS": "*",
-  "TERMINAL_PUNCHOUT": "1",
-  "TERMINAL_CAPTURE_WITH_PUNCHOUT": "1",
-  "TERMINAL_PUNCHOUT_WAIT_FOR_EXIT": "1",
-  "TERMINAL_REQUIRE_ASKPASS_FOR_SUDO": "1",
-  "TERMINAL_SUDO_ASKPASS": "/home/yourname/MCP/.generated/mcp-askpass.sh"
-}
+```yaml
+ALLOWED_TERMINAL_COMMANDS: "*"
+TERMINAL_PUNCHOUT: "1"
+TERMINAL_CAPTURE_WITH_PUNCHOUT: "1"
+TERMINAL_PUNCHOUT_WAIT_FOR_EXIT: "1"
+TERMINAL_REQUIRE_ASKPASS_FOR_SUDO: "1"
+TERMINAL_SUDO_ASKPASS: "/home/yourname/llm-toolkit/mcp-askpass.sh"
 ```
 
-**5. Restart LM Studio**
+**5. Re-sync and restart LM Studio**
 
-Save the config and fully restart LM Studio.
+Run `npm run mcp:sync-lmstudio` to re-provision the `terminal` plugin, then fully restart LM Studio.
 
 **6. Test the GUI dialog**
 

@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-lan-subagent",
-  "version": "1.0.0",
+  "version": "5.1.1",
   "private": true,
   "description": "LAN-aware multi-endpoint inference dispatcher MCP server for distributed sub-agent task delegation",
   "main": "dist/mcp-server.js",

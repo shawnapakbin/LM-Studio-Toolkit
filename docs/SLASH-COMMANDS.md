@@ -8,16 +8,9 @@ This works because the system prompt instructs the model to intercept messages t
 
 ## Setup
 
-Add the `slash-commands` MCP server to your LM Studio `mcp.json`. The server registers a single `slash_command` tool — the LLM sees it in its tool list and calls it automatically whenever you type a `/command` in chat. No system prompt required.
+The `slash-commands` MCP server is registered as a plugin automatically by `npm run mcp:sync-lmstudio` — no manual configuration is required. The server registers a single `slash_command` tool that the LLM sees in its tool list and calls automatically whenever you type a `/command` in chat.
 
-```json
-"slash-commands": {
-  "command": "node",
-  "args": ["SlashCommands/dist/mcp-server.js"]
-}
-```
-
-Run `npm run mcp:print-config` to get the full generated config with correct paths.
+Build the server with `npm run build:slash`.
 
 ---
 
@@ -28,21 +21,6 @@ Run `npm run mcp:print-config` to get the full generated config with correct pat
 | Command | What it does |
 |---|---|
 | `/help` | Show all available slash commands with usage |
-
-### Context Memory
-
-| Command | What it does |
-|---|---|
-| `/compact` | Summarize the current ECM session and drop old segments to free context memory |
-| `/compact --keep-newest <n>` | Compact but keep the N most recent segments intact |
-| `/ecm store <text>` | Store a memory segment in the current session |
-| `/ecm retrieve <query>` | Retrieve relevant memory segments by semantic query |
-| `/ecm list` | List all segments in the current session |
-| `/ecm summarize` | Summarize the session without clearing it |
-| `/ecm clear` | Clear all segments in the current session |
-| `/ecm continuous on` | Enable continuous compaction for the current session (compact after every response) |
-| `/ecm continuous off` | Disable continuous compaction for the current session |
-| `/ecm policy` | Show the active compaction policy for the current session |
 
 ### Calculator
 
@@ -126,11 +104,11 @@ Run `npm run mcp:print-config` to get the full generated config with correct pat
 
 ## How It Works
 
-The `slash_command` MCP tool is registered in LM Studio alongside the other tools. When you type `/compact` or `/calc sin(30°)` in chat, the LLM recognizes the `/` prefix from the tool's description and calls `slash_command` with your raw input. The MCP server parses the command, dispatches it to the right tool via HTTP, and returns the result — all without touching the system prompt.
+The `slash_command` MCP tool is registered in LM Studio alongside the other tools. When you type `/calc sin(30°)` or `/browse https://...` in chat, the LLM recognizes the `/` prefix from the tool's description and calls `slash_command` with your raw input. The MCP server parses the command, dispatches it to the right tool via HTTP, and returns the result — all without touching the system prompt.
 
 For this to work:
 1. The relevant tool servers must be running (see [INSTALL.md](../INSTALL.md))
-2. `SlashCommands/dist/mcp-server.js` must be registered in your LM Studio `mcp.json`
+2. The `slash-commands` plugin must be provisioned via `npm run mcp:sync-lmstudio`
 3. Run `npm run build:slash` to build the server
 
 ---
@@ -149,10 +127,6 @@ These are identified for future implementation:
 - `/file read <path>` — read a file via FileEditor
 - `/file write <path>` — write a file via FileEditor
 - `/pkg install <package>` — install a package via PackageManager
-- `/build run` — trigger a build via BuildRunner
 - `/observe logs` — tail Observability logs
 - `/observe metrics` — dump current metrics
-- `/session new` — create a new named ECM session
-- `/session list` — list active ECM sessions
-- `/session switch <id>` — switch the active session
 - `/config show` — show current tool configuration

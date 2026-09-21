@@ -3,7 +3,7 @@ import { platform } from "os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
+import { getConfig } from "@shared/config";
 import { z } from "zod";
 import {
   DEFAULT_MAX_OUTPUT_CHARS,
@@ -14,10 +14,8 @@ import {
 } from "./policy";
 import { runPunchout } from "./punchout";
 
-dotenv.config();
-
-const DEFAULT_TIMEOUT_MS = Number(process.env.TERMINAL_DEFAULT_TIMEOUT_MS ?? 60000);
-const MAX_TIMEOUT_MS = Number(process.env.TERMINAL_MAX_TIMEOUT_MS ?? 120000);
+const DEFAULT_TIMEOUT_MS = getConfig().terminal.defaultTimeoutMs;
+const MAX_TIMEOUT_MS = getConfig().terminal.maxTimeoutMs;
 const MAX_OUTPUT_CHARS = DEFAULT_MAX_OUTPUT_CHARS;
 
 type RunTerminalCommandInput = {

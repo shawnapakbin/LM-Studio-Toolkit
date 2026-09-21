@@ -10,11 +10,14 @@ This plan is tailored to the current LLM Toolkit workspace:
 - RAG
 - PythonShell
 - Skills
-- ECM
 - CSVExporter
 - Git
-- FileEditor
+- FileEditor (registered runtime MCP server)
 - PackageManager
+- BlenderBridge
+- 3DTool
+- SubAgent
+- LanSubAgent
 - Observability
 - CLI (`llm` binary)
 - SlashCommands (MCP `/command` shortcuts)
@@ -139,7 +142,7 @@ This plan is tailored to the current LLM Toolkit workspace:
 ### 11) Workspace Operations ✅
 - [x] Add root task(s) to build/test all tools together
 - [x] Add startup script to verify MCP binaries + env before LM Studio use
-- [x] Keep top-level `mcp.json` block synchronized when tools are added
+- [x] Keep plugin registration (`scripts/workspace/mcp-config.js`) synchronized when tools are added
 
 **Acceptance**: One command validates readiness of Terminal, WebBrowser, Calculator, Clock, Browserless.
 
@@ -170,7 +173,7 @@ This plan is tailored to the current LLM Toolkit workspace:
 Whenever a new tool is added:
 1. Add the tool folder and MCP server.
 2. Build and verify `dist/mcp-server.js` exists.
-3. Update main README `mcp.json` block (including environment variables).
+3. Register the server in `scripts/workspace/mcp-config.js` (including environment variables) and re-run `npm run mcp:sync-lmstudio`.
 4. Add tool-specific hardening section in Phase 1 (policy, timeout, quota controls).
 5. Add tool-specific regression tests in Phase 3 evaluation suite.
 6. Run `verify-tools` before using LM Studio.

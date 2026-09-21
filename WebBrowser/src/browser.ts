@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import { type Browser, type Page, chromium } from "playwright";
 import { extractContent } from "./extract-content";
 import { isAllowedContentType, validateTargetUrl } from "./policy";
@@ -49,8 +50,8 @@ async function getPage(): Promise<Page> {
 
   if (!browser) {
     if (!pendingLaunch) {
-      const headless = process.env.BROWSER_HEADLESS !== "false";
-      const executablePath = process.env.BROWSER_EXECUTABLE_PATH || undefined;
+      const headless = getConfig().webbrowser.headless;
+      const executablePath = getConfig().webbrowser.executablePath || undefined;
       pendingLaunch = chromium.launch({ headless, executablePath });
       try {
         browser = await pendingLaunch;
@@ -98,9 +99,9 @@ export async function shutdownBrowser(): Promise<void> {
 
 // ─── browseWeb ────────────────────────────────────────────────────────────────
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_DEFAULT_TIMEOUT_MS ?? 20000);
-const MAX_TIMEOUT_MS = Number(process.env.BROWSER_MAX_TIMEOUT_MS ?? 60000);
-const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
+const DEFAULT_TIMEOUT_MS = getConfig().webbrowser.defaultTimeoutMs;
+const MAX_TIMEOUT_MS = getConfig().webbrowser.maxTimeoutMs;
+const MAX_CONTENT_CHARS = getConfig().webbrowser.maxContentChars;
 
 export async function browseWeb(input: BrowseInput): Promise<BrowseResult> {
   // Phase 1: SSRF policy check — before any Playwright call

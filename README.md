@@ -2,12 +2,12 @@
 
 **Enhanced Feature: Unified Tool Call Normalization**
 
-All tool calls—whether originating from HTTP, MCP, or internal workflows—are automatically normalized to a canonical schema before execution. This ensures seamless compatibility across legacy and new tool call formats, reduces integration bugs, and enables robust multi-model orchestration. The normalization logic is shared and enforced in both the MCP server and workflow runner. See `shared/toolCallNormalizer.ts` for implementation details.
+Every tool-call entry point routes through the single shared `normalizeToolCall` utility (`shared/toolCallNormalizer.ts`), so tool calls—whether originating from HTTP, MCP, or internal workflows—are normalized to one canonical schema before execution. AgentRunner, SubAgent, and AskUser all use this same unified path with no partial or alternative normalization branches, which guarantees identical normalized output across entry points, reduces integration bugs, and enables robust multi-model orchestration.
 
 See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
 
-**Version**: 2.4.0  
-**Status**: Phase 0 (Foundation) ✅ Complete + v2.2.0 installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅ + unified config ✅ + Tauri installer ✅
+**Version**: 5.1.1  
+**Status**: Phase 0 (Foundation) ✅ Complete + installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅ + unified config ✅ + Tauri installer ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
 
@@ -52,33 +52,39 @@ npm run startup:check   # Workspace readiness check
 
 ### Tool Call Normalization Layer
 
-All tool calls are normalized to a canonical format before dispatch, regardless of their origin. This guarantees that every tool invocation—whether from HTTP, MCP, or workflow runner—follows the same schema, improving reliability and extensibility. See `shared/toolCallNormalizer.ts`.
+Every tool-call entry point routes through the shared `normalizeToolCall` utility (`shared/toolCallNormalizer.ts`) before dispatch, regardless of origin. AgentRunner, SubAgent, and AskUser all use this one unified path — there are no passthrough stubs, legacy branches, or alternative normalization paths. This guarantees every tool invocation follows the same canonical schema, improving reliability and extensibility.
 
-### 23 Toolkit Modules (19 Tool Servers + Common Plugin + CLI + SlashCommands + Installer)
+### 16 Registered Plugin Entries
+
+The toolkit registers **16 plugin entries** with LM Studio. This is the single authoritative count. The `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`) rather than a `src/mcp-server.ts` entry point — so the number of registered plugin entries is fewer than the number of underlying tools.
+
+Registered plugin entries:
 
 - **[Terminal](Terminal/README.md)** — Execute shell commands (OS-aware: Windows/macOS/Linux) ✅
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
-- **[Calculator](Calculator/README.md)** — Math expressions (engineering notation, symbol normalization) ✅
-- **[DocumentScraper](DocumentScraper/README.md)** — Read documents with structured extraction + encrypted PDF detection ✅
-- **[Clock](Clock/README.md)** — Date/time + timezones (IANA + locale formatting) ✅
-- **[Browserless](Browserless/README.md)** — Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
-- **[AskUser](AskUser/README.md)** — Interactive interview workflow for planning and clarification ✅
+- **[mcp/common](mcp/common/README.md)** — Unified common tools plugin bundling Calculator, Clock, AskUser, and DocumentScraper (4 tools in 1 entry) ✅
+- **[Browserless](Browserless/README.md)** — Advanced browser automation via the schema-proxy wrapper (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
 - **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
 - **[PythonShell](PythonShell/README.md)** — Python code execution + REPL/IDLE launch with startup detection guidance ✅
 - **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
-- **[ECM](ECM/README.md)** — Extended Context Memory — effective 1M token context via vector retrieval and session isolation ✅
-- **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
-- **[Git](Git/README.md)** — Safe git operations with branch protection ✅
-- **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing ✅
-- **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
-- **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library ✅
+- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
+- **[BlenderBridge](BlenderBridge/README.md)** — Bridge to a running Blender instance for scene inspection and edits ✅
 - **[3DTool](3DTool/README.md)** — 3D model viewer/editor MCP server with multi-format support (OBJ, glTF/GLB), scene management, materials, undo/redo ✅
 - **[SubAgent](SubAgent/README.md)** — Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation ✅
 - **[LanSubAgent](LanSubAgent/README.md)** — LAN-aware multi-endpoint inference dispatcher — distributes tasks across LM Studio instances on the local network ✅
-- **[mcp/common](mcp/common/README.md)** — Unified common tools plugin bundling calculator, clock, ask-user, and document-scraper ✅
-- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking all tools from the shell ✅
-- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
-- **[Installer](Installer/README.md)** — Tauri-based native GUI installer for cross-platform distribution (Windows EXE, macOS DMG, Linux AppImage) ✅
+- **[Git](Git/README.md)** — Safe git operations with branch protection ✅
+- **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
+- **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
+- **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing (registered runtime MCP server) ✅
+
+### Supporting Library Workspaces (not registered as plugins)
+
+- **[Observability](Observability/README.md)** — Structured logging, metrics, and distributed tracing library
+- **[Memory](Memory/README.md)** — SQLite-backed task history, solution patterns, and learned rules
+- **[AgentRunner](AgentRunner/README.md)** — Workflow runner and tool registry consumed by other workspaces
+- **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking tools from the shell
+- **[Installer](Installer/README.md)** — Tauri-based native GUI installer (Windows EXE, macOS DMG, Linux AppImage)
+- **shared** — Shared types and the `normalizeToolCall` utility
 
 ### Foundation Layer (Phase 0 ✅)
 
@@ -94,7 +100,7 @@ Pre-commit quality gates are enforced automatically via [Husky](https://typicode
 ### Build Order
 
 ```bash
-npm run build   # shared → observability → tools (17 runtime servers) → common → memory
+npm run build   # shared → observability → tools → common → memory
 ```
 
 ### Phases Complete ✅
@@ -167,7 +173,6 @@ git push origin feat/description
 You can control the toolkit directly from the LM Studio chat window by typing `/commands`. The `slash_command` MCP tool intercepts messages starting with `/` and routes them to the appropriate tool automatically — no system prompt required.
 
 ```
-/compact                  → Summarize + compact ECM context memory
 /calc sin(30°)            → Evaluate a math expression
 /browse https://...       → Fetch and render a URL
 /clock --timezone UTC     → Get current time
@@ -178,7 +183,7 @@ You can control the toolkit directly from the LM Studio chat window by typing `/
 /memory stats             → Show workflow run statistics
 ```
 
-Add `slash-commands` to your LM Studio `mcp.json` (run `npm run mcp:print-config` for the full config), then build with `npm run build:slash`.
+The `slash-commands` server is registered as a plugin automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required. Build it with `npm run build:slash`.
 
 See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command reference.
 
@@ -186,13 +191,9 @@ See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command refere
 
 ## Deployment
 
-### LM Studio Integration (v1 Configuration)
+### LM Studio Integration (Plugin-Only)
 
-Update your LM Studio `mcp.json`:
-
-```bash
-npm run mcp:print-config
-```
+The toolkit uses a **plugin-only configuration model** — this is the sole supported method. All 16 registered servers are provisioned automatically as LM Studio plugins; there is no manual configuration step.
 
 To auto-deploy BOM-free bridge configs into installed LM Studio MCP plugins:
 
@@ -200,147 +201,28 @@ To auto-deploy BOM-free bridge configs into installed LM Studio MCP plugins:
 npm run mcp:sync-lmstudio
 ```
 
-This writes exclusively to per-plugin directories (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`). The toolkit **never** writes to the top-level `~/.lmstudio/mcp.json`. Each plugin directory is tagged with `_owner: "llm-toolkit"` so the toolkit can safely identify and manage its own entries without touching plugins from other applications.
+This writes exclusively to per-plugin directories (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`). The toolkit **never** touches the user-editable top-level LM Studio config file, and no manual configuration is required. Each plugin directory is tagged with `_owner: "llm-toolkit"` so the toolkit can safely identify and manage its own entries without touching plugins from other applications.
 
 On each sync, old toolkit-owned plugin directories are removed before fresh ones are provisioned. User-customized env values (e.g., API keys you've set manually in a bridge config) are preserved across re-syncs.
 
-To remove all toolkit plugins from LM Studio:
+### Managing Plugins
+
+Use the toolkit commands to manage all 16 plugin entries — no file editing required:
 
 ```bash
-npm run uninstall
+npm run mcp:sync-lmstudio  # auto-deploy into LM Studio plugin directories
+npm run uninstall          # remove all toolkit plugins from LM Studio
 ```
 
-Optional override for non-default plugin location:
+Environment overrides for each server are read from the unified `llm-toolkit.config.yaml` when present; the plugin bridge configs are generated from `scripts/workspace/mcp-config.js`, the single registration source of truth.
 
-Optional override for non-default plugin location:
+Optional override for a non-default plugin location:
 
 ```bash
 # Windows PowerShell
 $env:LMSTUDIO_MCP_PLUGIN_ROOT=(Read-Host "Enter absolute path to your LM Studio MCP plugins folder")
 npm run mcp:sync-lmstudio
 ```
-
-## Complete `mcp.json` Example
-
-> **⚠ WARNING — Do NOT copy-paste this directly into LM Studio.**
-> The paths below are **relative** (illustration only). LM Studio resolves relative paths from its own plugin directory, not your project root, which will cause `Cannot find module` errors for every server.
-> The toolkit writes per-plugin bridge configs directly — it does **not** write to `~/.lmstudio/mcp.json`. Use the commands below to manage plugins:
-> ```bash
-> npm run mcp:print-config   # print config to stdout (for reference)
-> npm run mcp:sync-lmstudio  # auto-deploy into LM Studio plugin directories
-> npm run uninstall           # remove all toolkit plugins from LM Studio
-> ```
-
-```json
-{
-	"mcpServers": {
-		"terminal": {
-			"command": "node",
-			"args": ["Terminal/dist/mcp-server.js"],
-			"env": {
-				"TERMINAL_DEFAULT_TIMEOUT_MS": "60000",
-				"TERMINAL_MAX_TIMEOUT_MS": "120000"
-			}
-		},
-		"web-browser": {
-			"command": "node",
-			"args": ["WebBrowser/dist/mcp-server.js"],
-			"env": {
-				"BROWSER_DEFAULT_TIMEOUT_MS": "20000",
-				"BROWSER_MAX_TIMEOUT_MS": "60000",
-				"BROWSER_MAX_CONTENT_CHARS": "12000",
-				"BROWSER_HEADLESS": "true"
-			}
-		},
-		"common": {
-			"command": "node",
-			"args": ["mcp/common/dist/mcp-server.js"],
-			"env": {
-				"CALCULATOR_DEFAULT_PRECISION": "12",
-				"CALCULATOR_MAX_PRECISION": "20",
-				"DOC_SCRAPER_DEFAULT_TIMEOUT_MS": "20000",
-				"DOC_SCRAPER_MAX_TIMEOUT_MS": "60000",
-				"DOC_SCRAPER_MAX_CONTENT_BYTES": "52428800",
-				"DOC_SCRAPER_MAX_CONTENT_CHARS": "50000",
-				"DOC_SCRAPER_WORKSPACE_ROOT": "",
-				"CLOCK_DEFAULT_TIMEZONE": "",
-				"CLOCK_DEFAULT_LOCALE": "en-US",
-				"ASK_USER_DB_PATH": "./memory.db",
-				"ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
-				"ASK_USER_MAX_EXPIRES_SECONDS": "86400",
-				"ASK_USER_MAX_QUESTIONS": "20"
-			}
-		},
-		"browserless": {
-			"command": "node",
-			"args": ["Browserless/scripts/schema-proxy.js"],
-			"env": {
-				"BROWSERLESS_TOKEN": "",
-				"BROWSERLESS_API_URL": ""
-			}
-		},
-		"rag": {
-			"command": "node",
-			"args": ["RAG/dist/mcp-server.js"],
-			"env": {
-				"RAG_DB_PATH": "./rag.db",
-				"RAG_EMBEDDINGS_MODE": "lmstudio",
-				"RAG_EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
-				"RAG_DOC_SCRAPER_ENDPOINT": "http://localhost:3336/tools/read_document",
-				"RAG_ASK_USER_ENDPOINT": "http://localhost:3338/tools/ask_user_interview",
-				"RAG_BYPASS_APPROVAL": "true",
-				"RAG_CHUNK_SIZE_TOKENS": "384",
-				"RAG_CHUNK_OVERLAP_TOKENS": "75"
-			}
-		},
-		"python-shell": {
-			"command": "node",
-			"args": ["PythonShell/dist/mcp-server.js"],
-			"env": {
-				"PYTHON_SHELL_DEFAULT_TIMEOUT_MS": "60000",
-				"PYTHON_SHELL_MAX_TIMEOUT_MS": "120000",
-				"PYTHON_SHELL_MAX_OUTPUT_CHARS": "50000",
-				"PYTHON_SHELL_WORKSPACE_ROOT": ""
-			}
-		},
-		"skills": {
-			"command": "node",
-			"args": ["Skills/dist/mcp-server.js"],
-			"env": {
-				"SKILLS_DB_PATH": "./skills.db"
-			}
-		},
-		"ecm": {
-			"command": "node",
-			"args": ["ECM/dist/mcp-server.js"],
-			"env": {
-				"ECM_DB_PATH": "./ecm.db",
-				"ECM_EMBEDDINGS_MODE": "lmstudio",
-				"ECM_EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
-			}
-		},
-		"slash-commands": {
-			"command": "node",
-			"args": ["SlashCommands/dist/mcp-server.js"],
-			"env": {
-				"SLASH_DEFAULT_SESSION": "default"
-			}
-		},
-		"lan-subagent": {
-			"command": "node",
-			"args": ["LanSubAgent/dist/LanSubAgent/src/mcp-server.js"],
-			"env": {
-				"SUBAGENT_LOCAL_HOST": "localhost",
-				"SUBAGENT_LOCAL_PORT": "1234"
-			}
-		}
-	}
-}
-```
-
-> **Note**: From v2.4.0, `llm-toolkit.config.yaml` is the preferred single-source configuration. The `mcp.json` example above remains valid but environment variable overrides are now read from the unified config file when present.
-
-Phase 2 will introduce unified orchestrator MCP server and multi-interface launchers.
 
 
 ## Browserless MCP Tool Usage
@@ -406,10 +288,11 @@ npm run build
 npm run verify-tools
 ```
 
-### ✗ "mcp.json block is not valid JSON" or path mismatch
+### ✗ "plugin registration out of sync" or unresolved artifact
 
-**Fix**: Ensure paths in README MCP section match the exact `dist/mcp-server.js` artifact locations.
+**Fix**: Rebuild so every registered server's `dist/mcp-server.js` artifact exists, then re-run the sync gate.
 ```bash
+npm run build
 npm run verify:mcp-sync
 ```
 
@@ -458,7 +341,6 @@ See [Memory/README.md](Memory/README.md) for details.
 | [Memory/README.md](Memory/README.md) | Memory persistence API |
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
-| [ECM/README.md](ECM/README.md) | ECM Tool — extended context memory |
 | [3DTool/README.md](3DTool/README.md) | 3DTool MCP server — 3D viewer/editor with multi-format support |
 | [SubAgent/README.md](SubAgent/README.md) | SubAgent MCP server — parallel inference dispatch for sub-agent delegation |
 | [LanSubAgent/README.md](LanSubAgent/README.md) | LAN SubAgent — distributed multi-endpoint inference with health checking, load balancing, and GUI |
@@ -472,17 +354,17 @@ See [Memory/README.md](Memory/README.md) for details.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat (v2.1.0) |
-| 3DTool MCP Server | ✅ | Multi-format 3D viewer/editor with scene management, materials, validation, undo/redo (v2.3.0) |
-| SubAgent MCP Server | ✅ | Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation (v2.3.1) |
-| LAN SubAgent | ✅ | Distributed inference across LAN — multi-endpoint load balancing, health checking, UDP discovery, GUI config (v2.3.1) |
-| Tool call normalization | ✅ | Canonicalizes all tool calls before execution |
-| Unified configuration | ✅ | Single-source `llm-toolkit.config.yaml` for all tool settings (v2.4.0) |
-| Tauri installer | ✅ | Cross-platform native GUI installer — Windows EXE, macOS DMG, Linux AppImage (v2.4.0) |
-| 19 runtime tool servers | ✅ | Terminal, WebBrowser, Calculator, DocumentScraper, Clock, Browserless, AskUser, RAG, PythonShell, Skills, ECM, CSVExporter, Git, FileEditor, PackageManager, SlashCommands, 3DTool, SubAgent, LanSubAgent |
-| WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown (v2.1.0) |
-| Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} (v2.1.0) |
-| ECM Tool | ✅ | 1M token context via vector retrieval + session isolation + auto-compaction (v2.1.0+) |
+| CLI + Slash Commands | ✅ | `llm <command>` terminal binary + `/command` MCP shortcuts for LM Studio chat |
+| 3DTool MCP Server | ✅ | Multi-format 3D viewer/editor with scene management, materials, validation, undo/redo |
+| SubAgent MCP Server | ✅ | Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation |
+| LAN SubAgent | ✅ | Distributed inference across LAN — multi-endpoint load balancing, health checking, UDP discovery, GUI config |
+| FileEditor MCP Server | ✅ | Safe file read/write/search with workspace sandboxing — a registered runtime MCP server |
+| Tool call normalization | ✅ | Every entry point routes through the shared `normalizeToolCall` (one unified path) |
+| Unified configuration | ✅ | Single-source `llm-toolkit.config.yaml` for all tool settings |
+| Tauri installer | ✅ | Cross-platform native GUI installer — Windows EXE, macOS DMG, Linux AppImage |
+| 16 registered plugin entries | ✅ | Terminal, WebBrowser, common (bundles Calculator/Clock/AskUser/DocumentScraper), Browserless (schema-proxy), RAG, PythonShell, Skills, SlashCommands, BlenderBridge, 3DTool, SubAgent, LanSubAgent, Git, PackageManager, CSVExporter, FileEditor |
+| WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown |
+| Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} |
 | Biome format + lint | ✅ | CI gate, auto-fix on save |
 | Jest test suite | ✅ | 80% coverage minimum |
 | SQLite memory | ✅ | Task history, patterns, rules |

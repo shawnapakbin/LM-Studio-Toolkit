@@ -7,7 +7,6 @@
  */
 
 import { Command } from "commander";
-import dotenv from "dotenv";
 import { registerAskCommand } from "./commands/ask";
 import { registerBrowseCommand } from "./commands/browse";
 import { registerCalcCommand } from "./commands/calc";
@@ -21,8 +20,6 @@ import { registerSkillsCommands } from "./commands/skills";
 import { registerTerminalCommand } from "./commands/terminal";
 import { registerToolsCommands } from "./commands/tools";
 import { registerWorkflowCommands } from "./commands/workflow";
-
-dotenv.config();
 
 const program = new Command();
 

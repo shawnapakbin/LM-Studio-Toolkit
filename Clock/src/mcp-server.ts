@@ -1,11 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import { getClockSnapshot } from "./clock";
-
-dotenv.config();
 
 const server = new McpServer({
   name: "lm-studio-clock-tool",

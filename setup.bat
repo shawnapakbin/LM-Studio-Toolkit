@@ -1,0 +1,1 @@
+node scripts/setup/setup.js --gui

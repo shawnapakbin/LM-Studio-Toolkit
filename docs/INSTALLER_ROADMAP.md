@@ -20,7 +20,7 @@ Installer/
       bootstrap.ts          — Payload extraction to install root
       runtime-manager.ts    — Detect/download portable Node.js
       setup-runner.ts       — Orchestrate all setup phases
-      lmstudio-sync.ts      — Write ~/.lmstudio/mcp.json
+      lmstudio-sync.ts      — Provision per-plugin bridge configs (plugin-only)
       mcp-config.ts         — Tool descriptors + bridge config builder
       script-path.ts        — Resolve tool binary with nested-dist fallback
       tool-status.ts        — Verify built binaries exist
@@ -50,7 +50,7 @@ Installer/
 | 3 | install | `npm install` in install root; optionally install Playwright browsers |
 | 4 | build | `npm run build` — TypeScript compile all workspaces |
 | 5 | verify | Check every tool binary exists (with nested-dist fallback paths) |
-| 6 | lmstudio | Write `~/.lmstudio/mcp.json` with absolute Node path + tool args |
+| 6 | lmstudio | Provision per-plugin bridge configs with absolute Node path + tool args (plugin-only; never the top-level config) |
 | 7 | done | Report complete |
 
 ---
@@ -76,16 +76,16 @@ These are the failure patterns discovered across install-0001–0019. Catch them
 - [ ] If emission is nested (e.g. `dist/Terminal/src/mcp-server.js`), the script-path.ts fallback candidates cover it
 - [ ] `mcp-config.ts` `TOOL_DESCRIPTORS` `relativeScript` values match at least one candidate in `script-path.ts`
 
-### 4. LM Studio mcp.json
-- [ ] `~/.lmstudio/mcp.json` is written with top-level `{ "mcpServers": { ... } }` structure
-- [ ] Each server entry has: `command` (absolute Node path), `args` (absolute script path), `cwd`, `env`
+### 4. LM Studio Plugin Registration
+- [ ] Each of the 16 registered servers is provisioned into its own per-plugin directory (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`), never into the user-editable top-level LM Studio config
+- [ ] Each provisioned bridge config has: `command` (absolute Node path), `args` (absolute script path), `cwd`, `env`
 - [ ] `command` is the **absolute** path to node.exe — never the bare string `"node"` (clean VMs have no global Node in PATH)
-- [ ] Existing `mcp.json` keys are preserved (merged, not overwritten)
+- [ ] Only toolkit-owned plugin directories (tagged `_owner: "llm-toolkit"`) are managed; plugins from other applications are left untouched
 - [ ] Test: after install on a VM with no global Node, LM Studio shows all servers as "running"
 
 ### 5. Runtime Resolution
 - [ ] Node detection order is: bundled → downloaded portable → system → `"node"` fallback
-- [ ] The active node path written into `mcp.json` matches the executable actually used to run `npm install` and `npm run build`
+- [ ] The active node path written into each bridge config matches the executable actually used to run `npm install` and `npm run build`
 - [ ] If portable download is needed, it succeeds before reaching the build phase
 
 ### 6. Build Artifact
@@ -105,14 +105,14 @@ These are the failure patterns discovered across install-0001–0019. Catch them
 - Node candidate paths: `/Applications/LM Studio.app`, `~/Applications/LM Studio.app`
 - `resolveActiveNodePath()` already handles darwin — verify bundled/downloaded path resolves
 - Icon: generate `.icns` from `icon.png` via `electron-builder`'s built-in icon set or `iconutil`
-- Test: run on a clean macOS VM with LM Studio installed; verify `mcp.json` at `~/.lmstudio/mcp.json`
+- Test: run on a clean macOS VM with LM Studio installed; verify per-plugin bridge configs at `~/.lmstudio/extensions/plugins/mcp/{serverName}/`
 
 **Regression notes**:
 - macOS Gatekeeper will block unsigned binaries — document with `xattr -cr install.dmg` workaround or add notarization step
 - Playwright `chromium` download path differs on macOS — test `WebBrowser` after install
 
 **Acceptance criteria**:
-- All 11 servers appear and start in LM Studio on macOS
+- All 16 registered plugin entries appear and start in LM Studio on macOS
 - No `node is not recognized` — absolute node exe path used
 
 ---
@@ -122,7 +122,7 @@ These are the failure patterns discovered across install-0001–0019. Catch them
 **Target**: `install.AppImage` (already declared in package.json)  
 **New work**:
 - `resolveActiveNodePath()` linux branch: spawnSync `which lmstudio`, then fallback candidates in `~/Applications`
-- LM Studio on Linux may store config at `~/.lmstudio/mcp.json` (same as Windows/macOS — verify)
+- LM Studio on Linux stores plugin directories under `~/.lmstudio/extensions/plugins/mcp/` (same as Windows/macOS — verify)
 - AppImage requires `FUSE` on the target system — document dependency
 - Node portable archive name: `node-v20.17.0-linux-x64.tar.xz` — `resolvePortableArchiveName()` already handles it
 
@@ -145,11 +145,11 @@ These are the failure patterns discovered across install-0001–0019. Catch them
 - Add a `Re-sync LM Studio` button that runs only phase 6 (lmstudio-sync) without rebuilding
 - Add a `Reinstall Playwright` button that runs only the Playwright postinstall step
 
-**Why**: After LM Studio updates change their `mcp.json` format, users can re-sync without full reinstall
+**Why**: After LM Studio updates change their plugin config format, users can re-sync without full reinstall
 
 **Acceptance criteria**:
 - Full repair completes in <2 min on a machine where toolkit is already built
-- Re-sync updates `mcp.json` with current absolute Node path (handles Node runtime migration)
+- Re-sync updates each plugin bridge config with the current absolute Node path (handles Node runtime migration)
 
 ---
 
@@ -186,5 +186,5 @@ When a new MCP tool workspace is added to the repo:
 | Tool `dist/` emission paths are inconsistent (some nest under `dist/<Tool>/src/`) | `relativeScript` in mcp-config doesn't match actual output; relies on fallback candidates | Fix `rootDir`/`outDir` in those tool tsconfigs so all emit flat `dist/mcp-server.js` |
 | No code-signing | macOS Gatekeeper blocks .dmg; Windows SmartScreen warns on .exe | Add signing certs to CI pipeline |
 | Portable Node download requires internet during first install | Offline install fails if no bundled runtime | Bundle a minimal Node binary in `resources/runtime/` for offline support |
-| `mcp.json` uses forward-slash paths on all platforms | Harmless on Windows/macOS; verify on Linux | Confirmed OK — Node.js accepts forward slashes cross-platform |
+| Bridge configs use forward-slash paths on all platforms | Harmless on Windows/macOS; verify on Linux | Confirmed OK — Node.js accepts forward slashes cross-platform |
 | No auto-update mechanism | Users must re-run installer for new toolkit versions | Phase 4: Add `electron-updater` or a `llm update` CLI command |

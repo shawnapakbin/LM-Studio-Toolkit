@@ -2,7 +2,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import {
   auditVulnerabilities,
@@ -15,8 +14,6 @@ import {
   viewDependencies,
 } from "./package-manager";
 import { getPackageManagerWorkspaceRoot } from "./policy";
-
-dotenv.config();
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

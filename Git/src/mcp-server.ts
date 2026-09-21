@@ -2,7 +2,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import {
   gitBranch,
@@ -18,8 +17,6 @@ import {
   gitStatus,
 } from "./git";
 import { getGitWorkspaceRoot } from "./policy";
-
-dotenv.config();
 
 const server = new McpServer({
   name: "git-tool",

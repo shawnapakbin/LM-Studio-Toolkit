@@ -70,21 +70,10 @@ curl -X POST http://localhost:3012/tools/list_outdated \
 
 ### MCP Server
 
-Add to LM Studio `mcp.json`:
+PackageManager is one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model — this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-```json
-{
-  "mcpServers": {
-    "package-manager": {
-      "command": "node",
-      "args": ["PackageManager/dist/mcp-server.js"],
-      "env": {
-        "PACKAGE_MANAGER_WORKSPACE_ROOT": "."
-      }
-    }
-  }
-}
-```
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `PACKAGE_MANAGER_WORKSPACE_ROOT` — project root the tool operates on (default `.`)
 
 ## Tool Schemas
 

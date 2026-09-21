@@ -10,6 +10,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { normalizeToolCall } from "@shared/types/toolCallNormalizer";
 import type { ToolCallRequest, ToolDefinition } from "./http-client";
 import type { RecursionGuard } from "./recursion-guard";
 import type { ProgressReport, TaskManifest, TaskResult, TaskStatus } from "./types";
@@ -42,13 +43,41 @@ export interface DispatchState {
   progressInterval: ReturnType<typeof setInterval> | null;
 }
 
-/** Inline tool call normalizer — passthrough until shared normalizer integration. */
-export function normalizeToolCalls(toolCalls: ToolCallRequest[]): ToolCallRequest[] {
-  return toolCalls.map((tc) => ({
-    id: tc.id,
-    type: "function" as const,
-    function: { name: tc.function.name, arguments: tc.function.arguments },
-  }));
+/**
+ * Route each LM Studio tool-call request through the shared `normalizeToolCall`
+ * utility so SubAgent uses the same canonical normalization as every other
+ * entry point. Each `ToolCallRequest` is adapted into the shared normalizer's
+ * input (a `tool_name` + `input_params` payload), normalized with the
+ * dispatch/session `taskRunId`, and adapted back to the `ToolCallRequest` shape
+ * the downstream tool-call loop consumes.
+ */
+export function normalizeToolCalls(
+  toolCalls: ToolCallRequest[],
+  taskRunId: string,
+): ToolCallRequest[] {
+  return toolCalls.map((tc) => {
+    const canonical = normalizeToolCall(
+      {
+        id: tc.id,
+        task_run_id: taskRunId,
+        tool_name: tc.function.name,
+        input_params: tc.function.arguments,
+        output_result: "",
+        success: false,
+        timestamp: new Date().toISOString(),
+      },
+      { taskRunId },
+    );
+
+    return {
+      id: (canonical.id as string) || tc.id,
+      type: "function" as const,
+      function: {
+        name: canonical.tool_name,
+        arguments: canonical.input_params,
+      },
+    };
+  });
 }
 
 export function buildToolDefinitions(

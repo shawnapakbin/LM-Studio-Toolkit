@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   OperationTimer,
@@ -6,17 +7,14 @@ import {
   generateTraceId,
 } from "@shared/types";
 import cors from "cors";
-import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import { defineSkill, deleteSkill, executeSkill, getSkill, listSkills } from "./skills";
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = Number(process.env.PORT ?? 3341);
+const PORT = getConfig().skills.port;
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ ok: true, service: "lm-studio-skills-tool", version: "2.1.0" });

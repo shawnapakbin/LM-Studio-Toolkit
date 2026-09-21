@@ -362,6 +362,10 @@ export const schemaMeta: Record<string, SchemaMetaEntry> = {
     env: "CSVEXPORTER_PORT",
     legacyEnvKey: "PORT",
   },
+  "csvexporter.exportRoot": {
+    env: "CSV_EXPORT_ROOT",
+    legacyEnvKey: "CSV_EXPORT_ROOT",
+  },
 
   // ─── FileEditor ──────────────────────────────────────────────────────────────
   "fileeditor.workspaceRoot": {

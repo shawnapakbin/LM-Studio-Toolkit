@@ -200,26 +200,9 @@ curl -X POST http://localhost:3337/tools/get_current_datetime \
 
 ## LM Studio Integration
 
-Add this configuration to your LM Studio `mcp.json`:
+Clock ships inside the `common` plugin entry (which bundles Calculator, Clock, AskUser, and DocumentScraper). The toolkit uses a plugin-only configuration model — the `common` plugin is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-```json
-{
-  "mcpServers": {
-    "clock": {
-      "command": "node",
-      "args": ["Clock/dist/mcp-server.js"],
-      "env": {
-        "CLOCK_DEFAULT_TIMEZONE": "",
-        "CLOCK_DEFAULT_LOCALE": "en-US"
-      }
-    }
-  }
-}
-```
-
-**Tip**: From repo root, run `npm run mcp:print-config` to print a ready-to-paste config with absolute paths for your current folder.
-
-**Environment Variables** (optional):
+**Environment Variables** (optional, set via `llm-toolkit.config.yaml`):
 - `CLOCK_DEFAULT_TIMEZONE`: Default IANA timezone (empty = system timezone)
 - `CLOCK_DEFAULT_LOCALE`: Default locale for formatting
 

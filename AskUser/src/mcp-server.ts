@@ -1,14 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { getConfig } from "@shared/config";
 import { OperationTimer, generateTraceId } from "@shared/types";
-import dotenv from "dotenv";
 import { z } from "zod";
 import { normalizeToolCall } from "../../shared/toolCallNormalizer";
 import { handleAskUserRequest, setActiveUIPort } from "./ask-user";
 import type { AskUserRequest } from "./types";
-
-dotenv.config();
 
 function normalizeAskUserRequest(input: unknown): AskUserRequest {
   const raw = (input ?? {}) as Record<string, unknown>;
@@ -141,11 +139,11 @@ export function createAskUserMcpServer(): McpServer {
       const timer = new OperationTimer();
       const traceId = generateTraceId();
 
-      // Reshape flat input into the {action, payload} format the handler expects
+      // Reshape flat MCP input into the {action, payload} format the handler expects.
       const raw = (input ?? {}) as Record<string, unknown>;
       const action = raw.action as string;
 
-      let shaped: unknown;
+      let shaped: { action: string; payload: Record<string, unknown> };
       if (action === "create") {
         shaped = {
           action: "create",
@@ -172,17 +170,26 @@ export function createAskUserMcpServer(): McpServer {
           },
         };
       } else {
-        shaped = raw;
+        shaped = { action: String(action ?? ""), payload: raw };
       }
 
-      // Also try legacy normalizeToolCall path
-      let normalized: unknown = shaped;
-      try {
-        const toolCall = normalizeToolCall(input, { taskRunId: traceId });
-        normalized = JSON.parse(toolCall.input_params);
-      } catch {
-        // fallback: use the shaped input
-      }
+      // Sole path: normalize the tool call through the shared utility. The
+      // shaped {action, payload} is adapted into the canonical normalizer input
+      // (tool_name + input_params) and the normalized params are handed to the
+      // AskUser request handler. No legacy/alternative branch remains.
+      const toolCall = normalizeToolCall(
+        {
+          id: "",
+          task_run_id: traceId,
+          tool_name: "ask_user_interview",
+          input_params: JSON.stringify(shaped),
+          output_result: "",
+          success: false,
+          timestamp: new Date().toISOString(),
+        },
+        { taskRunId: traceId },
+      );
+      const normalized: unknown = JSON.parse(toolCall.input_params);
 
       const request = normalizeAskUserRequest(normalized);
       const result = handleAskUserRequest(request, timer.elapsed(), traceId);
@@ -207,7 +214,7 @@ async function main() {
   // Also start the HTTP server for the interview UI (non-fatal if port is busy)
   try {
     const { app } = await import("./index");
-    const basePort = Number(process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? 3338);
+    const basePort = getConfig().askuser.uiPort;
 
     const tryListen = (port: number, retries: number): void => {
       const httpServer = app.listen(port);

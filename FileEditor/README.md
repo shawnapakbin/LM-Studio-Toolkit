@@ -56,21 +56,10 @@ curl -X POST http://localhost:3010/tools/search_files \
 
 ### MCP Server
 
-Add to LM Studio `mcp.json`:
+FileEditor is a registered runtime MCP server — one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model, so this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-```json
-{
-  "mcpServers": {
-    "file-editor": {
-      "command": "node",
-      "args": ["FileEditor/dist/mcp-server.js"],
-      "env": {
-        "FILE_EDITOR_WORKSPACE_ROOT": "."
-      }
-    }
-  }
-}
-```
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `FILE_EDITOR_WORKSPACE_ROOT` — workspace sandbox root the tool is confined to (default `.`)
 
 ## Tool Schemas
 

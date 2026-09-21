@@ -6,7 +6,11 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignore": ["scripts/setup/setup.js", "scripts/setup/setup-gui.html"]
+    "ignore": [
+      "scripts/setup/setup.js",
+      "scripts/setup/setup-gui.html",
+      "Installer/src-tauri/target/**"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -53,7 +57,8 @@
       "afterAll",
       "beforeEach",
       "afterEach",
-      "jest"
+      "jest",
+      "fail"
     ],
     "formatter": {
       "jsxQuoteStyle": "double"

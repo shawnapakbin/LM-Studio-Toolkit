@@ -1,4 +1,5 @@
 import { exec } from "node:child_process";
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   type ToolResponse,
@@ -15,11 +16,11 @@ import type {
   SubmitResponsesInput,
 } from "./types";
 
-const DB_PATH = process.env.ASK_USER_DB_PATH ?? "./memory.db";
+const DB_PATH = getConfig().askuser.dbPath;
 const store = new AskUserStore(DB_PATH);
 
 /** Tracks the actual port the UI HTTP server bound to (set by mcp-server.ts) */
-let activeUIPort: number = Number(process.env.ASK_USER_UI_PORT ?? process.env.PORT ?? "3338");
+let activeUIPort: number = getConfig().askuser.uiPort;
 
 export function setActiveUIPort(port: number): void {
   activeUIPort = port;

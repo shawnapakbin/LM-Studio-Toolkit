@@ -1,8 +1,9 @@
 import path from "path";
+import { getConfig } from "@shared/config";
 
-export const DEFAULT_MAX_OUTPUT_CHARS = Number(process.env.TERMINAL_MAX_OUTPUT_CHARS ?? 50000);
+export const DEFAULT_MAX_OUTPUT_CHARS = getConfig().terminal.maxOutputChars;
 
-export const WORKSPACE_ROOT = path.resolve(process.env.TERMINAL_WORKSPACE_ROOT ?? process.cwd());
+export const WORKSPACE_ROOT = path.resolve(getConfig().terminal.workspaceRoot || process.cwd());
 
 export const DENY_PATTERNS: RegExp[] = [
   /(^|\s)rm\s+-rf(\s|$)/i,

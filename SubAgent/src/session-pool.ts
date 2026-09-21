@@ -10,6 +10,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { getConfig } from "@shared/config";
 import { getLogger } from "llm-toolkit-observability";
 import { type ChatMessage, type LMStudioRequest, sendChatCompletion } from "./http-client";
 import { RecursionGuard } from "./recursion-guard";
@@ -292,7 +293,7 @@ export class SessionPool {
       if (signal.aborted) throw new Error("Request aborted");
 
       const request: LMStudioRequest = {
-        model: process.env.SUBAGENT_MODEL ?? "default",
+        model: getConfig().subagent.model,
         messages: [...messages],
         temperature: state.manifest.temperature ?? 0.7,
         max_tokens: state.manifest.maxTokens ?? 4096,
@@ -337,7 +338,7 @@ export class SessionPool {
       }
 
       // Process tool calls with recursion guard and authorization checks
-      const normalizedCalls = normalizeToolCalls(choice.message.tool_calls);
+      const normalizedCalls = normalizeToolCalls(choice.message.tool_calls, task.taskId);
       for (const toolCall of normalizedCalls) {
         const toolName = toolCall.function.name;
         if (toolName === BLOCKED_TOOL) {

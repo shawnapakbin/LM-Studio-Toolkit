@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import type {
   CreateInterviewInput,
   InterviewQuestion,
@@ -5,15 +6,13 @@ import type {
   SubmitResponsesInput,
 } from "./types";
 
-export const MAX_QUESTIONS = Number(process.env.ASK_USER_MAX_QUESTIONS ?? 20);
-export const MAX_PROMPT_LENGTH = Number(process.env.ASK_USER_MAX_PROMPT_LENGTH ?? 500);
-export const MAX_OPTIONS_PER_QUESTION = Number(process.env.ASK_USER_MAX_OPTIONS ?? 30);
-export const MAX_TEXT_RESPONSE_LENGTH = Number(
-  process.env.ASK_USER_MAX_TEXT_RESPONSE_LENGTH ?? 4000,
-);
-export const DEFAULT_EXPIRES_SECONDS = Number(process.env.ASK_USER_DEFAULT_EXPIRES_SECONDS ?? 1800);
+export const MAX_QUESTIONS = getConfig().askuser.maxQuestions;
+export const MAX_PROMPT_LENGTH = getConfig().askuser.maxPromptLength;
+export const MAX_OPTIONS_PER_QUESTION = getConfig().askuser.maxOptions;
+export const MAX_TEXT_RESPONSE_LENGTH = getConfig().askuser.maxTextResponseLength;
+export const DEFAULT_EXPIRES_SECONDS = getConfig().askuser.defaultExpiresSeconds;
 export const MIN_EXPIRES_SECONDS = 30;
-export const MAX_EXPIRES_SECONDS = Number(process.env.ASK_USER_MAX_EXPIRES_SECONDS ?? 86400);
+export const MAX_EXPIRES_SECONDS = getConfig().askuser.maxExpiresSeconds;
 
 export function normalizeExpiresSeconds(expiresInSeconds?: number): number {
   if (!Number.isFinite(expiresInSeconds)) {

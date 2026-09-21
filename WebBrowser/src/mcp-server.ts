@@ -1,15 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
+import { getConfig } from "@shared/config";
 import { z } from "zod";
 import { type BrowseInput, browseWeb } from "./browser";
 
-dotenv.config();
-
-const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_DEFAULT_TIMEOUT_MS ?? 20000);
-const MAX_TIMEOUT_MS = Number(process.env.BROWSER_MAX_TIMEOUT_MS ?? 60000);
-const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
+const DEFAULT_TIMEOUT_MS = getConfig().webbrowser.defaultTimeoutMs;
+const MAX_TIMEOUT_MS = getConfig().webbrowser.maxTimeoutMs;
+const MAX_CONTENT_CHARS = getConfig().webbrowser.maxContentChars;
 
 const server = new McpServer({
   name: "lm-studio-web-browser-tool",

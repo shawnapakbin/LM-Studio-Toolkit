@@ -1,10 +1,11 @@
 import path from "node:path";
+import { getConfig } from "@shared/config";
 import Database from "better-sqlite3";
 import { v4 as uuid } from "uuid";
 import { ensureSkillDirectories, loadAllFileSkills } from "./file-loader";
 import type { SkillRecord, SkillSummary, SkillUpsertInput } from "./types";
 
-const _rawDbPath = process.env.SKILLS_DB_PATH ?? "./skills.db";
+const _rawDbPath = getConfig().skills.dbPath;
 export const DB_PATH =
   _rawDbPath === ":memory:" || path.isAbsolute(_rawDbPath)
     ? _rawDbPath

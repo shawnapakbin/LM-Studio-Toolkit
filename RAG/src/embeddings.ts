@@ -1,4 +1,5 @@
 import { LMStudioClient } from "@lmstudio/sdk";
+import { getConfig } from "@shared/config";
 
 type EmbeddingModel = Awaited<ReturnType<LMStudioClient["embedding"]["model"]>>;
 
@@ -31,7 +32,7 @@ class MockEmbeddingProvider implements EmbeddingProvider {
 
 class LMStudioEmbeddingProvider implements EmbeddingProvider {
   private client = new LMStudioClient();
-  private modelName = process.env.RAG_EMBEDDING_MODEL ?? "nomic-ai/nomic-embed-text-v1.5";
+  private modelName = getConfig().rag.embeddingModel;
   private modelPromise?: Promise<EmbeddingModel>;
 
   private getModel(): Promise<EmbeddingModel> {
@@ -62,7 +63,13 @@ class LMStudioEmbeddingProvider implements EmbeddingProvider {
 }
 
 export function createEmbeddingProvider(): EmbeddingProvider {
-  const mode = (process.env.RAG_EMBEDDINGS_MODE || "lmstudio").toLowerCase();
+  // RAG_EMBEDDINGS_MODE is read fresh (env → unified-config default) so tests
+  // and callers can select the mock provider without a real LM Studio backend.
+  const mode = (
+    process.env.RAG_EMBEDDINGS_MODE?.trim() ||
+    getConfig().rag.embeddingsMode ||
+    "lmstudio"
+  ).toLowerCase();
   if (mode === "mock") {
     return new MockEmbeddingProvider();
   }

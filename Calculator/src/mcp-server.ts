@@ -1,14 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
+import { getConfig } from "@shared/config";
 import { z } from "zod";
 import { evaluateExpression } from "./calculator";
 
-dotenv.config();
-
-const DEFAULT_PRECISION = Number(process.env.CALCULATOR_DEFAULT_PRECISION ?? 12);
-const MAX_PRECISION = Number(process.env.CALCULATOR_MAX_PRECISION ?? 20);
+const DEFAULT_PRECISION = getConfig().calculator.defaultPrecision;
+const MAX_PRECISION = getConfig().calculator.maxPrecision;
 
 type CalculateEngineeringInput = {
   expression: string;

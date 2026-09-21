@@ -10,12 +10,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import { parseSlashCommand } from "./parser";
 import { route } from "./router";
-
-dotenv.config();
 
 const COMMAND_REFERENCE = `
 Supported slash commands:

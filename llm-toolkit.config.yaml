@@ -1,0 +1,121 @@
+global:
+  logLevel: info
+  workspaceRoot: .
+terminal:
+  port: 3333
+  defaultTimeoutMs: 60000
+  maxTimeoutMs: 120000
+  maxOutputChars: 50000
+  workspaceRoot: .
+webbrowser:
+  port: 3334
+  defaultTimeoutMs: 20000
+  maxTimeoutMs: 60000
+  maxContentChars: 12000
+  headless: true
+  executablePath: ""
+calculator:
+  port: 3335
+  defaultPrecision: 12
+  maxPrecision: 20
+documentscraper:
+  port: 3336
+  defaultTimeoutMs: 20000
+  maxTimeoutMs: 60000
+  maxContentBytes: 52428800
+  maxContentChars: 50000
+  workspaceRoot: .
+clock:
+  port: 3337
+  defaultTimezone: ""
+  defaultLocale: ""
+browserless:
+  port: 3003
+  apiKey: your_browserless_api_key_here
+  apiUrl: https://production-sfo.browserless.io
+  defaultRegion: production-sfo
+  defaultTimeoutMs: 30000
+  maxTimeoutMs: 120000
+  concurrencyLimit: 5
+askuser:
+  port: 3338
+  uiPort: 3338
+  dbPath: ./memory.db
+  maxQuestions: 20
+  maxPromptLength: 500
+  maxOptions: 30
+  maxTextResponseLength: 4000
+  defaultExpiresSeconds: 1800
+  maxExpiresSeconds: 86400
+rag:
+  port: 3339
+  dbPath: ../rag.db
+  docScraperEndpoint: http://localhost:3336/tools/read_document
+  askUserEndpoint: http://localhost:3338/tools/ask_user_interview
+  bypassApproval: false
+  maxDocumentsPerIngest: 20
+  maxTextLength: 2000000
+  chunkSizeTokens: 350
+  chunkOverlapTokens: 40
+  maxChunkSizeTokens: 1200
+  maxOverlapTokens: 300
+  queryTopK: 6
+  maxTopK: 25
+  embeddingModel: nomic-ai/nomic-embed-text-v1.5
+  embeddingsMode: lmstudio
+pythonshell:
+  port: 3343
+  defaultTimeoutMs: 60000
+  maxTimeoutMs: 120000
+  maxOutputChars: 50000
+  workspaceRoot: .
+memory:
+  dbPath: ./data/agent-memory.db
+skills:
+  port: 3341
+  dbPath: ./skills.db
+  dir: ""
+cli:
+  defaultSession: default
+slashcommands:
+  defaultSession: default
+  calculatorEndpoint: http://localhost:3335
+  webbrowserEndpoint: http://localhost:3334
+  clockEndpoint: http://localhost:3337
+  terminalEndpoint: http://localhost:3330
+  askuserEndpoint: http://localhost:3338
+  ragEndpoint: http://localhost:3339
+  pythonshellEndpoint: http://localhost:3343
+  skillsEndpoint: http://localhost:3341
+  ecmEndpoint: http://localhost:3342
+csvexporter:
+  port: 3339
+  exportRoot: ""
+fileeditor:
+  port: 3010
+  workspaceRoot: .
+git:
+  port: 3011
+  workspaceRoot: .
+packagemanager:
+  port: 3012
+  workspaceRoot: .
+observability:
+  enabled: true
+  logLevel: info
+agentrunner:
+  basePort: 3330
+blenderbridge:
+  host: 127.0.0.1
+  port: 9876
+  command: blender-mcp
+  args: ""
+threedtool:
+  port: 3013
+  workspaceRoot: .
+subagent:
+  model: default
+lansubagent:
+  configPath: ./lan-subagent-config.json
+  localHost: localhost
+  localPort: 1234

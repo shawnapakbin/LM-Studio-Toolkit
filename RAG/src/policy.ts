@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import type {
   DeleteSourceInput,
   IngestDocumentsInput,
@@ -6,14 +7,14 @@ import type {
   ReindexSourceInput,
 } from "./types";
 
-export const MAX_DOCUMENTS_PER_INGEST = Number(process.env.RAG_MAX_DOCUMENTS_PER_INGEST ?? 20);
-export const MAX_TEXT_LENGTH = Number(process.env.RAG_MAX_TEXT_LENGTH ?? 2_000_000);
-export const DEFAULT_CHUNK_SIZE_TOKENS = Number(process.env.RAG_CHUNK_SIZE_TOKENS ?? 350);
-export const DEFAULT_OVERLAP_TOKENS = Number(process.env.RAG_CHUNK_OVERLAP_TOKENS ?? 40);
-export const MAX_CHUNK_SIZE_TOKENS = Number(process.env.RAG_MAX_CHUNK_SIZE_TOKENS ?? 1200);
-export const MAX_OVERLAP_TOKENS = Number(process.env.RAG_MAX_OVERLAP_TOKENS ?? 300);
-export const DEFAULT_TOP_K = Number(process.env.RAG_QUERY_TOP_K ?? 6);
-export const MAX_TOP_K = Number(process.env.RAG_MAX_TOP_K ?? 25);
+export const MAX_DOCUMENTS_PER_INGEST = getConfig().rag.maxDocumentsPerIngest;
+export const MAX_TEXT_LENGTH = getConfig().rag.maxTextLength;
+export const DEFAULT_CHUNK_SIZE_TOKENS = getConfig().rag.chunkSizeTokens;
+export const DEFAULT_OVERLAP_TOKENS = getConfig().rag.chunkOverlapTokens;
+export const MAX_CHUNK_SIZE_TOKENS = getConfig().rag.maxChunkSizeTokens;
+export const MAX_OVERLAP_TOKENS = getConfig().rag.maxOverlapTokens;
+export const DEFAULT_TOP_K = getConfig().rag.queryTopK;
+export const MAX_TOP_K = getConfig().rag.maxTopK;
 
 export function normalizeChunkSize(value?: number): number {
   if (!Number.isFinite(value)) {

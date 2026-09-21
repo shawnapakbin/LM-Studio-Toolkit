@@ -8,6 +8,7 @@
  * @version 1.0.0
  */
 
+import { getConfig } from "@shared/config";
 import { logger } from "./logger";
 import { isLocalEndpoint, resolveLocalAddresses } from "./self-exclusion";
 import { EndpointDefinition, EndpointMetrics, EndpointState } from "./types";
@@ -49,8 +50,8 @@ export class EndpointRegistry {
     this.endpoints = new Map();
 
     // Resolve local addresses for self-exclusion
-    const localHost = process.env.SUBAGENT_LOCAL_HOST || "localhost";
-    const localPort = parseInt(process.env.SUBAGENT_LOCAL_PORT || "1234", 10);
+    const localHost = getConfig().lansubagent.localHost;
+    const localPort = getConfig().lansubagent.localPort;
     this.localAddresses = resolveLocalAddresses(localHost, localPort);
 
     // Register initial manual endpoints (filtering out self and duplicates)

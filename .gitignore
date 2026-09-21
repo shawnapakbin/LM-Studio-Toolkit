@@ -15,9 +15,9 @@ coverage/
 .biome-cache/
 biome-results.json
 
-# Memory database
-memory.db
-*.db
+# Memory database (root-scoped so intentionally-tracked workspace .db files are not ignored)
+/memory.db
+/*.db
 
 # IDE / editor metadata
 .kiro/
@@ -90,6 +90,14 @@ shared/toolCallNormalizer.d.ts
 shared/toolCallNormalizer.d.ts.map
 shared/toolCallNormalizer.js
 shared/toolCallNormalizer.js.map
+shared/types.d.ts
+shared/types.d.ts.map
+shared/types.js
+shared/types.js.map
+shared/createToolServer.d.ts
+shared/createToolServer.d.ts.map
+shared/createToolServer.js
+shared/createToolServer.js.map
 
 # Installer build artifacts
 Installer/release/
@@ -110,3 +118,22 @@ tmp/
 biome_output.txt
 biome-output.txt
 verify_output.txt
+
+# Stray runtime/regenerable artifacts (codebase-cleanup-plugin-registration)
+# tmp/, graphify-out/, and coverage/ are already ignored above.
+# Root-scoped .db patterns (/memory.db, /*.db) live in the "# Memory database" block above.
+venv_test/
+/subagent-cache.db
+
+# Runtime databases (all workspaces) — never commit runtime data (v5.1.1)
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Installer — mid-migration to Tauri; kept local until it is a finished task (v5.1.1)
+Installer/
+
+# Internal dot-directories — local only, not published (per workspace.md dot-dir rule, v5.1.1)
+.Manifesto/
+.instructions/
+.blender-mcp/

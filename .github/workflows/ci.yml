@@ -103,3 +103,132 @@ jobs:
             echo "ERROR: mcp/common did not build successfully"
             exit 1
           fi
+
+  config-schema:
+    name: "Config Schema: Validation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+          cache: 'npm'
+      - name: "Install dependencies"
+        run: npm ci
+      - name: "Build shared packages"
+        run: npm run build:shared
+      - name: "Validate schema is parseable and internally consistent"
+        run: |
+          node -e "
+            const { configSchema } = require('./shared/config/dist/schema');
+            // Verify schema is parseable with empty input (all defaults)
+            const result = configSchema.safeParse({});
+            if (!result.success) {
+              console.error('Schema validation failed with defaults:', JSON.stringify(result.error.issues, null, 2));
+              process.exit(1);
+            }
+            // Verify no duplicate namespace keys (Zod object keys are unique by construction,
+            // but verify the shape has the expected structure)
+            const shape = configSchema.shape;
+            const keys = Object.keys(shape);
+            const uniqueKeys = new Set(keys);
+            if (keys.length !== uniqueKeys.size) {
+              console.error('ERROR: Duplicate namespace keys detected in config schema');
+              process.exit(1);
+            }
+            // Verify all namespace schemas resolve (each key has a valid Zod schema)
+            for (const key of keys) {
+              if (!shape[key] || typeof shape[key].safeParse !== 'function') {
+                console.error('ERROR: Schema namespace \"' + key + '\" does not resolve to a valid Zod schema');
+                process.exit(1);
+              }
+            }
+            console.log('Config schema is valid: ' + keys.length + ' namespaces, all references resolve.');
+          "
+
+  config-integration:
+    name: "Config Integration: Full Test Suite"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+          cache: 'npm'
+      - name: "Check for shared/config changes"
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            config:
+              - 'shared/config/**'
+      - name: "Install dependencies"
+        if: steps.changes.outputs.config == 'true'
+        run: npm ci
+      - name: "Build shared packages"
+        if: steps.changes.outputs.config == 'true'
+        run: npm run build:shared
+      - name: "Run full config test suite with coverage"
+        if: steps.changes.outputs.config == 'true'
+        run: npm run -w shared/config test -- --coverage
+      - name: "Skip (no shared/config changes)"
+        if: steps.changes.outputs.config != 'true'
+        run: echo "No changes in shared/config/**, skipping integration tests"
+
+  tool-namespace-guard:
+    name: "Tool Namespace Guard"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+          cache: 'npm'
+      - name: "Install dependencies"
+        run: npm ci
+      - name: "Build shared packages"
+        run: npm run build:shared
+      - name: "Verify all tool packages have schema namespace keys"
+        run: |
+          node -e "
+            const { configSchema } = require('./shared/config/dist/schema');
+            const fs = require('fs');
+            const path = require('path');
+
+            // Get all namespace keys from schema
+            const schemaKeys = new Set(Object.keys(configSchema.shape));
+
+            // Tool workspace directories that must have a namespace in the schema
+            const toolDirs = [
+              'Terminal', 'WebBrowser', 'Calculator', 'DocumentScraper',
+              'Clock', 'AskUser', 'RAG', 'PythonShell', 'Skills',
+              'SlashCommands', 'CSVExporter', 'FileEditor', 'Git',
+              'PackageManager', 'BlenderBridge', '3DTool', 'SubAgent', 'LanSubAgent'
+            ];
+
+            let failed = false;
+            for (const dir of toolDirs) {
+              const pkgPath = path.join(dir, 'package.json');
+              if (!fs.existsSync(pkgPath)) continue;
+
+              // Normalize directory name to schema key (lowercase, remove non-alpha)
+              let namespaceKey = dir.toLowerCase().replace(/[^a-z]/g, '');
+              // Special case: 3DTool -> threedtool
+              if (dir === '3DTool') namespaceKey = 'threedtool';
+
+              if (!schemaKeys.has(namespaceKey)) {
+                console.error('ERROR: Tool \"' + dir + '\" (namespace: \"' + namespaceKey + '\") has no corresponding key in config schema');
+                failed = true;
+              } else {
+                console.log('OK: ' + dir + ' -> ' + namespaceKey);
+              }
+            }
+
+            if (failed) {
+              console.error('\nTool namespace guard failed. Add missing namespace keys to shared/config/src/schema.ts');
+              process.exit(1);
+            }
+            console.log('\nAll tool packages have corresponding schema namespace keys.');
+          "
+
+

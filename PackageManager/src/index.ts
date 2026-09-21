@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   createErrorResponse,
@@ -5,7 +6,6 @@ import {
   generateTraceId,
 } from "@shared/types";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
 import {
@@ -33,10 +33,8 @@ import {
   validatePackageNames,
 } from "./policy";
 
-dotenv.config();
-
 const app = express();
-const PORT = Number(process.env.PORT) || 3012;
+const PORT = getConfig().packagemanager.port;
 const WORKSPACE_ROOT = getPackageManagerWorkspaceRoot();
 
 function getErrorMessage(error: unknown): string {

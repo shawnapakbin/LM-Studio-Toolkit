@@ -34,7 +34,6 @@
   - AskUser/dist/
   - RAG/dist/
   - Skills/dist/
-  - ECM/dist/
   - Memory/dist/
   - AgentRunner/dist/
   - Observability/dist/
@@ -49,7 +48,7 @@
 - [ ] Run `npm run startup:check:strict`
 - [ ] All MCP binaries present (`dist/mcp-server.js`)
 - [ ] Environment variables validated
-- [ ] `mcp.json` configuration synchronized with README
+- [ ] Plugin registration synchronized (`npm run verify:mcp-sync` exits 0 — 16 registered entries)
 - [ ] Run `npm run test:mcp` and confirm MCP integration suites pass for AskUser, RAG, and Terminal
 - [ ] Run live gates (`npm run test:mcp:live` and `npm run test:mcp:live:matrix`) with `LMSTUDIO_LIVE_TEST=true`
 - [ ] Confirm matrix flow unloads all loaded LM Studio models before loading each target model

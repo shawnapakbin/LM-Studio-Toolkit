@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
 import { platform } from "os";
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   OperationTimer,
@@ -9,7 +10,6 @@ import {
   generateTraceId,
 } from "@shared/types";
 import cors from "cors";
-import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import { getRegistry } from "llm-toolkit-observability";
 import {
@@ -20,8 +20,6 @@ import {
   truncateOutput,
 } from "./policy";
 import { runPunchout } from "./punchout";
-
-dotenv.config();
 
 // Setup observability metrics
 const metrics = getRegistry();
@@ -38,9 +36,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-const PORT = Number(process.env.PORT ?? 3333);
-const DEFAULT_TIMEOUT_MS = Number(process.env.TERMINAL_DEFAULT_TIMEOUT_MS ?? 60000);
-const MAX_TIMEOUT_MS = Number(process.env.TERMINAL_MAX_TIMEOUT_MS ?? 120000);
+const PORT = getConfig().terminal.port;
+const DEFAULT_TIMEOUT_MS = getConfig().terminal.defaultTimeoutMs;
+const MAX_TIMEOUT_MS = getConfig().terminal.maxTimeoutMs;
 const MAX_OUTPUT_CHARS = DEFAULT_MAX_OUTPUT_CHARS;
 
 // Auto-detect operating system

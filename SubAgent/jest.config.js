@@ -7,6 +7,7 @@ module.exports = {
   extensionsToTreatAsEsm: [".ts"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "mjs", "json"],
   moduleNameMapper: {
+    "^@shared/types/toolCallNormalizer$": "<rootDir>/../shared/toolCallNormalizer",
     "^@shared/(.*)$": "<rootDir>/../shared/$1",
     "^(\\.{1,2}/.*)\\.js$": "$1",
     "^llm-toolkit-observability$": "<rootDir>/tests/mocks/llm-toolkit-observability.ts",
@@ -24,6 +25,7 @@ module.exports = {
           strict: true,
           declaration: false,
           sourceMap: true,
+          rootDir: "..",
         },
       },
     ],

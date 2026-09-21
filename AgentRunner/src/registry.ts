@@ -3,6 +3,7 @@
  *
  * Provides tool discovery, health checking, and metadata management.
  */
+import { getConfig } from "@shared/config";
 
 /**
  * Tool capability categories
@@ -286,7 +287,7 @@ export const defaultRegistry = new ToolRegistry();
  * Register default tools from the workspace
  */
 export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): void {
-  const basePort = Number(process.env.BASE_PORT) || 3330;
+  const basePort = getConfig().agentrunner.basePort;
 
   // Terminal Tool
   registry.register({
@@ -354,8 +355,7 @@ export function registerDefaultTools(registry: ToolRegistry = defaultRegistry): 
   });
 
   // Browserless Tool (MCP Cloud)
-  const browserlessToken =
-    process.env.BROWSERLESS_API_TOKEN || process.env.BROWSERLESS_API_KEY || "";
+  const browserlessToken = getConfig().browserless.apiKey || "";
   const browserlessBaseUrl = "https://mcp.browserless.io/mcp";
   const browserlessEndpoint = browserlessToken
     ? `${browserlessBaseUrl}?token=${browserlessToken}`

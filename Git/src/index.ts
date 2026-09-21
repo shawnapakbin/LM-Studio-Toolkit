@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   createErrorResponse,
@@ -5,7 +6,6 @@ import {
   generateTraceId,
 } from "@shared/types";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
 import {
@@ -43,14 +43,12 @@ import {
   validateRepoPath,
 } from "./policy";
 
-dotenv.config();
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3011;
+const PORT = getConfig().git.port;
 const WORKSPACE_ROOT = getGitWorkspaceRoot();
 
 app.use(cors());

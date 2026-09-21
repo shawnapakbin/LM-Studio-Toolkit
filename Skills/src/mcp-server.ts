@@ -1,11 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import { defineSkill, deleteSkill, executeSkill, getSkill, listSkills } from "./skills";
-
-dotenv.config();
 
 // Flat input shape — all fields optional except action.
 // Cast to any to avoid Zod v3/v4 compat type depth errors in the SDK generics.

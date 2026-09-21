@@ -1,23 +1,52 @@
-import "dotenv/config";
+import { blenderbridgeSchema, getConfig } from "@shared/config";
 import { BlenderBridgeConfig } from "./types";
 
 /**
- * Loads BlenderBridge configuration from environment variables with defaults.
- * Calls validateConfig() internally before returning.
+ * BlenderBridge default values, sourced from the unified `@shared/config`
+ * schema. Reading defaults through the schema (rather than `getConfig()`)
+ * guarantees they are always available even when the current environment
+ * carries a BlenderBridge value that the unified loader would reject — in
+ * that case BlenderBridge's own `validateConfig()` remains the authority for
+ * producing the contract error message.
+ */
+function loadDefaults(): { host: string; port: number; command: string; args: string } {
+  try {
+    // Prefer the fully-resolved unified config (honors a config file, if any).
+    return getConfig().blenderbridge;
+  } catch {
+    // Env carries a value the unified loader rejects; use pure schema defaults.
+    return blenderbridgeSchema.parse({});
+  }
+}
+
+/**
+ * Loads BlenderBridge configuration.
  *
- * Environment variables:
- * - BLENDER_MCP_HOST: default "127.0.0.1"
- * - BLENDER_MCP_PORT: default "9876", integer 1-65535
- * - BLENDER_MCP_COMMAND: default "blender-mcp"
- * - BLENDER_MCP_ARGS: default "", whitespace-separated, max 1024 chars total
+ * Defaults are sourced from the unified `@shared/config` system, but the
+ * BlenderBridge-specific environment variables (`BLENDER_MCP_HOST`,
+ * `BLENDER_MCP_PORT`, `BLENDER_MCP_COMMAND`, `BLENDER_MCP_ARGS`) are read
+ * directly from `process.env` on every call. This preserves BlenderBridge's
+ * own validation contract: values are read fresh (no caching between calls),
+ * an empty-string env var falls back to the default, and invalid values are
+ * rejected by `validateConfig()` with a message naming both the variable and
+ * the offending value.
+ *
+ * Calls validateConfig() internally before returning.
  */
 export function loadConfig(): BlenderBridgeConfig {
-  const host = process.env.BLENDER_MCP_HOST || "127.0.0.1";
-  const portStr = process.env.BLENDER_MCP_PORT || "9876";
-  const command = process.env.BLENDER_MCP_COMMAND || "blender-mcp";
-  const argsRaw = process.env.BLENDER_MCP_ARGS || "";
+  // Unified-config defaults (used when the corresponding env var is unset/empty).
+  const defaults = loadDefaults();
 
-  const port = Number(portStr);
+  // Empty string → fall back to default (parity with the historical `||` behavior).
+  const host = process.env.BLENDER_MCP_HOST || defaults.host;
+  const command = process.env.BLENDER_MCP_COMMAND || defaults.command;
+  const argsRaw = process.env.BLENDER_MCP_ARGS ?? defaults.args;
+
+  // Port: empty string → default; otherwise coerce the raw value via Number()
+  // so non-integers (floats like "1.1") and non-numerics ("abc" → NaN) survive
+  // to validateConfig(), which rejects them with the offending value in the message.
+  const portRaw = process.env.BLENDER_MCP_PORT;
+  const port = portRaw === undefined || portRaw === "" ? defaults.port : Number(portRaw);
 
   const args = argsRaw.split(/\s+/).filter((s) => s.length > 0);
 

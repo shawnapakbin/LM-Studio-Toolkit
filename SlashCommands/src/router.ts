@@ -4,6 +4,7 @@
 
 import fs from "fs";
 import path from "path";
+import { getConfig } from "@shared/config";
 import Database from "better-sqlite3";
 import { DEFAULT_SESSION, ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
@@ -371,7 +372,7 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
 }
 
 function queryMemory(fn: (db: Database.Database) => unknown): unknown {
-  const dbPath = process.env.MEMORY_DB_PATH ?? path.join(process.cwd(), "data", "agent-memory.db");
+  const dbPath = getConfig().memory.dbPath ?? path.join(process.cwd(), "data", "agent-memory.db");
 
   if (!fs.existsSync(dbPath)) {
     return {

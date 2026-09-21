@@ -1,4 +1,5 @@
 import path from "path";
+import { getConfig } from "@shared/config";
 
 /**
  * Validate and sanitize file path to prevent directory traversal
@@ -163,7 +164,7 @@ export function validateContentSafety(content: string): { safe: boolean; reason?
  * Get workspace root from environment or default
  */
 export function getWorkspaceRoot(): string {
-  const root = process.env.FILE_EDITOR_WORKSPACE_ROOT || process.cwd();
+  const root = getConfig().fileeditor.workspaceRoot || process.cwd();
   return path.resolve(root);
 }
 

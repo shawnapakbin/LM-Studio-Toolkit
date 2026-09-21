@@ -220,26 +220,9 @@ curl -X POST http://localhost:3335/tools/calculate_engineering \
 
 ## LM Studio Integration
 
-Add this configuration to your LM Studio `mcp.json`:
+Calculator ships inside the `common` plugin entry (which bundles Calculator, Clock, AskUser, and DocumentScraper). The toolkit uses a plugin-only configuration model — the `common` plugin is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-```json
-{
-  "mcpServers": {
-    "calculator": {
-      "command": "node",
-      "args": ["Calculator/dist/mcp-server.js"],
-      "env": {
-        "CALCULATOR_DEFAULT_PRECISION": "12",
-        "CALCULATOR_MAX_PRECISION": "20"
-      }
-    }
-  }
-}
-```
-
-**Tip**: From repo root, run `npm run mcp:print-config` to print a ready-to-paste config with absolute paths for your current folder.
-
-**Environment Variables** (optional):
+**Environment Variables** (optional, set via `llm-toolkit.config.yaml`):
 - `CALCULATOR_DEFAULT_PRECISION`: Default decimal places (1–20)
 - `CALCULATOR_MAX_PRECISION`: Maximum allowed decimal places
 

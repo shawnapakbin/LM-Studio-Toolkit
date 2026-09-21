@@ -1,13 +1,11 @@
 import path from "node:path";
+import { getConfig } from "@shared/config";
 import { ErrorCode, OperationTimer, createErrorResponse, generateTraceId } from "@shared/types";
 import cors from "cors";
-import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import { handleAskUserRequest } from "./ask-user";
 import { AskUserStore } from "./store";
 import type { AskUserRequest } from "./types";
-
-dotenv.config();
 
 function normalizeAskUserRequest(input: unknown): AskUserRequest {
   const raw = (input ?? {}) as Record<string, unknown>;
@@ -49,7 +47,7 @@ function normalizeAskUserRequest(input: unknown): AskUserRequest {
   return { action, payload } as AskUserRequest;
 }
 
-const DB_PATH = process.env.ASK_USER_DB_PATH ?? "./memory.db";
+const DB_PATH = getConfig().askuser.dbPath;
 const store = new AskUserStore(
   DB_PATH === ":memory:" || path.isAbsolute(DB_PATH) ? DB_PATH : path.resolve(__dirname, DB_PATH),
 );
@@ -61,7 +59,7 @@ app.use(express.json({ limit: "1mb" }));
 // Serve the interview UI static files
 app.use("/ui", express.static(path.resolve(__dirname, "..", "ui")));
 
-const PORT = Number(process.env.PORT ?? 3338);
+const PORT = getConfig().askuser.port;
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ ok: true, service: "lm-studio-ask-user-tool", version: "2.2.6" });

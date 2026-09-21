@@ -1,12 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import { handleRAGRequest } from "./rag";
 import type { RagAction, RagRequest } from "./types";
-
-dotenv.config();
 
 // Flat input shape — all fields optional except action.
 // The SDK serializes this to JSON Schema for the model.

@@ -85,24 +85,13 @@ Response:
 }
 ```
 
-## LM Studio `mcp.json`
+## LM Studio Integration
 
-```json
-{
-  "mcpServers": {
-    "terminal": {
-      "command": "node",
-      "args": ["Terminal/dist/mcp-server.js"],
-      "env": {
-        "TERMINAL_DEFAULT_TIMEOUT_MS": "60000",
-        "TERMINAL_MAX_TIMEOUT_MS": "120000"
-      }
-    }
-  }
-}
-```
+Terminal is one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model — this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-**Tip**: From repo root, run `npm run mcp:print-config` to print a ready-to-paste config with absolute paths for your current folder.
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `TERMINAL_DEFAULT_TIMEOUT_MS` — default command timeout (default `60000`)
+- `TERMINAL_MAX_TIMEOUT_MS` — maximum allowed timeout (default `120000`)
 
 You can run MCP mode directly for testing with (from `Terminal` folder):
 - `npm run dev:mcp`

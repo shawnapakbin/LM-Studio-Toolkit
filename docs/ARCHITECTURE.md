@@ -15,7 +15,7 @@
 
 ### 1. Tool Contract Pattern & Normalization Layer
 
-Every tool follows a standardized input/output contract. All tool calls—regardless of origin (HTTP, MCP, or workflow runner)—are normalized to a canonical schema before execution using a shared normalization utility (`shared/toolCallNormalizer.ts`). This ensures compatibility with both legacy and new tool call formats, reduces integration bugs, and enables robust multi-model orchestration. The normalization is enforced in both the MCP server and workflow runner.
+Every tool follows a standardized input/output contract. Every tool-call entry point routes through the single shared `normalizeToolCall` utility (`shared/toolCallNormalizer.ts`) before execution — AgentRunner, SubAgent, and AskUser all use this one unified path, with no passthrough stubs, legacy branches, or alternative normalization paths. Because the same raw input yields identical canonical output at every entry point, integration bugs are reduced and robust multi-model orchestration is enabled.
 
 **Input**: Zod-validated parameters (type-safe, documented)
 
@@ -102,7 +102,6 @@ SQLite tables capture agent intelligence:
 | **RAG** | Persistent retrieval augmented generation with source lifecycle + approval-gated writes | 3339 | ✅ Working |
 | **PythonShell** | Python execution + REPL/IDLE launch with startup detection guidance | 3343 | ✅ Working |
 | **Skills** | Persistent skill/playbook system — define parameterized step templates, execute by name | 3341 | ✅ Working |
-| **ECM** | Extended Context Memory — 1M token context via vector retrieval, session isolation, and auto-compaction | 3342 | ✅ Working |
 | **CSVExporter** | Export parsed table data to CSV files | 3340 | ✅ Working |
 | **Git** | Safe git operations with branch protection | 3011 | ✅ Working |
 | **FileEditor** | Safe file read/write/search with workspace sandboxing | 3010 | ✅ Working |
@@ -139,12 +138,10 @@ npm link --workspace=CLI
 | `llm terminal` / `llm run` | `"<cmd>"` with `--cwd`, `--timeout` |
 | `llm skills` | `list`, `get`, `run`, `define`, `delete` |
 | `llm memory` | `stats`, `history`, `patterns`, `clear` |
-| `llm ecm` | `store`, `retrieve`, `list`, `delete`, `summarize`, `clear`, `compact` |
 | `llm rag` | `query`, `ingest`, `list`, `delete` |
 | `llm ask` | `"<prompt>"` with `--title`, `--expires` |
 | `llm workflow` | `run <file.json>` with `--session`, `--auto-approve`, `--timeout` |
 | `llm config` | `show`, `set <key> <value>` |
-| `llm compact` | top-level shortcut for ECM context compaction |
 
 The CLI is intended for scripting and automation. See [`CLI/README.md`](../CLI/README.md) for the full command reference.
 
@@ -154,15 +151,13 @@ The `SlashCommands/` workspace is an MCP server that exposes a single `slash_com
 
 **Architecture:**
 - `parser.ts` — tokenizer + flag extractor; handles quoted strings and `--flag <value>` / `--flag` boolean syntax
-- `router.ts` — maps parsed `DispatchDescriptor` to tool HTTP endpoints; `/compact` runs a two-step ECM summarize + list; `/tools health` runs parallel health checks
+- `router.ts` — maps parsed `DispatchDescriptor` to tool HTTP endpoints; `/tools health` runs parallel health checks
 - `mcp-server.ts` — registers the `slash_command` tool with the full command reference in its description
 
 **Handled commands:**
 
 | Command | Routes to |
 |---|---|
-| `/compact` | ECM `summarize_session` → `list_segments` (reports remaining count) |
-| `/ecm store\|retrieve\|list\|summarize\|clear` | ECM tool (port 3342) |
 | `/calc <expr>` | Calculator tool (port 3335) |
 | `/browse <url>` | WebBrowser tool (port 3334) |
 | `/clock` | Clock tool (port 3337) |
@@ -255,16 +250,8 @@ const BLOCKED = [
 ## Deployment Targets
 
 ### LM Studio (MCP Protocol)
-```json
-{
-  "mcpServers": {
-    "llm-toolkit": {
-      "command": "node",
-      "args": ["dist/lm-studio-runner.js"]
-    }
-  }
-}
-```
+
+The toolkit uses a plugin-only configuration model — the sole supported method. All 16 registered servers are provisioned automatically as LM Studio plugins via `npm run mcp:sync-lmstudio`, which writes only to per-plugin directories and never to the user-editable top-level LM Studio config. See [LM-Studio-MCP.md](LM-Studio-MCP.md).
 
 ### VS Code Extension (Copilot Chat integration)
 - Right-click context: "Fix with Agent", "Generate Tests"
@@ -335,33 +322,5 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 
 ---
 
-## ECM Auto-Compaction
-
-ECM supports two automatic compaction modes that work together:
-
-### Threshold Mode (global default)
-
-Fires when estimated context pressure crosses a ratio threshold:
-- Trigger condition: `used_tokens / model_context_limit >= ECM_AUTO_COMPACT_THRESHOLD` (default `0.70`).
-- Trigger location: ECM server policy (fires from `store_segment` and `retrieve_context`).
-- Primary strategy: extractive summary of older non-summary segments.
-- Hybrid fallback: if extractive compression is insufficient, request LLM highlights summary.
-- Quality gate: LLM fallback accepted only when confidence/highlights/decisions thresholds are met.
-- Retention policy: keep newest `N` segments plus summary; purge compacted historical segments.
-- Manual override: `auto_compact_now` forces compaction for the session.
-- Telemetry: `retrieve_context` returns auto-compaction status metadata for observability.
-
-### Continuous Compact Mode (per-session)
-
-Fires after every single `store_segment` regardless of token pressure. Designed for low-end hardware where prompt processing time grows linearly with context size — keeping context minimal at all times provides consistent response latency.
-
-- Activation: `ECM_CONTINUOUS_COMPACT_ENABLED=true` globally, or `set_continuous_compact` action per session.
-- When active for a session, threshold mode is bypassed for that session.
-- Storage: per-session policy stored in `ecm_session_policy` SQLite table; survives across `clear_session` calls.
-- Telemetry: `autoCompaction.mode = "continuous"`, `autoCompaction.policySource = "session" | "env"`.
-- Throttle: `ECM_CONTINUOUS_COMPACT_MIN_INTERVAL_MS` (default `0`) prevents double-fires in rapid-store scenarios.
-
----
-
 **Last Updated**: April 2026  
-**Version**: 2.2.0
+**Version**: 5.1.1

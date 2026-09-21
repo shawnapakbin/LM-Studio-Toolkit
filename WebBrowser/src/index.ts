@@ -1,18 +1,16 @@
+import { getConfig } from "@shared/config";
 import cors from "cors";
-import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 import { type BrowseInput, browseWeb } from "./browser";
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-const PORT = Number(process.env.PORT ?? 3334);
-const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_DEFAULT_TIMEOUT_MS ?? 20000);
-const MAX_TIMEOUT_MS = Number(process.env.BROWSER_MAX_TIMEOUT_MS ?? 60000);
-const MAX_CONTENT_CHARS = Number(process.env.BROWSER_MAX_CONTENT_CHARS ?? 12000);
+const PORT = getConfig().webbrowser.port;
+const DEFAULT_TIMEOUT_MS = getConfig().webbrowser.defaultTimeoutMs;
+const MAX_TIMEOUT_MS = getConfig().webbrowser.maxTimeoutMs;
+const MAX_CONTENT_CHARS = getConfig().webbrowser.maxContentChars;
 
 type BrowseRequest = Partial<BrowseInput>;
 

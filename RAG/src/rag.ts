@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import path from "path";
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   type ToolResponse,
@@ -32,16 +33,33 @@ import type {
 } from "./types";
 
 function resolveDbPath(): string {
-  const rawDbPath = process.env.RAG_DB_PATH ?? "../rag.db";
+  // RAG_DB_PATH is read fresh (env → unified-config default) so the effective
+  // database can be selected at service-init time (e.g. ":memory:" for tests).
+  const rawDbPath = process.env.RAG_DB_PATH?.trim() || getConfig().rag.dbPath;
   if (rawDbPath === ":memory:") {
     return rawDbPath;
   }
   return path.isAbsolute(rawDbPath) ? rawDbPath : path.resolve(__dirname, rawDbPath);
 }
-const DOC_SCRAPER_ENDPOINT =
-  process.env.RAG_DOC_SCRAPER_ENDPOINT ?? "http://localhost:3336/tools/read_document";
-const ASK_USER_ENDPOINT =
-  process.env.RAG_ASK_USER_ENDPOINT ?? "http://localhost:3338/tools/ask_user_interview";
+
+function resolveDocScraperEndpoint(): string {
+  return process.env.RAG_DOC_SCRAPER_ENDPOINT?.trim() || getConfig().rag.docScraperEndpoint;
+}
+
+function resolveAskUserEndpoint(): string {
+  return process.env.RAG_ASK_USER_ENDPOINT?.trim() || getConfig().rag.askUserEndpoint;
+}
+
+function isApprovalBypassed(): boolean {
+  const raw = process.env.RAG_BYPASS_APPROVAL?.trim().toLowerCase();
+  if (raw === "true" || raw === "1") {
+    return true;
+  }
+  if (raw === "false" || raw === "0") {
+    return false;
+  }
+  return getConfig().rag.bypassApproval;
+}
 
 const APPROVAL_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -233,8 +251,10 @@ class RAGService {
     approvalInterviewId?: string,
     approvalToken?: string,
   ): Promise<{ ok: true } | { ok: false; response: ToolResponse }> {
-    // Env-var bypass: skip approval, log for auditability
-    if (process.env.RAG_BYPASS_APPROVAL === "true" || process.env.RAG_BYPASS_APPROVAL === "1") {
+    // Env-var bypass: skip approval, log for auditability.
+    // RAG_BYPASS_APPROVAL is read fresh (env → unified-config default) so the
+    // gate can be toggled at request time.
+    if (isApprovalBypassed()) {
       console.error(
         `[RAG] Approval bypassed for '${action}' (RAG_BYPASS_APPROVAL=true) at ${new Date().toISOString()}`,
       );
@@ -255,9 +275,10 @@ class RAGService {
 
     // AskUser HTTP path: used when the AskUser HTTP server is separately running
     if (approvalInterviewId) {
+      const askUserEndpoint = resolveAskUserEndpoint();
       let response: Response;
       try {
-        response = await fetch(ASK_USER_ENDPOINT, {
+        response = await fetch(askUserEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -270,7 +291,7 @@ class RAGService {
           ok: false,
           response: createErrorResponse(
             ErrorCode.EXECUTION_FAILED,
-            `AskUser service is unreachable at ${ASK_USER_ENDPOINT}. Use the chat-first approval flow instead: call without approvalInterviewId to receive an approvalToken, confirm with the user, then retry with that approvalToken.`,
+            `AskUser service is unreachable at ${askUserEndpoint}. Use the chat-first approval flow instead: call without approvalInterviewId to receive an approvalToken, confirm with the user, then retry with that approvalToken.`,
           ),
         };
       }
@@ -342,8 +363,9 @@ class RAGService {
     let content: string | undefined;
     let title: string | undefined;
     let docScraperError: string | undefined;
+    const docScraperEndpoint = resolveDocScraperEndpoint();
     try {
-      response = await fetch(DOC_SCRAPER_ENDPOINT, {
+      response = await fetch(docScraperEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -356,7 +378,7 @@ class RAGService {
         title = payload?.title || payload?.data?.title || document.title;
       }
     } catch (_err) {
-      docScraperError = `DocumentScraper service is unreachable at ${DOC_SCRAPER_ENDPOINT}. Ensure the DocumentScraper HTTP server is running, or provide document content directly via the 'text' field instead.`;
+      docScraperError = `DocumentScraper service is unreachable at ${docScraperEndpoint}. Ensure the DocumentScraper HTTP server is running, or provide document content directly via the 'text' field instead.`;
     }
 
     // If DocumentScraper failed or returned empty, try Browserless as fallback for dynamic/JS docs
@@ -373,16 +395,10 @@ class RAGService {
         })();
         if (dynamicDomains.some((d) => urlHost.endsWith(d))) {
           // Token resolution: BROWSERLESS_API_KEY with BROWSERLESS_TOKEN fallback
-          const browserlessToken = (
-            process.env.BROWSERLESS_API_KEY ||
-            process.env.BROWSERLESS_TOKEN ||
-            ""
-          ).trim();
+          const browserlessToken = (getConfig().browserless.apiKey || "").trim();
 
           // Endpoint resolution: BROWSERLESS_MCP_ENDPOINT > BROWSERLESS_API_URL + /smartscraper > default
-          const browserlessEndpoint =
-            process.env.BROWSERLESS_MCP_ENDPOINT ||
-            `${process.env.BROWSERLESS_API_URL || "https://production-sfo.browserless.io"}/smartscraper`;
+          const browserlessEndpoint = `${getConfig().browserless.apiUrl || "https://production-sfo.browserless.io"}/smartscraper`;
 
           let browserlessResp: Response;
           try {

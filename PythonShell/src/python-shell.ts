@@ -2,12 +2,13 @@ import { type SpawnSyncReturns, spawn, spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { getConfig } from "@shared/config";
 import { detectPythonEnvironment, getPythonInstallInstructions } from "./python-env";
 
-const WORKSPACE_ROOT = path.resolve(process.env.PYTHON_SHELL_WORKSPACE_ROOT ?? process.cwd());
-const DEFAULT_TIMEOUT_MS = Number(process.env.PYTHON_SHELL_DEFAULT_TIMEOUT_MS ?? 60000);
-const MAX_TIMEOUT_MS = Number(process.env.PYTHON_SHELL_MAX_TIMEOUT_MS ?? 120000);
-const MAX_OUTPUT_CHARS = Number(process.env.PYTHON_SHELL_MAX_OUTPUT_CHARS ?? 50000);
+const WORKSPACE_ROOT = path.resolve(getConfig().pythonshell.workspaceRoot || process.cwd());
+const DEFAULT_TIMEOUT_MS = getConfig().pythonshell.defaultTimeoutMs;
+const MAX_TIMEOUT_MS = getConfig().pythonshell.maxTimeoutMs;
+const MAX_OUTPUT_CHARS = getConfig().pythonshell.maxOutputChars;
 
 type SafeCwdResult = { ok: true; cwd: string } | { ok: false; message: string };
 

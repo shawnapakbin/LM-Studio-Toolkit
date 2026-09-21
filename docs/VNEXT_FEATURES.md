@@ -3,11 +3,29 @@
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
 Add 0.0.1 to x.x.x for every push and update documentation.
-Release target: `v2.3.1`
+Release target: `v2.4.0`
 Status: `in-progress`
 Owner: `core-maintainers`
 
-## Included vNext Features (v2.3.1 — In Progress)
+## Included vNext Features (v2.4.0 — In Progress)
+
+1. Unified Configuration (`shared/config/`)
+- Scope: Single-source YAML configuration file (`llm-toolkit.config.yaml`) replacing per-tool environment variables. Includes `shared/config/` library, Zod schema validation, and `migrate-config` CLI command for upgrading from .env files.
+- Key paths: `shared/config/`, `llm-toolkit.config.yaml`, `scripts/workspace/check-migrate-config.js`.
+- Branch: `2.4.x`
+
+2. Tauri Installer (`Installer/`)
+- Scope: Native GUI installer built with Tauri v2 + React for cross-platform distribution.
+- Artifacts: Windows portable EXE, macOS DMG, Linux AppImage.
+- Key paths: `Installer/src/`, `Installer/src-tauri/`, `Installer/manifests/`.
+- Branch: `2.4.x`
+
+3. CI Pipeline Updates
+- Scope: GitHub Actions workflow updates for Tauri build matrix (Windows, macOS, Linux), artifact publishing, and unified config validation step.
+- Key paths: `.github/workflows/`.
+- Branch: `2.4.x`
+
+## Released: v2.3.1
 
 1. `SubAgent` workspace (`SubAgent/`)
 - Scope: MCP server providing fan-out/fan-in parallel inference dispatch for sub-agent task delegation against LM Studio's OpenAI-compatible API.
@@ -122,7 +140,7 @@ The following modules were fully integrated in the v2.2.0 release train and are 
 - Startup behavior: startup checks run Python 3 detection on every run, persist detection history to `scripts/workspace/logs/python-detection.json`, and provide install guidance from the official source when Python is missing.
 - Key paths: `PythonShell/src/`, `PythonShell/tests/`, `scripts/workspace/check-python.js`.
 
-## Planned for v2.4.0+
+## Planned for v2.5.0+
 
 - Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm file *`, `llm pkg *`, `llm build *`, `llm observe *`, `llm session *`
 - Corresponding slash commands: `/workflow`, `/git`, `/file`, `/build`, `/observe`, `/session`

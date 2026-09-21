@@ -103,28 +103,6 @@ npx tsx CLI/src/index.ts <command>
 | `llm memory clear` | Wipe all run history (prompts for confirmation) |
 | `llm memory clear --confirm` | Skip confirmation |
 
-### ECM (Extended Context Memory)
-
-| Command | Description |
-|---|---|
-| `llm ecm store -c "<text>"` | Store a memory segment |
-| `llm ecm retrieve -q "<query>"` | Retrieve relevant segments by query |
-| `llm ecm list` | List all segments in a session |
-| `llm ecm delete <segmentId>` | Delete a segment by ID |
-| `llm ecm summarize` | Summarize session and collapse old segments |
-| `llm ecm clear` | Clear all segments in a session |
-| `llm ecm compact` | **Compact context** — summarize + drop old segments |
-
-### /compact (top-level shortcut)
-
-```bash
-llm compact
-llm compact --session my-session
-llm compact --keep-newest 10
-```
-
-Runs `summarize_session` on the ECM session, then reports remaining segment count. Use this to free up context memory when a session grows large.
-
 ### RAG
 
 | Command | Description |
@@ -176,8 +154,5 @@ These are identified as useful additions for future implementation:
 - `llm observe logs` — tail Observability logs
 - `llm observe metrics` — dump current metrics snapshot
 - `llm observe trace <traceId>` — look up a trace by ID
-- `llm session new` — create a new named ECM session
-- `llm session list` — list active ECM sessions
-- `llm session switch <id>` — set the default session for subsequent commands
 - `llm config show` — print current CLI config (ports, session, etc.)
 - `llm config set <key> <value>` — override a config value

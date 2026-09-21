@@ -1,4 +1,5 @@
 import path from "path";
+import { getConfig } from "@shared/config";
 import fs from "fs/promises";
 import mammoth from "mammoth";
 import {
@@ -77,7 +78,7 @@ export type CrawlResult = {
   errors: string[];
 };
 
-const MAX_CONTENT_BYTES = Number(process.env.DOC_SCRAPER_MAX_CONTENT_BYTES ?? 50 * 1024 * 1024);
+const MAX_CONTENT_BYTES = getConfig().documentscraper.maxContentBytes;
 
 function htmlToText(html: string): string {
   return html

@@ -133,19 +133,10 @@ The response contains `resolvedSteps` — the step sequence with all `{{placehol
 
 ## LM Studio Integration
 
-```json
-{
-  "mcpServers": {
-    "skills": {
-      "command": "node",
-      "args": ["Skills/dist/mcp-server.js"],
-      "env": {
-        "SKILLS_DB_PATH": "./skills.db"
-      }
-    }
-  }
-}
-```
+Skills is one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model — this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
+
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `SKILLS_DB_PATH` — SQLite database path (default `./skills.db`)
 
 ## Setup
 

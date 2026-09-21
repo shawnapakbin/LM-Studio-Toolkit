@@ -117,22 +117,13 @@ curl -X POST http://localhost:3334/tools/browse_web \
 
 ## LM Studio Integration
 
-```json
-{
-  "mcpServers": {
-    "web-browser": {
-      "command": "node",
-      "args": ["WebBrowser/dist/mcp-server.js"],
-      "env": {
-        "BROWSER_DEFAULT_TIMEOUT_MS": "20000",
-        "BROWSER_MAX_TIMEOUT_MS": "60000",
-        "BROWSER_MAX_CONTENT_CHARS": "12000",
-        "BROWSER_HEADLESS": "true"
-      }
-    }
-  }
-}
-```
+WebBrowser is one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model — this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
+
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `BROWSER_DEFAULT_TIMEOUT_MS` — default navigation timeout (default `20000`)
+- `BROWSER_MAX_TIMEOUT_MS` — maximum allowed timeout (default `60000`)
+- `BROWSER_MAX_CONTENT_CHARS` — max characters returned (default `12000`)
+- `BROWSER_HEADLESS` — run Chromium headless (default `true`)
 
 ## Content Extraction
 

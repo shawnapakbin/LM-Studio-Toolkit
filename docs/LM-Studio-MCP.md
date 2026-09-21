@@ -12,21 +12,17 @@ Quick reference for connecting LLM Toolkit to LM Studio via the Model Context Pr
 
 ---
 
-## Generate Your `mcp.json`
+## Plugin-Only Configuration
 
-The easiest way to get a ready-to-paste config with correct absolute paths for your machine:
+The toolkit uses a **plugin-only configuration model** — this is the sole supported method. All 16 registered servers are provisioned automatically as LM Studio plugins; you never create, open, or edit any LM Studio config file by hand.
 
-```bash
-npm run mcp:print-config
-```
-
-To auto-deploy configs directly into your LM Studio MCP plugin folder:
+Provision (or re-provision) every toolkit plugin:
 
 ```bash
 npm run mcp:sync-lmstudio
 ```
 
-If LM Studio is installed in a non-default location:
+This writes only to per-plugin directories (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`) and never touches the user-editable top-level LM Studio config. If LM Studio is installed in a non-default location:
 
 ```bash
 # Windows PowerShell
@@ -34,79 +30,40 @@ $env:LMSTUDIO_MCP_PLUGIN_ROOT="C:\path\to\lmstudio\plugins\mcp"
 npm run mcp:sync-lmstudio
 ```
 
----
-
-## Available MCP Servers
-
-| Server key | Tool | Port | Description |
-|---|---|---|---|
-| `terminal` | `run_terminal_command` | 3333 | Execute shell commands (OS-aware) |
-| `web-browser` | `browse_web` | 3334 | Headless Chromium — JS rendering, screenshots, markdown |
-| `calculator` | `calculate_engineering` | 3335 | Math expressions, engineering notation, unit conversions |
-| `document-scraper` | `read_document` | 3336 | Read local/remote documents (PDF, DOCX, HTML, CSV) |
-| `clock` | `get_current_datetime` | 3337 | Current date/time with timezone + locale formatting |
-| `ask-user` | `ask_user_interview` | 3338 | Interactive clarification interview workflow |
-| `rag` | `ingest_documents`, `query_knowledge` | 3339 | Persistent retrieval-augmented generation |
-| `skills` | `skills` | 3341 | Define and execute named parameterized playbooks |
-| `ecm` | `ecm` | 3342 | Extended Context Memory — 1M token context via vector retrieval |
-| `browserless` | 7 tools | 3003 | Advanced browser automation (BrowserQL, screenshots, PDFs, scraping) |
-| `slash-commands` | `slash_command` | stdio | `/command` shortcuts for LM Studio chat |
+Per-server environment values are read from the unified `llm-toolkit.config.yaml`. See [mcp-json.md](mcp-json.md) for the full registration model.
 
 ---
 
-## Minimal `mcp.json` (Core Tools)
+## Registered Plugin Entries (16)
 
-```json
-{
-  "mcpServers": {
-    "terminal": {
-      "command": "node",
-      "args": ["Terminal/dist/mcp-server.js"],
-      "env": {
-        "TERMINAL_DEFAULT_TIMEOUT_MS": "60000",
-        "TERMINAL_MAX_TIMEOUT_MS": "120000"
-      }
-    },
-    "calculator": {
-      "command": "node",
-      "args": ["Calculator/dist/mcp-server.js"]
-    },
-    "clock": {
-      "command": "node",
-      "args": ["Clock/dist/mcp-server.js"]
-    },
-    "web-browser": {
-      "command": "node",
-      "args": ["WebBrowser/dist/mcp-server.js"],
-      "env": {
-        "BROWSER_HEADLESS": "true"
-      }
-    }
-  }
-}
-```
+The toolkit registers **16 plugin entries** — the single authoritative count. The `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`), so registered entries are fewer than the underlying tools.
 
-For the full config with all 11 tools, see the `mcp.json` example in [README.md](README.md#complete-mcpjson-example).
+| Registered entry | Description |
+|---|---|
+| `terminal` | Execute shell commands (OS-aware) |
+| `web-browser` | Headless Chromium — JS rendering, screenshots, markdown |
+| `common` | Bundles Calculator, Clock, AskUser, and DocumentScraper |
+| `browserless` | Advanced browser automation via the schema-proxy wrapper |
+| `rag` | Persistent retrieval-augmented generation |
+| `python-shell` | Python execution + REPL/IDLE launch |
+| `skills` | Define and execute named parameterized playbooks |
+| `slash-commands` | `/command` shortcuts for LM Studio chat |
+| `blender-bridge` | Bridge to a running Blender instance |
+| `3dtool` | 3D model viewer/editor |
+| `sub-agent` | Fan-out/fan-in parallel inference dispatch |
+| `lan-sub-agent` | LAN-aware multi-endpoint inference dispatch |
+| `git` | Safe git operations with branch protection |
+| `package-manager` | Multi-ecosystem package management |
+| `csv-exporter` | Export parsed table data to CSV |
+| `file-editor` | Safe file read/write/search (registered runtime MCP server) |
 
 ---
 
 ## Slash Commands
 
-Add `slash-commands` to your `mcp.json` to enable `/command` shortcuts in LM Studio chat:
+The `slash-commands` server is registered as a plugin automatically by `npm run mcp:sync-lmstudio` — no manual configuration is required. Build it with `npm run build:slash`, then type `/calc sin(30°)`, `/browse https://...`, etc. directly in chat.
 
-```json
-"slash-commands": {
-  "command": "node",
-  "args": ["SlashCommands/dist/mcp-server.js"],
-  "env": {
-    "SLASH_DEFAULT_SESSION": "default"
-  }
-}
-```
-
-Then type `/compact`, `/calc sin(30°)`, `/browse https://...`, etc. directly in chat.
-
-See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command reference.
+See [SLASH-COMMANDS.md](SLASH-COMMANDS.md) for the full command reference.
 
 ---
 
@@ -115,11 +72,11 @@ See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command refere
 | Problem | Fix |
 |---------|-----|
 | `Cannot find module '...dist/mcp-server.js'` | Run `npm run build` then `npm run mcp:sync-lmstudio` |
-| Tool not appearing in LM Studio | Restart LM Studio after updating `mcp.json` |
+| Tool not appearing in LM Studio | Restart LM Studio after `npm run mcp:sync-lmstudio` |
 | `BROWSERLESS_API_KEY is not configured` | Add key to `.env`, re-run `npm run setup:repair` |
 | Path errors after moving the project | Run `npm run setup:repair` to regenerate bridge configs |
 
-See [docs/FAQ.md](docs/FAQ.md) for detailed issue explanations.
+See [FAQ.md](FAQ.md) for detailed issue explanations.
 
 ---
 

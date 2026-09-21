@@ -105,6 +105,8 @@ const checks = [
       const value = match && match[2] ? String(match[2]) : "";
       if (!value) return false;
       if (isPlaceholder(value)) return false;
+      // Template-literal interpolations (e.g. `${approvalToken}`) are code refs, not secrets.
+      if (/^\$\{[^}]*\}$/.test(value.trim())) return false;
       return true;
     },
   },
@@ -118,7 +120,9 @@ const checks = [
         normalized.includes("<you>") ||
         normalized.includes("<user>") ||
         normalized.includes("%userprofile%") ||
-        normalized.includes("$home")
+        normalized.includes("$home") ||
+        normalized.includes("yourname") ||
+        normalized.includes("/home/user/")
       ) {
         return false;
       }

@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-3dtool",
-  "version": "2.3.0",
+  "version": "5.1.1",
   "description": "3D model viewer and editor MCP server with multi-format support",
   "main": "dist/mcp-server.js",
   "types": "dist/mcp-server.d.ts",

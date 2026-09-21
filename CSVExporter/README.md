@@ -17,23 +17,12 @@ Exports parsed table data into clean CSV files for spreadsheet workflows.
 npm run build
 ```
 
-## LM Studio mcp.json
+## LM Studio Integration
 
-```json
-{
-  "mcpServers": {
-    "csv-exporter": {
-      "command": "node",
-      "args": ["CSVExporter/dist/mcp-server.js"],
-      "env": {
-        "CSV_EXPORT_ROOT": ""
-      }
-    }
-  }
-}
-```
+CSVExporter is one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model — this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-Tip: from repo root run npm run mcp:print-config for ready-to-paste absolute paths.
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `CSV_EXPORT_ROOT` — directory CSV files are written to (empty = workspace default)
 
 ## MCP Tool
 

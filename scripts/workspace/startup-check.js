@@ -51,6 +51,7 @@ if (!runNodeScript("scripts/workspace/check-python.js")) failed = true;
 if (!runNodeScript("scripts/workspace/verify-tools.js")) failed = true;
 if (!runNodeScript("scripts/workspace/verify-mcp-sync.js")) failed = true;
 if (!runNodeScript("scripts/workspace/smoke-test-mcp.js")) failed = true;
+if (!runNodeScript("scripts/workspace/check-migrate-config.js")) failed = true;
 
 if (failed) {
   console.error("\nStartup readiness check failed.");

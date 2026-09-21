@@ -1,11 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import { z } from "zod";
 import { openPythonIde, openPythonRepl, runPythonCode } from "./python-shell";
-
-dotenv.config();
 
 export function createPythonShellMcpServer(): McpServer {
   const server = new McpServer({

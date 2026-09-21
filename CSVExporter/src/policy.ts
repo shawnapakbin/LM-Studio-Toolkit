@@ -1,11 +1,20 @@
 import os from "os";
 import path from "path";
+import { getConfig } from "@shared/config";
 
 export const MAX_FILENAME_LENGTH = 120;
 
 export function getDocumentsDirectory(): string {
-  if (process.env.CSV_EXPORT_ROOT?.trim()) {
-    return path.resolve(process.env.CSV_EXPORT_ROOT.trim());
+  // Precedence: CSV_EXPORT_ROOT env var (read fresh each call) → unified-config
+  // default (`csvexporter.exportRoot`) → the platform Documents directory.
+  const envRoot = process.env.CSV_EXPORT_ROOT?.trim();
+  if (envRoot) {
+    return path.resolve(envRoot);
+  }
+
+  const exportRoot = getConfig().csvexporter.exportRoot?.trim();
+  if (exportRoot) {
+    return path.resolve(exportRoot);
   }
 
   const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();

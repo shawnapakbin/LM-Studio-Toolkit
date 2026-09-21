@@ -52,7 +52,7 @@ npm run startup:check:strict
 ```
 - Validates all MCP binaries exist
 - Checks environment configuration
-- Verifies mcp.json synchronization
+- Verifies plugin registration is in sync (`verify:mcp-sync`)
 - Duration: ~2-5 seconds
 
 ## Complete Verification

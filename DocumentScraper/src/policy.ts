@@ -1,4 +1,5 @@
 import path from "path";
+import { getConfig } from "@shared/config";
 
 export const MAX_REDIRECTS = 10;
 
@@ -79,7 +80,13 @@ export function isAllowedContentType(contentType: string | null): boolean {
 }
 
 export function getWorkspaceRoot(): string {
-  return path.resolve(process.env.DOC_SCRAPER_WORKSPACE_ROOT || process.cwd());
+  // Precedence: DOC_SCRAPER_WORKSPACE_ROOT env var (read fresh each call) →
+  // unified-config default (`documentscraper.workspaceRoot`) → process.cwd().
+  const envRoot = process.env.DOC_SCRAPER_WORKSPACE_ROOT?.trim();
+  if (envRoot) {
+    return path.resolve(envRoot);
+  }
+  return path.resolve(getConfig().documentscraper.workspaceRoot || process.cwd());
 }
 
 export function validatePath(
@@ -141,8 +148,8 @@ export function isBlockedPath(filePath: string): { blocked: boolean; reason?: st
 }
 
 export function clampTimeout(timeoutMs?: number): number {
-  const defaultTimeout = Number(process.env.DOC_SCRAPER_DEFAULT_TIMEOUT_MS ?? 20000);
-  const maxTimeout = Number(process.env.DOC_SCRAPER_MAX_TIMEOUT_MS ?? 60000);
+  const defaultTimeout = getConfig().documentscraper.defaultTimeoutMs;
+  const maxTimeout = getConfig().documentscraper.maxTimeoutMs;
   const fromReq = Number(timeoutMs ?? defaultTimeout);
   if (!Number.isFinite(fromReq)) {
     return defaultTimeout;
@@ -151,7 +158,7 @@ export function clampTimeout(timeoutMs?: number): number {
 }
 
 export function clampMaxChars(maxContentChars?: number): number {
-  const maxChars = Number(process.env.DOC_SCRAPER_MAX_CONTENT_CHARS ?? 50000);
+  const maxChars = getConfig().documentscraper.maxContentChars;
   const fromReq = Number(maxContentChars ?? maxChars);
   if (!Number.isFinite(fromReq)) {
     return maxChars;

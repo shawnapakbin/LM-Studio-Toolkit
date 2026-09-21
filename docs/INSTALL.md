@@ -73,6 +73,63 @@ npm run setup:gui      # Browser GUI
 | 4 | Runs `npm run build` (compiles all tools + CLI + SlashCommands) |
 | 5 | Verifies all tool binaries exist |
 | 6 | Syncs LM Studio bridge configs with correct paths and API key |
+| 7 | Generates `llm-toolkit.config.yaml` from defaults (if not already present) |
+
+---
+
+## Unified Configuration
+
+Starting with v2.4.0, all tool settings are managed through a single YAML file at the project root:
+
+```
+llm-toolkit.config.yaml
+```
+
+This file is the **single source of truth** for every tool server's configuration — ports, timeouts, API keys, and workspace paths. Individual `.env` variables and per-tool environment overrides still work but are superseded by values in the config file when present.
+
+### Example (trimmed)
+
+```yaml
+global:
+  logLevel: info              # Log level for all tools (info | debug | warn | error)
+  workspaceRoot: .            # Root workspace path
+
+terminal:
+  port: 3333                  # HTTP port for Terminal server
+  defaultTimeoutMs: 60000     # Default command timeout
+  maxTimeoutMs: 120000        # Maximum allowed timeout
+
+webbrowser:
+  port: 3334                  # HTTP port for WebBrowser server
+  headless: true              # Run browser in headless mode
+  maxContentChars: 12000      # Max output character limit
+
+browserless:
+  port: 3003                  # HTTP port for Browserless proxy
+  apiKey: YOUR_API_KEY_HERE   # Browserless API key (replace with your key)
+  apiUrl: https://production-sfo.browserless.io
+
+rag:
+  port: 3339                  # HTTP port for RAG server
+  dbPath: ./rag.db            # Path to RAG SQLite database
+  embeddingModel: nomic-ai/nomic-embed-text-v1.5
+```
+
+> All examples use placeholder values. Never commit real API keys to version control.
+
+---
+
+## Migrating from .env to Unified Config
+
+If you're upgrading from a previous version that used `.env` files or per-tool environment variables, run the migration CLI:
+
+```bash
+npx migrate-config
+```
+
+This reads your existing `.env` and per-tool environment variables and produces a fully populated `llm-toolkit.config.yaml` at the project root. Existing settings are preserved; new fields receive default values.
+
+After migration, you can remove tool-specific environment variables from your shell profile — the config file takes precedence.
 
 ---
 
@@ -103,6 +160,12 @@ Restart LM Studio to reload the updated MCP bridge configs.
 ```bash
 npm run startup:check
 ```
+
+### Adjust Tool Settings
+
+All tool settings (ports, timeouts, API keys) live in `llm-toolkit.config.yaml` at the project root. Edit this file to customize behavior.
+
+Changes take effect on the next tool server restart (re-run `npm run setup:repair` or restart LM Studio).
 
 ---
 

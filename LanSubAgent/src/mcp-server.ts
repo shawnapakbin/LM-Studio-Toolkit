@@ -13,6 +13,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { getConfig } from "@shared/config";
 import { z } from "zod";
 
 import { LanSubAgentConfig } from "./config-schema";
@@ -64,7 +65,7 @@ export const GetLanTelemetrySchema = z.object({
 
 // ─── Default Config Path ─────────────────────────────────────────────────────
 
-const CONFIG_PATH = process.env.LAN_SUBAGENT_CONFIG_PATH || "./lan-subagent-config.json";
+const CONFIG_PATH = getConfig().lansubagent.configPath;
 
 // ─── MCP Server Factory ──────────────────────────────────────────────────────
 
@@ -103,11 +104,8 @@ export async function createLanMcpServer(configPath?: string): Promise<McpServer
   const healthChecker = new HealthChecker(registry, healthCheckerConfig, logger);
 
   // ─── Step 4: Create Load Balancer ────────────────────────────────────────
-  const localHost = process.env.SUBAGENT_LOCAL_HOST || config.localInstance.host;
-  const localPort = parseInt(
-    process.env.SUBAGENT_LOCAL_PORT || String(config.localInstance.port),
-    10,
-  );
+  const localHost = getConfig().lansubagent.localHost || config.localInstance.host;
+  const localPort = getConfig().lansubagent.localPort || config.localInstance.port;
 
   const loadBalancerConfig: LoadBalancerConfig = {
     strategy: config.loadBalancer.strategy,

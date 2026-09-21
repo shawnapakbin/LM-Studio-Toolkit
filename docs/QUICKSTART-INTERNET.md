@@ -9,7 +9,7 @@ npm run build
 npm run start:browser
 ```
 
-If you run through LM Studio, configure servers using mcp-json.md (or .generated/lmstudio-mcp.json) and restart LM Studio.
+If you run through LM Studio, provision the toolkit plugins with `npm run mcp:sync-lmstudio` and restart LM Studio. See [mcp-json.md](mcp-json.md) for the plugin-only registration model.
 
 ## Optional Proxy Mode
 

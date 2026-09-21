@@ -66,21 +66,10 @@ curl -X POST http://localhost:3011/tools/git_checkout \
 
 ### MCP Server
 
-Add to LM Studio `mcp.json`:
+Git is one of the 16 registered plugin entries. The toolkit uses a plugin-only configuration model — this server is provisioned automatically by `npm run mcp:sync-lmstudio`; no manual configuration is required.
 
-```json
-{
-  "mcpServers": {
-    "git": {
-      "command": "node",
-      "args": ["Git/dist/mcp-server.js"],
-      "env": {
-        "GIT_WORKSPACE_ROOT": "."
-      }
-    }
-  }
-}
-```
+Environment variables (set via the unified `llm-toolkit.config.yaml`):
+- `GIT_WORKSPACE_ROOT` — repository root the tool operates on (default `.`)
 
 ## Tool Schemas
 

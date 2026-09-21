@@ -1,3 +1,4 @@
+import { getConfig } from "@shared/config";
 import {
   ErrorCode,
   createErrorResponse,
@@ -5,7 +6,6 @@ import {
   generateTraceId,
 } from "@shared/types";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
 import {
@@ -31,10 +31,8 @@ import {
   validatePath,
 } from "./policy";
 
-dotenv.config();
-
 const app = express();
-const PORT = Number(process.env.PORT) || 3010;
+const PORT = getConfig().fileeditor.port;
 const WORKSPACE_ROOT = getWorkspaceRoot();
 
 function getErrorMessage(error: unknown): string {

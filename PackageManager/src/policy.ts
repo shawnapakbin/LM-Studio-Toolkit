@@ -1,4 +1,5 @@
 import path from "path";
+import { getConfig } from "@shared/config";
 
 export interface ValidationResult {
   valid: boolean;
@@ -15,8 +16,8 @@ function getErrorMessage(error: unknown): string {
 
 export function getPackageManagerWorkspaceRoot(): string {
   return (
-    process.env.PACKAGE_MANAGER_WORKSPACE_ROOT ||
-    process.env.FILE_EDITOR_WORKSPACE_ROOT ||
+    getConfig().packagemanager.workspaceRoot ||
+    getConfig().fileeditor.workspaceRoot ||
     process.cwd()
   );
 }

@@ -1,18 +1,20 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { getConfig } from "@shared/config";
 import type { DefineSkillInput, ParamSchema, Step } from "./types";
 
 /**
  * Resolves the base skills directory.
- * Uses SKILLS_DIR env var if set, otherwise defaults to:
+ * Uses skills.dir config if set, otherwise defaults to:
  * - Windows: %APPDATA%/llm-toolkit/skills
  * - macOS: ~/Library/Application Support/llm-toolkit/skills
  * - Linux: ~/.config/llm-toolkit/skills
  */
 export function getSkillsBaseDir(): string {
-  if (process.env.SKILLS_DIR) {
-    return process.env.SKILLS_DIR;
+  const skillsDir = getConfig().skills.dir;
+  if (skillsDir) {
+    return skillsDir;
   }
 
   const platform = process.platform;

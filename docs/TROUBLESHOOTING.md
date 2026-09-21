@@ -117,8 +117,10 @@ Fix:
 
 ## Client Configuration
 
-Use one of these as source of truth:
-- .generated/lmstudio-mcp.json (created by install scripts)
-- mcp-json.md (manual template)
+The toolkit uses a plugin-only configuration model — the sole supported method. All 16 servers are provisioned automatically as LM Studio plugins; there is no config file to edit by hand.
 
-After edits, restart LM Studio/client to reload MCP servers.
+```bash
+npm run mcp:sync-lmstudio   # (re)provision all toolkit plugins
+```
+
+After syncing, restart LM Studio to reload MCP servers. See [mcp-json.md](mcp-json.md) for how registration works.

@@ -1,5 +1,6 @@
 import fsSync from "fs";
 import path from "path";
+import { getConfig } from "@shared/config";
 
 /**
  * Validate repository path exists and is a Git repo
@@ -171,7 +172,7 @@ export function canForceDeleteBranch(branch: string): { allowed: boolean; reason
  */
 export function getGitWorkspaceRoot(): string {
   const root =
-    process.env.GIT_WORKSPACE_ROOT || process.env.FILE_EDITOR_WORKSPACE_ROOT || process.cwd();
+    getConfig().git.workspaceRoot || getConfig().fileeditor.workspaceRoot || process.cwd();
   return path.resolve(root);
 }
 

@@ -20,6 +20,10 @@ pub struct DependencyEntry {
     pub minimum_version: String,
     pub download_url: String,
     pub sha256: String,
+    /// Declared payload size from the manifest schema. Deserialized for schema
+    /// completeness; not read in-crate now that the Runtimes step performs no
+    /// downloads.
+    #[allow(dead_code)]
     pub size_bytes: u64,
     pub detection_strategy: DetectionStrategy,
 }

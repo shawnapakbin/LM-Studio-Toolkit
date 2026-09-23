@@ -4,7 +4,7 @@
 
 Every tool-call entry point routes through the single shared `normalizeToolCall` utility (`shared/toolCallNormalizer.ts`), so tool calls—whether originating from HTTP, MCP, or internal workflows—are normalized to one canonical schema before execution. AgentRunner, SubAgent, and AskUser all use this same unified path with no partial or alternative normalization branches, which guarantees identical normalized output across entry points, reduces integration bugs, and enables robust multi-model orchestration.
 
-See implementation roadmap: [AGENT_ROADMAP.md](AGENT_ROADMAP.md)
+Next phase, Implement a Unified system of Configuration and Settings...
 
 **Version**: 5.1.1  
 **Status**: Phase 0 (Foundation) ✅ Complete + installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅ + unified config ✅ + Tauri installer ✅

@@ -107,7 +107,11 @@ pub fn log_phase_complete(phase: &str) {
     record("info", phase, &format!("Phase completed: {}", phase), None);
 }
 
-/// Log a download event with the URL being fetched
+/// Log a download event with the URL being fetched.
+///
+/// Part of the logging API retained for callers/future use; currently unused
+/// in-crate now that the Runtimes step performs no downloads.
+#[allow(dead_code)]
 pub fn log_download(phase: &str, url: &str) {
     record(
         "info",
@@ -122,7 +126,11 @@ pub fn log_error(phase: &str, message: &str) {
     record("error", phase, message, None);
 }
 
-/// Log an error with additional structured detail context
+/// Log an error with additional structured detail context.
+///
+/// Part of the logging API retained for callers/future use; currently unused
+/// in-crate.
+#[allow(dead_code)]
 pub fn log_error_with_details(phase: &str, message: &str, details: serde_json::Value) {
     record("error", phase, message, Some(details));
 }
@@ -137,7 +145,11 @@ pub fn log_warn(phase: &str, message: &str) {
     record("warn", phase, message, None);
 }
 
-/// Get all log entries as structured data
+/// Get all log entries as structured data.
+///
+/// Part of the logging API retained for callers/future use; currently unused
+/// in-crate (the IPC command uses `get_entries`).
+#[allow(dead_code)]
 pub fn get_log_entries() -> Vec<LogEntry> {
     state()
         .lock()

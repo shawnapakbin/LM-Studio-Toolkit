@@ -5,6 +5,12 @@ mod bundle;
 mod commands;
 mod config_gen;
 mod dependency;
+// The Runtimes step no longer downloads runtimes (it detects → reports → stops,
+// see `installer::step_runtimes`), so this module currently has no in-crate
+// caller. It is retained intentionally — it carries its own test suite and may
+// be reused by a future provisioning path — so its API is allowed to be dead
+// code rather than deleted.
+#[allow(dead_code)]
 mod downloader;
 mod installer;
 mod lmstudio;

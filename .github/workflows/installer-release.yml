@@ -46,6 +46,18 @@ jobs:
       - name: Typecheck installer
         run: npm run -w Installer typecheck
 
+      - name: Stage installer payload
+        # Assemble the tool payload BEFORE tauri-action bundles NSIS resources
+        # (Req 2.1, 2.2). `npm run build` builds all 16 tool dist/ trees once;
+        # stage:payload with --no-build then copies those trees into
+        # Installer/src-tauri/payload/ without rebuilding. The existing
+        # planPayloadStaging completeness gate in stage-payload.ts aborts this
+        # job with a non-zero exit naming each missing tool if any dist/ is
+        # absent or empty (Req 2.4), so an incomplete payload is never bundled.
+        run: |
+          npm run build
+          npm run -w Installer stage:payload -- --no-build
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -66,6 +78,42 @@ jobs:
 
           echo "artifact=${ARTIFACT}" >> "$GITHUB_OUTPUT"
           echo "Found artifact: ${ARTIFACT}"
+
+      - name: Verify bundled payload is present
+        # Detection gap closure (Req 2.2, 2.4): assert the payload was actually
+        # available to bundle before we upload/publish, so a payload-less
+        # installer can never ship. Reuse the single source of truth
+        # (canonicalPayloads() in payload-manifest.ts) instead of hardcoding the
+        # 16 server names: check Installer/src-tauri/payload/<serverName>/ exists
+        # and is non-empty for every canonical tool. Exit non-zero and name each
+        # missing/empty tool if the staged payload is absent or incomplete.
+        shell: bash
+        run: |
+          npx tsx -e '
+            import { existsSync, readdirSync, statSync } from "node:fs";
+            import { resolve } from "node:path";
+            import { canonicalPayloads } from "./Installer/scripts/payload-manifest.ts";
+
+            const stagingRoot = resolve("Installer", "src-tauri", "payload");
+            const missing = [];
+            for (const tool of canonicalPayloads()) {
+              const dir = resolve(stagingRoot, tool.serverName);
+              let ok = false;
+              if (existsSync(dir) && statSync(dir).isDirectory()) {
+                ok = readdirSync(dir).length > 0;
+              }
+              if (!ok) missing.push(tool.serverName);
+            }
+            if (missing.length > 0) {
+              console.error(
+                `::error::Bundled payload incomplete: ${missing.length} of ${canonicalPayloads().length} tool payload(s) missing or empty under ${stagingRoot}: ${missing.join(", ")}`,
+              );
+              process.exit(1);
+            }
+            console.log(
+              `Bundled payload verified: all ${canonicalPayloads().length} tool payload(s) present and non-empty under ${stagingRoot}.`,
+            );
+          '
 
       - name: Generate SHA-256 checksum
         shell: bash

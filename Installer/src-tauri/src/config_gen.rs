@@ -47,6 +47,10 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+// `CANONICAL_TOOL_COUNT` is referenced by the `ToolEnvConfigSet` doc link and by
+// the test modules (via `use super::*`); doc links don't count as a use in a
+// non-test build, so allow the otherwise-"unused" import here.
+#[allow(unused_imports)]
 use crate::tool_payload::{canonical_payloads, CANONICAL_TOOL_COUNT};
 
 /// A single tool's derived environment: `env_key -> value`.

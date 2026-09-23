@@ -16,7 +16,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          # Pin to windows-2022: the windows-latest image ships Visual Studio
+          # 2026 (v18), which node-gyp <12.1.0 cannot parse ('unknown version
+          # undefined'), breaking native module builds (better-sqlite3).
+          # See nodejs/node-gyp#3282, microsoft/vscode#321267.
+          - os: windows-2022
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
 
@@ -56,7 +60,10 @@ jobs:
         shell: bash
         run: |
           npm install -g node-gyp@latest
-          echo "npm_config_node_gyp=$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
+          # npm ignores npm_config_node_gyp / a global install for its bundled
+          # copy; the node_gyp npmrc value is the supported override honored
+          # by lifecycle scripts. See nodejs/node-gyp Force-npm-to-use-global.
+          npm config set node_gyp "$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js"
 
       - name: Install dependencies
         run: npm ci

@@ -48,6 +48,16 @@ jobs:
         # (VCINSTALLDIR, PATH) before npm ci. No-op on non-Windows.
         uses: ilammy/msvc-dev-cmd@v1.13.0
 
+      - name: Update node-gyp for newer Visual Studio support
+        # The node-gyp bundled with Node 20 (v10.1.0) cannot parse the
+        # hosted runner's Visual Studio 2022+/v18 (reports 'unknown version
+        # undefined'), so native modules like better-sqlite3 fail to build.
+        # Install a current node-gyp and point npm at it for the install.
+        shell: bash
+        run: |
+          npm install -g node-gyp@latest
+          echo "npm_config_node_gyp=$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: npm ci
 

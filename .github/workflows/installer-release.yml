@@ -40,6 +40,14 @@ jobs:
         with:
           workspaces: Installer/src-tauri
 
+      - name: Setup MSVC developer environment
+        # node-gyp needs the MSVC toolchain to compile native modules
+        # (e.g. better-sqlite3, which ships no prebuilt binary for this
+        # Node/Windows combo). The hosted runner's VS is not auto-detected
+        # by node-gyp, so export the Developer Command Prompt env
+        # (VCINSTALLDIR, PATH) before npm ci. No-op on non-Windows.
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
       - name: Install dependencies
         run: npm ci
 

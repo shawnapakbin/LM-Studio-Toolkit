@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "dependencies": {
+    "nodejs": {
+      "displayName": "Node.js",
+      "minimumVersion": "20.0.0",
+      "downloadUrl": "https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi",
+      "sha256": "93d1d30341d7d38b7a8f3ab0fa3be1f9e6436b90338b2bd8b8af4e80d00bd036",
+      "sizeBytes": 26628096,
+      "detectionStrategy": {
+        "path": "node --version",
+        "registry": "HKLM\\SOFTWARE\\Node.js\\InstallPath"
+      }
+    },
+    "python": {
+      "displayName": "Python",
+      "minimumVersion": "3.10.0",
+      "downloadUrl": "https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe",
+      "sha256": "1206721601a62c925d4e4a0dcfc371e88f2ddbe8c0c07962ebb2be9b5bde4570",
+      "sizeBytes": 26538304,
+      "detectionStrategy": {
+        "path": "python --version",
+        "registry": "HKLM\\SOFTWARE\\Python\\PythonCore"
+      }
+    }
+  }
+}

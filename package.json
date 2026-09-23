@@ -112,6 +112,7 @@
     "3DTool",
     "SubAgent",
     "LanSubAgent",
+    "Installer",
     "mcp/common"
   ]
 }

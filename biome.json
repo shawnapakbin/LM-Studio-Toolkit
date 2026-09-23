@@ -9,7 +9,8 @@
     "ignore": [
       "scripts/setup/setup.js",
       "scripts/setup/setup-gui.html",
-      "Installer/src-tauri/target/**"
+      "Installer/src-tauri/target/**",
+      "Installer/src-tauri/gen/**"
     ]
   },
   "formatter": {

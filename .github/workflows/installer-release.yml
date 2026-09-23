@@ -44,27 +44,6 @@ jobs:
         with:
           workspaces: Installer/src-tauri
 
-      - name: Setup MSVC developer environment
-        # node-gyp needs the MSVC toolchain to compile native modules
-        # (e.g. better-sqlite3, which ships no prebuilt binary for this
-        # Node/Windows combo). The hosted runner's VS is not auto-detected
-        # by node-gyp, so export the Developer Command Prompt env
-        # (VCINSTALLDIR, PATH) before npm ci. No-op on non-Windows.
-        uses: ilammy/msvc-dev-cmd@v1.13.0
-
-      - name: Update node-gyp for newer Visual Studio support
-        # The node-gyp bundled with Node 20 (v10.1.0) cannot parse the
-        # hosted runner's Visual Studio 2022+/v18 (reports 'unknown version
-        # undefined'), so native modules like better-sqlite3 fail to build.
-        # Install a current node-gyp and point npm at it for the install.
-        shell: bash
-        run: |
-          npm install -g node-gyp@latest
-          # npm ignores npm_config_node_gyp / a global install for its bundled
-          # copy; the node_gyp npmrc value is the supported override honored
-          # by lifecycle scripts. See nodejs/node-gyp Force-npm-to-use-global.
-          npm config set node_gyp "$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js"
-
       - name: Install dependencies
         run: npm ci
 

@@ -1,6 +1,6 @@
 [package]
 name = "llm-toolkit-installer"
-version = "5.1.1"
+version = "5.1.2"
 description = "Native Windows installer for LLM Toolkit"
 authors = ["Shawna Pakbin"]
 edition = "2021"

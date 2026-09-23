@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-mcp-common",
-  "version": "5.1.1",
+  "version": "5.1.2",
   "private": true,
   "description": "Unified common tools MCP plugin bundling calculator, clock, ask-user, and document-scraper",
   "main": "dist/mcp-server.js",

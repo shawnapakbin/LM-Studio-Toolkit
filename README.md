@@ -6,7 +6,7 @@ Every tool-call entry point routes through the single shared `normalizeToolCall`
 
 Next phase, Implement a Unified system of Configuration and Settings...
 
-**Version**: 5.1.1  
+**Version**: 5.1.2  
 **Status**: Phase 0 (Foundation) ✅ Complete + installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅ + unified config ✅ + Tauri installer ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.

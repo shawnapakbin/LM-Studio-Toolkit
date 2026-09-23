@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-browserless",
-  "version": "5.1.1",
+  "version": "5.1.2",
   "private": true,
   "description": "Configuration wrapper for the official Browserless.io hosted MCP server",
   "scripts": {

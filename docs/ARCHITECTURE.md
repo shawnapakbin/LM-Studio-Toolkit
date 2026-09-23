@@ -323,4 +323,4 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 ---
 
 **Last Updated**: April 2026  
-**Version**: 5.1.1
+**Version**: 5.1.2

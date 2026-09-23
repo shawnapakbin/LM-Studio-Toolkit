@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-python-shell",
-  "version": "5.1.1",
+  "version": "5.1.2",
   "private": true,
   "description": "Python console and IDLE MCP tool",
   "main": "dist/mcp-server.js",

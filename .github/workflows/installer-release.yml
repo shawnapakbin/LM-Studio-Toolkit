@@ -125,7 +125,8 @@ jobs:
           ARTIFACT="${{ steps.artifacts.outputs.artifact }}"
           if [ -n "${ARTIFACT}" ] && [ -f "${ARTIFACT}" ]; then
             CHECKSUM_FILE="${ARTIFACT}.sha256"
-            shasum -a 256 "${ARTIFACT}" | awk '{print $1 "  " FILENAME}' FILENAME="$(basename "${ARTIFACT}")" > "${CHECKSUM_FILE}"
+            # sha256sum is present in Git-bash on the runner; shasum is not.
+            ( cd "$(dirname "${ARTIFACT}")" && sha256sum "$(basename "${ARTIFACT}")" ) > "${CHECKSUM_FILE}"
             echo "Generated checksum: $(cat "${CHECKSUM_FILE}")"
           else
             echo "::error::No artifact found to generate checksum for"

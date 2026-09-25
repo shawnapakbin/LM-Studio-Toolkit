@@ -53,7 +53,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Map, Value};
 
-use crate::tool_payload::canonical_payloads;
+use crate::tool_payload::{canonical_payloads, ToolPayload};
 
 /// Ownership marker value written to `manifest.json` and `install-state.json`.
 /// Mirrors `OWNER_ID` in `plugin-ownership.js`.
@@ -111,7 +111,41 @@ impl ServerBridgeConfig {
     }
 }
 
-/// Build the default set of bridge configs for the 16 canonical MCP servers,
+/// The installed entry-script filename for a tool.
+///
+/// Browserless ships `schema-proxy.js`; every other tool ships `mcp-server.js`.
+/// This is the single source of truth for the entry filename, keyed by
+/// `<server_name>`, shared by [`installed_entry_relpath`],
+/// [`entry_script_path`], and [`default_bridge_configs`] so no caller
+/// re-derives the browserless special case independently.
+fn entry(tool: &ToolPayload) -> &'static str {
+    if tool.server_name == "browserless" {
+        "schema-proxy.js"
+    } else {
+        "mcp-server.js"
+    }
+}
+
+/// The installed entry-script location for a tool, relative to the install root,
+/// as a forward-slash string: `<server_name>/<entry>`.
+///
+/// This mirrors the flattened staging layout produced by `stage-payload.ts`
+/// (`payload/<serverName>/`), so bridge-config generation and staging agree on
+/// a single `<server_name>`-keyed location and cannot drift.
+fn installed_entry_relpath(tool: &ToolPayload) -> String {
+    format!("{}/{}", tool.server_name, entry(tool))
+}
+
+/// The absolute installed entry-script path for a tool under `install_dir`:
+/// `install_dir/<server_name>/<entry>`.
+///
+/// Single source of truth for where a tool's entry script lands once staged,
+/// keyed by `<server_name>` (kebab-case), with no `dist_root` sub-structure.
+fn entry_script_path(install_dir: &Path, tool: &ToolPayload) -> PathBuf {
+    install_dir.join(tool.server_name).join(entry(tool))
+}
+
+/// Build the default set of bridge configs for the 9 canonical MCP servers,
 /// with each server's entry script resolved under `install_dir`.
 ///
 /// The command is `node` and the single argument is the absolute path to the
@@ -124,15 +158,12 @@ pub fn default_bridge_configs(install_dir: &Path) -> Vec<ServerBridgeConfig> {
     canonical_payloads()
         .iter()
         .map(|tool| {
-            // The entry script name differs for browserless (schema-proxy.js);
-            // everything else emits mcp-server.js. The dist_root is the parent
-            // directory of that entry script.
-            let entry = if tool.server_name == "browserless" {
-                "schema-proxy.js"
-            } else {
-                "mcp-server.js"
-            };
-            let script_path = install_dir.join(tool.dist_root).join(entry);
+            // The entry script lands at the flattened, staged layout
+            // `install_dir/<server_name>/<entry>` (schema-proxy.js for
+            // browserless, else mcp-server.js). Derived from the shared
+            // `entry_script_path` seam so bridge-config generation and
+            // `stage-payload.ts` cannot drift.
+            let script_path = entry_script_path(install_dir, tool);
             ServerBridgeConfig::new(
                 tool.server_name,
                 "node",
@@ -790,10 +821,10 @@ mod tests {
     }
 
     #[test]
-    fn default_bridge_configs_cover_all_sixteen_canonical_servers() {
+    fn default_bridge_configs_cover_all_nine_canonical_servers() {
         let install = PathBuf::from("/opt/llm-toolkit");
         let configs = default_bridge_configs(&install);
-        assert_eq!(configs.len(), 16);
+        assert_eq!(configs.len(), 9);
 
         let browserless = configs
             .iter()
@@ -1376,5 +1407,601 @@ mod plugin_error_attribution_tests {
             msg.contains(&bad.display().to_string()),
             "clean-phase error must name the affected directory; got: {msg}"
         );
+    }
+}
+
+// ─── Bug condition exploration tests — Concern 1: entry-script path mismatch ─
+
+#[cfg(test)]
+mod entry_path_bug_condition_tests {
+    //! Bugfix: installer-plugin-path-and-browserless-secret
+    //! Property 1 (Bug Condition — Entry-Script Path Matches Staged Layout).
+    //!
+    //! These tests encode the EXPECTED (fixed) behavior and are expected to
+    //! FAIL on the unfixed code, confirming the defect exists (Defect 1 —
+    //! `MODULE_NOT_FOUND`). They will PASS once `default_bridge_configs` derives
+    //! `args[0]` from the shared `install_dir/<server_name>/<entry>` seam.
+    //!
+    //! Bug condition (from design):
+    //!   isBugCondition_pathMismatch(input) ==
+    //!     bridge_args_path != normalize(install_dir / server_name / entry)
+    //!
+    //! On the UNFIXED code `default_bridge_configs` builds
+    //! `install_dir.join(tool.dist_root).join(entry)`, so for every one of the
+    //! 9 tools `args[0]` equals the SOURCE-repo layout
+    //! (`install_dir/<dist_root>/<entry>`) rather than the STAGED layout
+    //! (`install_dir/<server_name>/<entry>`), and the counterexample surfaces on
+    //! the very first tool.
+    //!
+    //! Validates: Requirements 2.1, 2.2, 2.3
+
+    use super::*;
+    use crate::tool_payload::canonical_payloads;
+
+    /// The observable-consequence entry file selection (browserless ->
+    /// schema-proxy.js, else mcp-server.js). Kept local so the test asserts over
+    /// the generated `args` string rather than a not-yet-existing seam symbol.
+    fn expected_entry(server_name: &str) -> &'static str {
+        if server_name == "browserless" {
+            "schema-proxy.js"
+        } else {
+            "mcp-server.js"
+        }
+    }
+
+    /// Normalize a path to the forward-slash form `default_bridge_configs`
+    /// emits into the JSON `args` string.
+    fn normalize(p: &Path) -> String {
+        p.to_string_lossy().replace('\\', "/")
+    }
+
+    #[test]
+    fn all_nine_args0_match_staged_server_name_layout() {
+        // A representative install root; the seam must anchor under it.
+        let install_dir = PathBuf::from("C:/fake/Install/LLM-Toolkit");
+        let configs = default_bridge_configs(&install_dir);
+
+        assert_eq!(configs.len(), 9, "must cover all 9 canonical tools");
+
+        let mut mismatches: Vec<String> = Vec::new();
+
+        for tool in canonical_payloads() {
+            let cfg = configs
+                .iter()
+                .find(|c| c.server_name == tool.server_name)
+                .unwrap_or_else(|| panic!("missing bridge config for {}", tool.server_name));
+
+            // EXPECTED (fixed) layout: install_dir/<server_name>/<entry>.
+            let expected = normalize(
+                &install_dir
+                    .join(tool.server_name)
+                    .join(expected_entry(tool.server_name)),
+            );
+
+            let actual = &cfg.args[0];
+            if actual != &expected {
+                mismatches.push(format!(
+                    "  {}: expected `{}` but got `{}`",
+                    tool.server_name, expected, actual
+                ));
+            }
+        }
+
+        assert!(
+            mismatches.is_empty(),
+            "args[0] does not match the staged install_dir/<server_name>/<entry> layout \
+             for {} of 9 tools (Defect 1 — MODULE_NOT_FOUND). Counterexamples:\n{}",
+            mismatches.len(),
+            mismatches.join("\n"),
+        );
+    }
+
+    #[test]
+    fn browserless_and_python_shell_are_concrete_counterexamples() {
+        // Two concrete, deterministic counterexamples named in the bugfix doc.
+        let install_dir = PathBuf::from("C:/fake/Install");
+        let configs = default_bridge_configs(&install_dir);
+
+        let browserless = configs
+            .iter()
+            .find(|c| c.server_name == "browserless")
+            .unwrap();
+        assert_eq!(
+            browserless.args[0],
+            normalize(&install_dir.join("browserless").join("schema-proxy.js")),
+            "browserless args[0] must be install_dir/browserless/schema-proxy.js \
+             (unfixed yields install_dir/Browserless/scripts/schema-proxy.js)",
+        );
+
+        let python_shell = configs
+            .iter()
+            .find(|c| c.server_name == "python-shell")
+            .unwrap();
+        assert_eq!(
+            python_shell.args[0],
+            normalize(&install_dir.join("python-shell").join("mcp-server.js")),
+            "python-shell args[0] must be install_dir/python-shell/mcp-server.js \
+             (unfixed yields install_dir/PythonShell/dist/mcp-server.js)",
+        );
+    }
+}
+
+// ─── Preservation baseline tests — Property 4 (names, command, ownership, env) ─
+
+#[cfg(test)]
+mod preservation_baseline_tests {
+    //! Bugfix: installer-plugin-path-and-browserless-secret
+    //! Property 4 (Preservation — Names, Command, Ownership, Env, Secrets,
+    //! User Paths Unchanged) — the `lmstudio.rs` half.
+    //!
+    //! These tests encode behavior observed on the UNFIXED code that the fix
+    //! MUST preserve, so they PASS today and act as a regression baseline. Per
+    //! the design, only three things change: how the entry-script path is
+    //! derived (`args[0]`), the addition of a build/staging secret guard, and
+    //! how relative/empty path DEFAULTS are anchored. Everything asserted here —
+    //! the 9 canonical server names, the `node` command, ownership-marker
+    //! provisioning, `merge_env`, and empty-value drop — is unchanged.
+    //!
+    //! Where practical the invariants are expressed as property-based tests
+    //! (proptest) over arbitrary install dirs, server subsets, and env values,
+    //! matching the design's "generate arbitrary install dirs, server subsets,
+    //! and env values" instruction.
+    //!
+    //! Validates: Requirements 3.1, 3.2, 3.3, 3.5
+
+    use super::*;
+    use proptest::collection::hash_set;
+    use proptest::prelude::*;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// The exact 9 canonical server names, in the order `mcp-config.js` /
+    /// `tool_payload.rs` list them. The fix must not add, drop, or rename any.
+    const CANONICAL_SERVER_NAMES: [&str; 9] = [
+        "terminal",
+        "web-browser",
+        "common",
+        "browserless",
+        "python-shell",
+        "skills",
+        "blender-bridge",
+        "3dtool",
+        "lan-sub-agent",
+    ];
+
+    /// A unique, self-cleaning temp plugin root per test (no external crate).
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new(tag: &str) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let pid = std::process::id();
+            let path = std::env::temp_dir()
+                .join(format!("llm_toolkit_lmstudio_preserve_{tag}_{pid}_{n}"));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            TempRoot { path }
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn cfg(name: &str) -> ServerBridgeConfig {
+        ServerBridgeConfig::new(name, "node", vec![format!("/install/{name}/mcp-server.js")])
+    }
+
+    // ── Server-name set preservation (Req 3.1) ───────────────────────────────
+
+    /// The 9 canonical server names emitted by `default_bridge_configs` are
+    /// exactly the expected set, regardless of the install dir. Only `args[0]`
+    /// changes under the fix; the name set is invariant. (Property-based over
+    /// arbitrary install dirs.)
+    #[test]
+    fn default_bridge_configs_server_name_set_is_the_canonical_nine() {
+        let expected: BTreeSet<&str> = CANONICAL_SERVER_NAMES.into_iter().collect();
+
+        proptest!(|(root in "[A-Za-z]:/[A-Za-z0-9_/-]{0,40}")| {
+            let install_dir = PathBuf::from(&root);
+            let configs = default_bridge_configs(&install_dir);
+            prop_assert_eq!(configs.len(), 9);
+
+            let actual: BTreeSet<&str> =
+                configs.iter().map(|c| c.server_name.as_str()).collect();
+            prop_assert_eq!(&actual, &expected);
+        });
+    }
+
+    /// Every emitted bridge config uses the `node` command and exactly one arg,
+    /// for any install dir. The fix corrects only the VALUE of `args[0]`, never
+    /// the command or the arg count. (Req 3.3.)
+    #[test]
+    fn default_bridge_configs_command_is_always_node_with_single_arg() {
+        proptest!(|(root in "[A-Za-z]:/[A-Za-z0-9_/-]{0,40}")| {
+            let install_dir = PathBuf::from(&root);
+            for c in default_bridge_configs(&install_dir) {
+                prop_assert_eq!(&c.command, "node");
+                prop_assert_eq!(c.args.len(), 1);
+            }
+        });
+    }
+
+    /// The browserless entry stays `schema-proxy.js` and every other tool stays
+    /// `mcp-server.js` — the entry-FILE selection is preserved (only the
+    /// directory segment of `args[0]` changes under the fix). (Req 3.5.)
+    #[test]
+    fn entry_file_selection_is_preserved_browserless_schema_proxy_else_mcp_server() {
+        let install_dir = PathBuf::from("C:/any/Install");
+        for c in default_bridge_configs(&install_dir) {
+            let arg0 = &c.args[0];
+            if c.server_name == "browserless" {
+                assert!(
+                    arg0.ends_with("/schema-proxy.js") || arg0.ends_with("schema-proxy.js"),
+                    "browserless entry file must remain schema-proxy.js; got {arg0}"
+                );
+            } else {
+                assert!(
+                    arg0.ends_with("/mcp-server.js") || arg0.ends_with("mcp-server.js"),
+                    "{} entry file must remain mcp-server.js; got {arg0}",
+                    c.server_name
+                );
+            }
+        }
+    }
+
+    // ── Ownership-marker provisioning preservation (Req 3.2) ──────────────────
+
+    /// Provisioning writes the three ownership artifacts with the
+    /// `_owner: "llm-toolkit"` marker on `manifest.json` and `install-state.json`.
+    /// This contract is unchanged by the fix.
+    #[test]
+    fn ownership_marker_provisioning_is_preserved() {
+        let root = TempRoot::new("owner");
+        provision_plugin_dirs(&root.path, &[cfg("terminal"), cfg("browserless")]).unwrap();
+
+        for name in ["terminal", "browserless"] {
+            let dir = root.path.join(name);
+            let manifest = read_json_safe(&dir.join("manifest.json")).unwrap();
+            assert_eq!(manifest["_owner"], OWNER_ID);
+            assert_eq!(manifest["type"], "plugin");
+            assert_eq!(manifest["runner"], "mcpBridge");
+            assert_eq!(manifest["owner"], "mcp");
+            assert_eq!(manifest["name"], name);
+
+            let state = read_json_safe(&dir.join("install-state.json")).unwrap();
+            assert_eq!(state["_owner"], OWNER_ID);
+            assert_eq!(state["by"], "mcp-bridge-v1");
+
+            // The bridge config exists and keeps command == node.
+            let bridge = read_json_safe(&dir.join("mcp-bridge-config.json")).unwrap();
+            assert_eq!(bridge["command"], "node");
+        }
+    }
+
+    /// `merge_env` preserves a user's real (non-placeholder, non-empty) token
+    /// across a re-provision. This is the user-token flow the fix must keep
+    /// intact (Req 3.2, and 3.8 for the token survival specifically).
+    #[test]
+    fn merge_env_preserves_user_real_token_across_reprovision() {
+        let root = TempRoot::new("token-survive");
+
+        // First provision browserless with an empty default token.
+        let mut first = cfg("browserless");
+        first.env.insert("BROWSERLESS_TOKEN".to_string(), String::new());
+        provision_plugin_dirs(&root.path, &[first]).unwrap();
+
+        // User writes a real token into the existing bridge config.
+        let bridge_path = root.path.join("browserless").join("mcp-bridge-config.json");
+        let mut bridge = read_json_safe(&bridge_path).unwrap();
+        bridge["env"] = json!({ "BROWSERLESS_TOKEN": "real-user-token-xyz" });
+        std::fs::write(&bridge_path, serde_json::to_string(&bridge).unwrap()).unwrap();
+
+        // Re-provision with a fresh empty default — the real token must survive.
+        let mut second = cfg("browserless");
+        second.env.insert("BROWSERLESS_TOKEN".to_string(), String::new());
+        provision_plugin_dirs(&root.path, &[second]).unwrap();
+
+        let after = read_json_safe(&bridge_path).unwrap();
+        assert_eq!(after["env"]["BROWSERLESS_TOKEN"], "real-user-token-xyz");
+    }
+
+    /// Empty-string env values are dropped on write, and placeholder token
+    /// values are ignored (treated as empty), for arbitrary extra user env.
+    /// Property-based to match the design's arbitrary-env-value instruction.
+    #[test]
+    fn merge_env_drops_empty_and_ignores_placeholders_over_arbitrary_env() {
+        // Arbitrary non-empty, non-placeholder user values for a KEEP key, and
+        // arbitrary keys that carry empty/whitespace values (must be dropped).
+        let user_value = "[A-Za-z0-9 ._:/-]{1,20}";
+        let blank_value = "[ \t]{0,4}"; // empty or whitespace only
+
+        proptest!(|(keep in user_value, blank in blank_value)| {
+            // Skip a generated "keep" that is only whitespace (would be dropped).
+            prop_assume!(!keep.trim().is_empty());
+
+            let mut fresh: BTreeMap<String, String> = BTreeMap::new();
+            fresh.insert("KEEP".to_string(), "default".to_string());
+            fresh.insert("EMPTY".to_string(), String::new());
+            fresh.insert("BROWSERLESS_TOKEN".to_string(), String::new());
+
+            let existing = json!({
+                "env": {
+                    "KEEP": keep,
+                    // placeholder is ignored -> fresh empty remains -> dropped
+                    "BROWSERLESS_TOKEN": "your-browserless-api-token-here",
+                    "BLANK": blank,
+                }
+            });
+
+            let merged = merge_env(&fresh, Some(&existing));
+
+            // User's real non-placeholder value overrides the default.
+            prop_assert_eq!(merged.get("KEEP").map(String::as_str), Some(keep.as_str()));
+            // Empty fresh value dropped.
+            prop_assert!(!merged.contains_key("EMPTY"));
+            // Placeholder ignored -> token stays empty -> dropped.
+            prop_assert!(!merged.contains_key("BROWSERLESS_TOKEN"));
+            // Whitespace/empty user value dropped.
+            prop_assert!(!merged.contains_key("BLANK"));
+        });
+    }
+
+    /// The provisioning bijection (one owned dir per server, foreign dirs
+    /// untouched) is preserved for arbitrary server subsets. This guards the
+    /// ownership-provisioning / cleanup behavior the fix must not disturb.
+    #[test]
+    fn provision_bijection_preserved_for_arbitrary_server_subsets() {
+        fn name() -> impl Strategy<Value = String> {
+            "[a-z][a-z0-9_-]{0,12}"
+        }
+
+        proptest!(|(names in hash_set(name(), 1..=8))| {
+            let root = TempRoot::new("bijection");
+            let servers: Vec<ServerBridgeConfig> = names.iter().map(|n| cfg(n)).collect();
+
+            let result = provision_plugin_dirs(&root.path, &servers)
+                .expect("valid non-empty server set must provision");
+
+            let provisioned: BTreeSet<String> = result.provisioned.into_iter().collect();
+            let expected: BTreeSet<String> = names.iter().cloned().collect();
+            prop_assert_eq!(&provisioned, &expected);
+
+            let owned: BTreeSet<String> = get_owned_plugin_dirs(&root.path)
+                .iter()
+                .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+                .collect();
+            prop_assert_eq!(&owned, &expected);
+
+            // Every provisioned config still uses the node command.
+            for name in &names {
+                let bridge =
+                    read_json_safe(&root.path.join(name).join("mcp-bridge-config.json")).unwrap();
+                prop_assert_eq!(bridge["command"].as_str(), Some("node"));
+            }
+        });
+    }
+}
+
+// ─── Property 4 — generated config for each Shipped server is unchanged ───────
+
+#[cfg(test)]
+mod shipped_config_parity_property_tests {
+    //! Feature: retire-and-gate-mcp-servers, Property 4: generated config for
+    //! each Shipped server is unchanged.
+    //!
+    //! *For all* nine Shipped servers, the configuration generated after the
+    //! change (LM Studio bridge command, argument entry-path layout, and
+    //! environment map) is identical to the configuration generated for that
+    //! same server before the change — the only whole-set difference is the
+    //! removal of the Retired and Unshipped entries.
+    //!
+    //! The pre-change golden snapshot lives at
+    //! `tests/fixtures/shipped-servers-baseline.json` (captured in task 1.1,
+    //! before any source-of-truth mirror was edited). It contains ONLY the nine
+    //! Shipped servers, so it doubles as the post-change expected set.
+    //!
+    //! ## Why this passes now AND after pruning
+    //!
+    //! `default_bridge_configs` iterates `canonical_payloads()`. Before the
+    //! mirrors were pruned that was 16 configs; now that they are pruned it is 9.
+    //! This test asserts, for each of the nine Shipped servers in the baseline,
+    //! that the live generated command/args-layout matches the baseline — a
+    //! subset relationship that holds regardless of whether the extra 7
+    //! Retired/Unshipped configs are still present. It additionally asserts the
+    //! whole-set difference is *exactly* the removal of the seven known
+    //! Retired/Unshipped names: the live set minus the nine Shipped is always a
+    //! subset of those seven (never anything unexpected), and post-prune it is
+    //! empty. Both invariants hold pre- and post-change.
+    //!
+    //! Per `shipped-servers-baseline.schema.md`, `default_bridge_configs` emits
+    //! an empty env map (per-tool env derivation is `config_gen.rs`'s job); the
+    //! `env` half of the baseline is the authoritative per-server env taken from
+    //! `mcp-config.js`. This test therefore asserts the command/args-layout half
+    //! against `default_bridge_configs` (over arbitrary install dirs) and locks
+    //! the env half as the golden fixture (the authoritative per-server env that
+    //! must remain unchanged for the nine Shipped servers).
+    //!
+    //! Validates: Requirements 6.1, 6.3
+
+    use super::*;
+    use proptest::prelude::*;
+    use serde_json::Value;
+    use std::collections::BTreeSet;
+
+    /// The nine Shipped server names (the canonical post-change set).
+    const SHIPPED_SERVER_NAMES: [&str; 9] = [
+        "terminal",
+        "web-browser",
+        "common",
+        "browserless",
+        "python-shell",
+        "skills",
+        "blender-bridge",
+        "3dtool",
+        "lan-sub-agent",
+    ];
+
+    /// The seven names removed by this feature — four Retired plus three
+    /// Unshipped. On unpruned code `default_bridge_configs` still emits these;
+    /// after pruning it emits none of them. The live set minus the nine Shipped
+    /// must always be a subset of exactly these seven.
+    const REMOVED_SERVER_NAMES: [&str; 7] = [
+        // Retired (4)
+        "rag",
+        "csv-exporter",
+        "file-editor",
+        "package-manager",
+        // Unshipped (3)
+        "slash-commands",
+        "sub-agent",
+        "git",
+    ];
+
+    /// Load and parse the golden baseline fixture captured in task 1.1.
+    fn load_baseline() -> Value {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/shipped-servers-baseline.json"
+        );
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("could not read baseline fixture {path}: {e}"));
+        serde_json::from_str(&text)
+            .unwrap_or_else(|e| panic!("baseline fixture is not valid JSON ({path}): {e}"))
+    }
+
+    /// Normalize a path the way `default_bridge_configs` does (forward slashes).
+    fn normalize(p: &Path) -> String {
+        p.to_string_lossy().replace('\\', "/")
+    }
+
+    /// Substitute the resolved install root into the baseline's
+    /// `entryPathTemplate` (`{installDir}/<serverName>/<entry>`) and normalize,
+    /// producing the concrete expected `args[0]`.
+    fn expected_arg0(install_dir: &Path, server_name: &str, entry: &str) -> String {
+        normalize(&install_dir.join(server_name).join(entry))
+    }
+
+    /// The baseline must be self-consistent: exactly nine servers, none of them
+    /// a Retired/Unshipped name, and it declares `expectedServerCount == 9`.
+    #[test]
+    fn baseline_fixture_contains_exactly_the_nine_shipped_servers() {
+        let baseline = load_baseline();
+
+        assert_eq!(
+            baseline["expectedServerCount"].as_u64(),
+            Some(9),
+            "baseline must declare expectedServerCount == 9"
+        );
+
+        let servers = baseline["servers"]
+            .as_object()
+            .expect("baseline.servers must be an object");
+
+        let baseline_names: BTreeSet<&str> = servers.keys().map(String::as_str).collect();
+        let expected: BTreeSet<&str> = SHIPPED_SERVER_NAMES.into_iter().collect();
+        assert_eq!(
+            baseline_names, expected,
+            "baseline server set must be exactly the nine Shipped servers"
+        );
+
+        // No Retired/Unshipped name may appear in the baseline.
+        for removed in REMOVED_SERVER_NAMES {
+            assert!(
+                !servers.contains_key(removed),
+                "baseline must not contain the removed server '{removed}'"
+            );
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        // Feature: retire-and-gate-mcp-servers, Property 4: generated config for
+        // each Shipped server is unchanged.
+        //
+        // For arbitrary install roots, the live-generated bridge config
+        // (command + args entry-path layout) for each of the nine Shipped
+        // servers equals the pre-change golden baseline, and the whole-set
+        // difference from the baseline is exactly the removal of the seven
+        // Retired/Unshipped entries.
+        #[test]
+        fn generated_config_for_each_shipped_server_matches_baseline(
+            root in "[A-Za-z]:/[A-Za-z0-9_/-]{0,40}"
+        ) {
+            let baseline = load_baseline();
+            let baseline_servers = baseline["servers"]
+                .as_object()
+                .expect("baseline.servers must be an object");
+
+            let install_dir = PathBuf::from(&root);
+            let configs = default_bridge_configs(&install_dir);
+
+            // Index the live configs by server name.
+            let live: std::collections::BTreeMap<&str, &ServerBridgeConfig> =
+                configs.iter().map(|c| (c.server_name.as_str(), c)).collect();
+
+            // (a) Each of the nine Shipped servers is generated and matches the
+            //     baseline command + args entry-path layout exactly.
+            for &name in SHIPPED_SERVER_NAMES.iter() {
+                let expected = &baseline_servers[name];
+                let expected_command = expected["command"]
+                    .as_str()
+                    .expect("baseline command must be a string");
+                let entry = expected["entry"]
+                    .as_str()
+                    .expect("baseline entry must be a string");
+
+                let cfg = live
+                    .get(name)
+                    .unwrap_or_else(|| panic!("missing generated bridge config for Shipped server '{name}'"));
+
+                prop_assert_eq!(
+                    cfg.command.as_str(),
+                    expected_command,
+                    "command for Shipped server '{}' must be unchanged", name
+                );
+                prop_assert_eq!(
+                    cfg.args.len(),
+                    1,
+                    "Shipped server '{}' must have exactly one arg", name
+                );
+                prop_assert_eq!(
+                    &cfg.args[0],
+                    &expected_arg0(&install_dir, name, entry),
+                    "args entry-path layout for Shipped server '{}' must match the baseline", name
+                );
+            }
+
+            // (b) The whole-set difference is ONLY the removal of Retired/
+            //     Unshipped entries. The live names minus the nine Shipped must
+            //     be a subset of exactly the seven removed names (never anything
+            //     unexpected). Pre-prune this is those seven; post-prune it is
+            //     empty. Either way it can never contain a surprise name.
+            let live_names: BTreeSet<&str> = live.keys().copied().collect();
+            let shipped: BTreeSet<&str> = SHIPPED_SERVER_NAMES.into_iter().collect();
+            let removed: BTreeSet<&str> = REMOVED_SERVER_NAMES.into_iter().collect();
+
+            let extra: BTreeSet<&str> = live_names.difference(&shipped).copied().collect();
+            for name in &extra {
+                prop_assert!(
+                    removed.contains(name),
+                    "unexpected server '{}' in generated set — the only permitted \
+                     difference from the nine Shipped is the seven Retired/Unshipped names",
+                    name
+                );
+            }
+
+            // The nine Shipped must all be present regardless of pruning state.
+            prop_assert!(
+                shipped.is_subset(&live_names),
+                "all nine Shipped servers must be present in the generated set"
+            );
+        }
     }
 }

@@ -203,16 +203,12 @@ describe("Feature: v2-4-0-unified-config-installer, Property 1: Schema Structura
       expect(config.calculator).toBeDefined();
       expect(config.browserless).toBeDefined();
       expect(config.blenderbridge).toBeDefined();
-      expect(config.rag).toBeDefined();
       expect(config.pythonshell).toBeDefined();
       expect(config.memory).toBeDefined();
       expect(config.skills).toBeDefined();
       expect(config.cli).toBeDefined();
       expect(config.slashcommands).toBeDefined();
-      expect(config.csvexporter).toBeDefined();
-      expect(config.fileeditor).toBeDefined();
       expect(config.git).toBeDefined();
-      expect(config.packagemanager).toBeDefined();
       expect(config.observability).toBeDefined();
       expect(config.agentrunner).toBeDefined();
       expect(config.threedtool).toBeDefined();

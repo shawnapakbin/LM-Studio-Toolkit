@@ -88,7 +88,7 @@ function reproduceUnfixedCiUpToBundle(
 
   if (runBeforeBuildCommand) {
     // `beforeBuildCommand` proxy: the Installer `build` script is `vite build`,
-    // which emits the installer FRONTEND — it neither builds the 16 tools nor
+    // which emits the installer FRONTEND — it neither builds the nine tools nor
     // stages them. Emulate its ONLY effect on disk: a frontend `dist/`. Crucially
     // it must leave `src-tauri/payload/` untouched.
     const frontendDist = path.join(checkout.repoRoot, "Installer", "dist");
@@ -109,9 +109,9 @@ describe("Property 1: Bug Condition — clean checkout bundles resources without
    * Test case 1: On a clean checkout with no `stage:payload` run, the staging
    * root is absent/empty when the CI reaches the NSIS bundle step. Asserts the
    * Expected Behavior — a populated `resources/payload/<serverName>/` for ALL
-   * 16 tools. FAILS on the unfixed pipeline (nothing staged the payload).
+   * nine tools. FAILS on the unfixed pipeline (nothing staged the payload).
    */
-  it("stages a populated payload/<serverName>/ for all 16 tools before bundling (empty staging root)", () => {
+  it("stages a populated payload/<serverName>/ for all 9 tools before bundling (empty staging root)", () => {
     const checkout = makeCleanCheckout();
     try {
       reproduceUnfixedCiUpToBundle(checkout, /* runBeforeBuildCommand */ false);
@@ -122,7 +122,7 @@ describe("Property 1: Bug Condition — clean checkout bundles resources without
 
       const staged = observeStagedPayload(checkout.stagingRoot);
 
-      // Property over all 16 canonical server names: each must be present and
+      // Property over all nine canonical server names: each must be present and
       // non-empty at bundle time. On the unfixed pipeline every name fails.
       fc.assert(
         fc.property(
@@ -163,7 +163,7 @@ describe("Property 1: Bug Condition — clean checkout bundles resources without
 
       const staged = observeStagedPayload(checkout.stagingRoot);
 
-      // Expected Behavior over all 16 tools — fails on the unfixed pipeline.
+      // Expected Behavior over all nine tools — fails on the unfixed pipeline.
       fc.assert(
         fc.property(
           fc.constantFrom(...CANONICAL_TOOL_PAYLOADS.map((t) => t.serverName)),

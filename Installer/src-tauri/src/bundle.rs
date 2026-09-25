@@ -3,20 +3,20 @@
 //! This module holds the *decision logic* shared by two paths that must agree
 //! exactly on "which tools ship and are all of them present":
 //!
-//! - the **build-time** completeness check (payload staging must find all 16
+//! - the **build-time** completeness check (payload staging must find all 9
 //!   `dist/` trees before `tauri build` runs — Req 3.2, 3.3), and
-//! - the **install-time** copy verification (all 16 outputs must be present and
+//! - the **install-time** copy verification (all 9 outputs must be present and
 //!   non-empty in the install directory after the copy — Req 5.2, 5.3).
 //!
 //! Both paths reduce to the same question: given a *tool-presence state* (which
-//! canonical tools have a present, non-empty output?), which of the 16 canonical
+//! canonical tools have a present, non-empty output?), which of the 9 canonical
 //! tools are present and which are missing? Answering that is a pure function
 //! over the canonical list in [`crate::tool_payload`], so it is expressed here
 //! with no filesystem I/O. The thin I/O seams (probing the staging directory,
 //! probing the install directory, and the actual copy-with-rollback) are kept
 //! out of this function so the decision logic stays deterministic and testable.
 //!
-//! The canonical 16-tool list is **not** re-hardcoded here — it is sourced from
+//! The canonical 9-tool list is **not** re-hardcoded here — it is sourced from
 //! [`crate::tool_payload::canonical_payloads`], the single checked-in source of
 //! truth mirroring `scripts/workspace/mcp-config.js`.
 //!
@@ -44,7 +44,7 @@ use std::collections::BTreeSet;
 /// the result (abort the build, or fail the install verification).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BundlePlan {
-    /// Exactly the 16 canonical tools (the single source of truth). Borrowed
+    /// Exactly the 9 canonical tools (the single source of truth). Borrowed
     /// from [`canonical_payloads`] rather than re-hardcoded or cloned.
     pub required: &'static [ToolPayload],
     /// Server names found present *and* non-empty, in canonical order.
@@ -54,7 +54,7 @@ pub struct BundlePlan {
 }
 
 impl BundlePlan {
-    /// A plan is complete when nothing is missing — i.e. every one of the 16
+    /// A plan is complete when nothing is missing — i.e. every one of the 9
     /// canonical tools is present and non-empty.
     ///
     /// Backs the `is_complete()` half of Property 1: build-time completeness and
@@ -64,7 +64,7 @@ impl BundlePlan {
     }
 }
 
-/// Plans the bundle over the 16 canonical tools using a presence predicate.
+/// Plans the bundle over the 9 canonical tools using a presence predicate.
 ///
 /// `is_present(server_name)` must return `true` iff that tool's `dist` output is
 /// present **and** non-empty in whatever state is being planned:
@@ -104,7 +104,7 @@ where
 }
 
 /// Convenience: plan the bundle from an explicit set of present-and-non-empty
-/// server names. Anything outside the canonical set is ignored (only the 16
+/// server names. Anything outside the canonical set is ignored (only the 9
 /// canonical tools are ever considered required).
 ///
 /// This is the shape the install-time verifier uses once it has probed the
@@ -116,7 +116,7 @@ pub fn plan_bundle_from_present(present_names: &BTreeSet<String>) -> BundlePlan 
 // ---------------------------------------------------------------------------
 // Install-time copy layer (task 8.2)
 //
-// The pure planner above answers "which of the 16 tools are present?". The code
+// The pure planner above answers "which of the 9 tools are present?". The code
 // below is the thin I/O seam that actually *copies* the bundled payload into the
 // install directory, then reuses the planner to *verify* the result, and — on
 // any failure — *rolls back* the outputs it wrote. It is deliberately structured
@@ -124,7 +124,7 @@ pub fn plan_bundle_from_present(present_names: &BTreeSet<String>) -> BundlePlan 
 // rollback, Property 9 round-trip — tasks 8.4/12.x) can drive it against real
 // temp directories.
 //
-// Requirements: 5.1 (copy every item + idempotency), 5.2/5.3 (verify all 16
+// Requirements: 5.1 (copy every item + idempotency), 5.2/5.3 (verify all 9
 // present & non-empty, report exact affected set), 5.5 (immediate rollback of
 // partial outputs — not deferred to uninstall). The resource-root is injected as
 // a parameter so it stays testable; the Tauri resource-path wiring into
@@ -277,7 +277,7 @@ fn rollback_written(install_dir: &Path, written: &[String]) {
     }
 }
 
-/// Copies the bundled payload (all 16 canonical tool `dist/` trees) from
+/// Copies the bundled payload (all 9 canonical tool `dist/` trees) from
 /// `resource_root` into `install_dir`, verifies the result, and rolls back on
 /// any failure.
 ///
@@ -290,7 +290,7 @@ fn rollback_written(install_dir: &Path, written: &[String]) {
 /// - **Copy** every canonical tool's tree (Req 5.1).
 /// - **Idempotent** (Req 5.1 / Property 4): re-running over the same install dir
 ///   yields the same contents as a single run (files are overwritten in place).
-/// - **Verify** presence & non-emptiness of all 16 outputs via the pure planner;
+/// - **Verify** presence & non-emptiness of all 9 outputs via the pure planner;
 ///   on a gap, return [`CopyError::VerificationFailed`] naming the exact affected
 ///   tools (Req 5.2/5.3) — but only *after* rolling back, so a failed install
 ///   leaves nothing behind.
@@ -398,7 +398,7 @@ pub fn verify_install_dir(install_dir: &Path) -> BundlePlan {
 /// Unlike the copy step's private `rollback_written`, which removes only the
 /// outputs written in a single `copy_payload` call, this removes the full
 /// canonical set — the copy step has already completed successfully by the time
-/// the registration step runs, so every one of the 16 tool outputs is present
+/// the registration step runs, so every one of the 9 tool outputs is present
 /// and must be rolled back. Removal is best-effort: any subtree that cannot be
 /// removed is left in place rather than panicking, matching the copy step's
 /// rollback semantics.
@@ -429,7 +429,7 @@ mod tests {
         assert!(plan.is_complete());
         assert!(plan.missing.is_empty());
         assert_eq!(plan.present.len(), CANONICAL_TOOL_COUNT);
-        // required is exactly the canonical 16.
+        // required is exactly the canonical 9.
         assert_eq!(plan.required.len(), CANONICAL_TOOL_COUNT);
     }
 
@@ -460,8 +460,8 @@ mod tests {
 
     #[test]
     fn missing_is_exactly_required_minus_present() {
-        // Mark the "3dtool", "git", and "file-editor" tools absent.
-        let absent: BTreeSet<&str> = ["3dtool", "git", "file-editor"].into_iter().collect();
+        // Mark three of the nine Shipped tools absent.
+        let absent: BTreeSet<&str> = ["3dtool", "skills", "browserless"].into_iter().collect();
         let plan = plan_bundle(|name| !absent.contains(name));
 
         // present + missing partitions the whole canonical set with no overlap.
@@ -597,7 +597,7 @@ mod copy_tests {
     }
 
     #[test]
-    fn copy_payload_copies_all_sixteen_tools_and_verifies() {
+    fn copy_payload_copies_all_nine_tools_and_verifies() {
         let res = TempDir::new("res_full");
         let install = TempDir::new("install_full");
         make_full_resource_root(res.path());
@@ -691,7 +691,7 @@ mod copy_tests {
 
         // Delete two tool outputs after a successful copy to simulate later loss.
         let a = canonical_payloads()[0].server_name;
-        let b = canonical_payloads()[10].server_name;
+        let b = canonical_payloads()[8].server_name;
         std::fs::remove_dir_all(install.path().join(a)).unwrap();
         std::fs::remove_dir_all(install.path().join(b)).unwrap();
 
@@ -739,7 +739,7 @@ mod property_tests {
             .collect()
     }
 
-    /// The 16 canonical `dist` roots as a set — the "resource set" the planner
+    /// The 9 canonical `dist` roots as a set — the "resource set" the planner
     /// must always report as `required`, independent of any presence state.
     fn canonical_dist_roots() -> BTreeSet<String> {
         canonical_payloads()
@@ -750,7 +750,7 @@ mod property_tests {
 
     /// Generates a random tool-presence state: a boolean per canonical tool
     /// (`true` == that tool's dist root is present and non-empty). A `Vec<bool>`
-    /// of length 16 ranges over all 2^16 presence states, so the property is
+    /// of length 9 ranges over all 2^9 presence states, so the property is
     /// exercised across the whole input space of subsets/presence-maps.
     fn presence_state() -> impl Strategy<Value = Vec<bool>> {
         prop::collection::vec(any::<bool>(), CANONICAL_TOOL_COUNT)
@@ -761,10 +761,10 @@ mod property_tests {
 
         // Feature: windows-installer-setup-exe, Property 1: Bundle completeness
         //
-        // For all tool-presence states over the 16 canonical MCP tools, the
-        // bundle planner reports `is_complete()` true IFF every one of the 16
+        // For all tool-presence states over the 9 canonical MCP tools, the
+        // bundle planner reports `is_complete()` true IFF every one of the 9
         // tools has a present, non-empty dist root, AND the planned resource set
-        // (`required`) equals exactly the 16 canonical dist roots.
+        // (`required`) equals exactly the 9 canonical dist roots.
         //
         // Validates: Requirements 3.1, 3.2, 3.5.
         #[test]
@@ -780,19 +780,19 @@ mod property_tests {
 
             let plan = plan_bundle(|name| present_names.contains(name));
 
-            // --- is_complete() IFF all 16 present ---
+            // --- is_complete() IFF all 9 present ---
             let all_present = present_flags.iter().all(|&p| p);
             prop_assert_eq!(
                 plan.is_complete(),
                 all_present,
-                "is_complete() must be true exactly when all 16 tools are present"
+                "is_complete() must be true exactly when all 9 tools are present"
             );
 
             // The completeness biconditional stated the other way: complete IFF
             // nothing is missing, and missing is empty IFF every tool present.
             prop_assert_eq!(plan.missing.is_empty(), all_present);
 
-            // --- required resource set == exactly the 16 canonical dist roots ---
+            // --- required resource set == exactly the 9 canonical dist roots ---
             // This must hold regardless of the presence state.
             prop_assert_eq!(plan.required.len(), CANONICAL_TOOL_COUNT);
             let required_roots: BTreeSet<String> = plan
@@ -803,11 +803,11 @@ mod property_tests {
             prop_assert_eq!(
                 required_roots,
                 canonical_dist_roots(),
-                "required must equal exactly the 16 canonical dist roots for every presence state"
+                "required must equal exactly the 9 canonical dist roots for every presence state"
             );
 
             // present + missing partition the canonical set (no overlap, full cover),
-            // reinforcing that completeness is decided over exactly the 16 tools.
+            // reinforcing that completeness is decided over exactly the 9 tools.
             let present_set: BTreeSet<String> = plan.present.iter().cloned().collect();
             let missing_set: BTreeSet<String> = plan.missing.iter().cloned().collect();
             prop_assert!(present_set.is_disjoint(&missing_set));
@@ -825,7 +825,7 @@ mod prop_missing_set_tests {
     use proptest::prelude::*;
     use std::collections::BTreeSet;
 
-    /// The 16 canonical server names, in canonical order.
+    /// The 9 canonical server names, in canonical order.
     fn canonical_names() -> Vec<&'static str> {
         canonical_payloads().iter().map(|t| t.server_name).collect()
     }
@@ -907,7 +907,7 @@ mod install_verification_property_tests {
     /// Generates a random install-directory state: a boolean per canonical tool
     /// where `true` means that tool's output is present *and* non-empty in the
     /// install directory, and `false` means it is absent *or* empty. A
-    /// `Vec<bool>` of length 16 ranges over all 2^16 install-directory states,
+    /// `Vec<bool>` of length 9 ranges over all 2^9 install-directory states,
     /// so the verifier is exercised across the whole input space.
     fn install_dir_state() -> impl Strategy<Value = Vec<bool>> {
         prop::collection::vec(any::<bool>(), CANONICAL_TOOL_COUNT)
@@ -920,7 +920,7 @@ mod install_verification_property_tests {
         //
         // For all install-directory states, the copy verifier (the pure planner
         // over the install directory's present-and-non-empty outputs) passes
-        // IFF all 16 tool outputs are present and non-empty, and when it fails
+        // IFF all 9 tool outputs are present and non-empty, and when it fails
         // the reported `missing` set equals exactly the tools that are absent or
         // empty in the install directory.
         //
@@ -944,12 +944,12 @@ mod install_verification_property_tests {
             // non-empty" set (Req 5.2/5.3), via the shared pure planner.
             let plan = plan_bundle_from_present(&present_names);
 
-            // --- verification passes IFF all 16 present and non-empty ---
+            // --- verification passes IFF all 9 present and non-empty ---
             let all_present = present_flags.iter().all(|&p| p);
             prop_assert_eq!(
                 plan.is_complete(),
                 all_present,
-                "install verification must pass exactly when all 16 outputs are present and non-empty"
+                "install verification must pass exactly when all 9 outputs are present and non-empty"
             );
 
             // --- on failure, missing == exactly the absent/empty set ---
@@ -973,7 +973,7 @@ mod install_verification_property_tests {
             prop_assert_eq!(plan.is_complete(), reported_missing.is_empty());
 
             // No present tool is reported missing and no missing tool is
-            // reported present: present + missing partition the canonical 16.
+            // reported present: present + missing partition the canonical 9.
             let present_set: BTreeSet<String> = plan.present.iter().cloned().collect();
             prop_assert!(present_set.is_disjoint(&reported_missing));
             let union: BTreeSet<String> =
@@ -1083,7 +1083,7 @@ mod copy_idempotency_property_tests {
         )
     }
 
-    /// Strategy for a whole bundled payload: for each of the 16 canonical tools,
+    /// Strategy for a whole bundled payload: for each of the 9 canonical tools,
     /// a non-empty set of payload files. Requiring >= 1 file per tool keeps every
     /// tool's dist root present and non-empty, so `copy_payload` succeeds and the
     /// idempotency comparison is meaningful (an all-empty payload would fail
@@ -1167,7 +1167,7 @@ mod copy_idempotency_property_tests {
         // For all bundled payloads and install directories, copying the payload
         // and then copying it again yields the same install-directory contents
         // as copying it once. Both copies run against real temp directories: a
-        // randomized 16-tool payload is materialized into a temp resource root,
+        // randomized 9-tool payload is materialized into a temp resource root,
         // copied into a temp install dir (snapshot A), then copied a second time
         // into the same install dir (snapshot B). The property asserts A == B.
         //
@@ -1349,7 +1349,7 @@ mod copy_error_attribution_tests {
         // A verification failure carries the exact set of missing/empty tools.
         // Attribution must list each affected tool, not just one.
         let a = canonical_payloads()[0].server_name;
-        let b = canonical_payloads()[9].server_name;
+        let b = canonical_payloads()[8].server_name;
         let mut missing = vec![a.to_string(), b.to_string()];
         missing.sort();
 
@@ -1438,7 +1438,7 @@ mod atomic_rollback_property_tests {
     //!   tool leaves no partial config *file* for it.
     //!
     //! The property picks a random failure point and a random affected index over
-    //! the 16 canonical tools, forces exactly that failure against real temp
+    //! the 9 canonical tools, forces exactly that failure against real temp
     //! directories, and asserts the rollback invariant: after the failure
     //! handling completes, no partially written toolkit-owned artifact remains
     //! for the failed operation and the affected target is back at its

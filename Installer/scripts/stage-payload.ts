@@ -31,7 +31,6 @@
 import { execSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   CANONICAL_TOOL_PAYLOADS,
@@ -39,19 +38,66 @@ import {
   canonicalPayloads,
   isComplete,
   planPayloadStaging,
+  scanPayloadForSecrets,
+  stagingDestDirName,
 } from "./payload-manifest.ts";
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const installerRoot = resolve(scriptDir, "..");
-/** Repository root: two levels up from Installer/scripts/. */
-const repoRoot = resolve(installerRoot, "..");
+// Re-export the pure staging secret guard (Concern 2, task 3.5) so callers and
+// tests can resolve it directly from `scripts/stage-payload`.
+export { scanPayloadForSecrets } from "./payload-manifest.ts";
+export type { SecretFinding } from "./payload-manifest.ts";
+
+/**
+ * Resolve the path to the invoked entry script.
+ *
+ * This module is authored to run BOTH as a real ESM CLI (`tsx
+ * scripts/stage-payload.ts`) AND to be `require`-d under jest's CommonJS
+ * transform (so a test can reach the exported secret guard). We deliberately
+ * AVOID `import.meta` — under the CommonJS transform the literal `import.meta`
+ * makes the whole module fail to load ("Cannot use 'import.meta' outside a
+ * module"). Instead we anchor path resolution on `process.argv[1]`, the path of
+ * the invoked script, which is available in both modes.
+ */
+function invokedScriptPath(): string {
+  return process.argv[1] ? resolve(process.argv[1]) : "";
+}
+
+/** True iff this file is the invoked entry script (run as CLI, not imported). */
+function runningAsMain(): boolean {
+  const invoked = invokedScriptPath();
+  if (!invoked) {
+    return false;
+  }
+  const base = invoked.replace(/\\/g, "/").split("/").pop() ?? "";
+  return base === "stage-payload.ts" || base === "stage-payload.js";
+}
+
+/** The `Installer/scripts/` directory this file lives in, anchored on argv[1]. */
+function scriptDirOf(): string {
+  const invoked = invokedScriptPath();
+  return invoked ? dirname(invoked) : resolve(".");
+}
+
+/** The `Installer/` root: one level up from `Installer/scripts/`. */
+function installerRootOf(): string {
+  return resolve(scriptDirOf(), "..");
+}
+
+/** Repository root: two levels up from `Installer/scripts/`. */
+function repoRootOf(): string {
+  return resolve(installerRootOf(), "..");
+}
 
 /**
  * The staging root that Tauri embeds. `tauri.conf.json` `bundle.resources`
  * (task 4.2) points at `payload/*` relative to `src-tauri/`, so this is where
- * the 16 dist trees are collected.
+ * the 16 dist trees are collected. Resolved lazily so importing this module
+ * under a CommonJS test transform (where `import.meta` is unavailable) does not
+ * evaluate `import.meta` at load time.
  */
-export const STAGING_ROOT = resolve(installerRoot, "src-tauri", "payload");
+export function stagingRoot(): string {
+  return resolve(installerRootOf(), "src-tauri", "payload");
+}
 
 /**
  * Determine whether a `dist` root directory exists and is non-empty.
@@ -106,7 +152,7 @@ function parseArgs(argv: readonly string[]): CliOptions {
 function buildAllTools(): void {
   console.log("[stage-payload] Building all 16 tools via root `npm run build`…");
   execSync("npm run build", {
-    cwd: repoRoot,
+    cwd: repoRootOf(),
     stdio: "inherit",
   });
 }
@@ -116,7 +162,9 @@ function buildAllTools(): void {
  *
  * The staging root is cleared first so a stale payload from a previous build
  * never leaks into the installer. Each tool is copied to
- * `payload/<serverName>/` so install-time verification can key off server name.
+ * `payload/<serverName>/` (via the shared `stagingDestDirName` seam mirror) so
+ * install-time verification can key off server name, and so the leading dir of
+ * the copied tree matches the bridge-config seam `installedEntryRelpath`.
  */
 export function stagePayload(repoRootDir: string, stagingRoot: string): void {
   rmSync(stagingRoot, { recursive: true, force: true });
@@ -124,10 +172,15 @@ export function stagePayload(repoRootDir: string, stagingRoot: string): void {
 
   for (const tool of CANONICAL_TOOL_PAYLOADS) {
     const src = resolve(repoRootDir, tool.distRoot);
-    const dest = resolve(stagingRoot, tool.serverName);
+    // Destination dir name comes from the shared seam mirror
+    // (`stagingDestDirName`), which is the SAME leading dir the bridge-config
+    // seam (`installedEntryRelpath`) uses — so the staged layout and the
+    // generated `args[0]` cannot drift.
+    const destDirName = stagingDestDirName(tool);
+    const dest = resolve(stagingRoot, destDirName);
     cpSync(src, dest, { recursive: true });
     console.log(
-      `[stage-payload]   staged ${tool.serverName}  (${tool.distRoot} -> payload/${tool.serverName})`,
+      `[stage-payload]   staged ${tool.serverName}  (${tool.distRoot} -> payload/${destDirName})`,
     );
   }
 }
@@ -142,6 +195,9 @@ function main(): void {
       "[stage-payload] Skipping tool build (--no-build/--dry-run); staging existing dist/ trees.",
     );
   }
+
+  const repoRoot = repoRootOf();
+  const stagingRootDir = stagingRoot();
 
   const presence = observeAllPresence(repoRoot);
   const plan = planPayloadStaging(presence);
@@ -164,19 +220,39 @@ function main(): void {
 
   if (opts.dryRun) {
     console.log("[stage-payload] --dry-run: not staging. Would stage into:");
-    console.log(`[stage-payload]   ${STAGING_ROOT}`);
+    console.log(`[stage-payload]   ${stagingRootDir}`);
     process.exit(0);
   }
 
-  stagePayload(repoRoot, STAGING_ROOT);
+  stagePayload(repoRoot, stagingRootDir);
+
+  // Concern 2 (task 3.5): enforce "no secret embedded" as a build invariant.
+  // Scan the freshly staged payload and ABORT (non-zero) if any non-empty,
+  // non-placeholder secret-bearing value is present, naming each offending
+  // file — mirroring the completeness-abort pattern above.
+  const findings = scanPayloadForSecrets(stagingRootDir);
+  if (findings.length > 0) {
+    console.error(
+      `[stage-payload] ABORT — ${findings.length} secret-bearing value(s) found in the staged payload; no payload may ship with an embedded secret:`,
+    );
+    for (const finding of findings) {
+      console.error(`[stage-payload]   - ${finding.file}  (key: ${finding.key})`);
+    }
+    console.error(
+      "[stage-payload] Remove the secret from source/config so it is sourced from user config / .env at install time only, then rebuild. The staged payload has been left in place for inspection.",
+    );
+    process.exit(1);
+  }
+
   console.log(
-    `[stage-payload] OK — staged ${plan.present.length} tool dist trees into ${STAGING_ROOT}`,
+    `[stage-payload] OK — staged ${plan.present.length} tool dist trees into ${stagingRootDir} (no embedded secrets)`,
   );
   process.exit(0);
 }
 
-// Only run when invoked directly (not when imported by tests).
-const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
-if (invokedPath === resolve(fileURLToPath(import.meta.url))) {
+// Only run when invoked directly (not when imported by tests). When required
+// under the CommonJS test transform the invoked script is jest, not this file,
+// so `runningAsMain()` is false and nothing executes on import.
+if (runningAsMain()) {
   main();
 }

@@ -149,30 +149,30 @@ describe("verify-mcp-sync self-tests", () => {
       warnSpy.mockRestore();
     });
 
-    it("EXPECTED_COUNT is 16", () => {
-      expect(EXPECTED_COUNT).toBe(16);
+    it("EXPECTED_COUNT is 9", () => {
+      expect(EXPECTED_COUNT).toBe(9);
     });
 
-    it("the intended runtime-server set contains exactly 16 entries", () => {
-      expect(INTENDED_RUNTIME_SERVERS).toHaveLength(16);
+    it("the intended runtime-server set contains exactly 9 entries", () => {
+      expect(INTENDED_RUNTIME_SERVERS).toHaveLength(9);
     });
 
-    it("mcp-config.js registers exactly 16 plugin entries", () => {
+    it("mcp-config.js registers exactly 9 plugin entries", () => {
       expect(registeredNames).toHaveLength(EXPECTED_COUNT);
     });
 
     it("checkCount reports ok when the registered count matches", () => {
       const result = checkCount(registeredNames.length);
       expect(result.ok).toBe(true);
-      expect(result.count).toBe(16);
-      expect(result.expected).toBe(16);
+      expect(result.count).toBe(9);
+      expect(result.expected).toBe(9);
     });
 
     it("checkCount reports not-ok (with diagnostics) when the count is wrong", () => {
-      const result = checkCount(15);
+      const result = checkCount(8);
       expect(result.ok).toBe(false);
-      expect(result.count).toBe(15);
-      expect(result.expected).toBe(16);
+      expect(result.count).toBe(8);
+      expect(result.expected).toBe(9);
     });
   });
 
@@ -199,10 +199,10 @@ describe("verify-mcp-sync self-tests", () => {
     });
 
     it("checkRegistrationSet names a missing intended server", () => {
-      const withoutGit = registeredNames.filter((n) => n !== "git");
-      const { missing, ok } = checkRegistrationSet(withoutGit);
+      const withoutTerminal = registeredNames.filter((n) => n !== "terminal");
+      const { missing, ok } = checkRegistrationSet(withoutTerminal);
       expect(ok).toBe(false);
-      expect(missing).toContain("git");
+      expect(missing).toContain("terminal");
     });
 
     it("checkRegistrationSet names an unexpected registered server", () => {
@@ -230,9 +230,6 @@ describe("verify-mcp-sync self-tests", () => {
       // Confirmed emitted paths (task 2.1): these servers emit nested artifacts.
       const nestedExpectations: Record<string, string> = {
         "lan-sub-agent": "LanSubAgent/dist/LanSubAgent/src/mcp-server.js",
-        git: "Git/dist/Git/src/mcp-server.js",
-        "package-manager": "PackageManager/dist/PackageManager/src/mcp-server.js",
-        "file-editor": "FileEditor/dist/FileEditor/src/mcp-server.js",
       };
       for (const [name, relative] of Object.entries(nestedExpectations)) {
         expect(mcpServers[name].args[0]).toContain(relative);
@@ -242,8 +239,6 @@ describe("verify-mcp-sync self-tests", () => {
     it("resolves the flat relativeScript paths for standalone servers", () => {
       const flatExpectations: Record<string, string> = {
         "3dtool": "3DTool/dist/mcp-server.js",
-        "sub-agent": "SubAgent/dist/mcp-server.js",
-        "csv-exporter": "CSVExporter/dist/mcp-server.js",
       };
       for (const [name, relative] of Object.entries(flatExpectations)) {
         expect(mcpServers[name].args[0]).toContain(relative);

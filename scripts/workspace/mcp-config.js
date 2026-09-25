@@ -45,19 +45,6 @@ const servers = {
       BROWSERLESS_TOKEN: "", // Mapped from BROWSERLESS_API_KEY at sync time
     },
   },
-  rag: {
-    relativeScript: "RAG/dist/mcp-server.js",
-    env: {
-      RAG_DB_PATH: "./rag.db",
-      RAG_EMBEDDINGS_MODE: "lmstudio",
-      RAG_EMBEDDING_MODEL: "nomic-ai/nomic-embed-text-v1.5",
-      RAG_DOC_SCRAPER_ENDPOINT: "http://localhost:3336/tools/read_document",
-      RAG_ASK_USER_ENDPOINT: "http://localhost:3338/tools/ask_user_interview",
-      RAG_BYPASS_APPROVAL: "true",
-      RAG_CHUNK_SIZE_TOKENS: "384",
-      RAG_CHUNK_OVERLAP_TOKENS: "75",
-    },
-  },
   "python-shell": {
     relativeScript: "PythonShell/dist/mcp-server.js",
     env: {
@@ -71,12 +58,6 @@ const servers = {
     relativeScript: "Skills/dist/mcp-server.js",
     env: {
       SKILLS_DB_PATH: "./skills.db",
-    },
-  },
-  "slash-commands": {
-    relativeScript: "SlashCommands/dist/mcp-server.js",
-    env: {
-      SLASH_DEFAULT_SESSION: "default",
     },
   },
   "blender-bridge": {
@@ -93,19 +74,6 @@ const servers = {
     relativeScript: "3DTool/dist/mcp-server.js",
     env: {},
   },
-  "sub-agent": {
-    // Confirmed emitted path (task 2.1): flat, explicit rootDir "src", no @shared imports
-    relativeScript: "SubAgent/dist/mcp-server.js",
-    env: {
-      SUBAGENT_MAX_CONCURRENCY: "1",
-      SUBAGENT_CACHE_PATH: "./subagent-cache.db",
-      SUBAGENT_CHECKPOINT_DIR: "./.subagent-checkpoints/",
-      SUBAGENT_API_URL: "http://localhost:1234/v1/chat/completions",
-      SUBAGENT_MODEL: "default",
-      SUBAGENT_PROMPT_TOKEN_COST: "",
-      SUBAGENT_COMPLETION_TOKEN_COST: "",
-    },
-  },
   "lan-sub-agent": {
     // Confirmed emitted path (task 2.1): nested (rootDir "..", cross-workspace include)
     relativeScript: "LanSubAgent/dist/LanSubAgent/src/mcp-server.js",
@@ -113,32 +81,6 @@ const servers = {
       LAN_SUBAGENT_CONFIG_PATH: "",
       SUBAGENT_LOCAL_HOST: "",
       SUBAGENT_LOCAL_PORT: "",
-    },
-  },
-  git: {
-    // Confirmed emitted path (task 2.1): nested — @shared source pulled in, no explicit rootDir
-    relativeScript: "Git/dist/Git/src/mcp-server.js",
-    env: {
-      GIT_WORKSPACE_ROOT: "",
-    },
-  },
-  "package-manager": {
-    // Confirmed emitted path (task 2.1): nested — @shared source pulled in, no explicit rootDir
-    relativeScript: "PackageManager/dist/PackageManager/src/mcp-server.js",
-    env: {
-      PACKAGE_MANAGER_WORKSPACE_ROOT: "",
-    },
-  },
-  "csv-exporter": {
-    // Confirmed emitted path (task 2.1): flat — @shared resolved to built declarations, not source
-    relativeScript: "CSVExporter/dist/mcp-server.js",
-    env: {},
-  },
-  "file-editor": {
-    // Confirmed emitted path (task 2.1): nested — @shared source pulled in, no explicit rootDir
-    relativeScript: "FileEditor/dist/FileEditor/src/mcp-server.js",
-    env: {
-      FILE_EDITOR_WORKSPACE_ROOT: "",
     },
   },
 };

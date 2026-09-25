@@ -1,0 +1,117 @@
+{
+  "$schema": "./shipped-servers-baseline.schema.md",
+  "feature": "retire-and-gate-mcp-servers",
+  "property": "Property 4: generated config for each Shipped server is unchanged",
+  "description": "Pre-change golden baseline of the generated LM Studio bridge config for the nine Shipped servers. Captured BEFORE any mirror is edited so it doubles as the post-change expected set. Sources: Installer/src-tauri/src/lmstudio.rs default_bridge_configs (command + args entry-path layout) and scripts/workspace/mcp-config.js buildMcpServers() (env maps). This baseline contains ONLY the nine Shipped servers; the four Retired (rag, csv-exporter, file-editor, package-manager) and three Unshipped (slash-commands, sub-agent, git) servers are intentionally absent so a post-change generated set must equal this fixture exactly.",
+  "capturedForRequirements": ["6.1", "6.3"],
+  "expectedServerCount": 9,
+  "argsLayout": {
+    "note": "For each server, default_bridge_configs emits command='node' and a single arg: the normalized (forward-slash) absolute path install_dir/<serverName>/<entry>. `entry` is 'schema-proxy.js' for browserless and 'mcp-server.js' for every other server. The `entryPathTemplate` below uses {installDir} as the placeholder for the resolved install root.",
+    "entryPathTemplate": "{installDir}/<serverName>/<entry>"
+  },
+  "servers": {
+    "terminal": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/terminal/mcp-server.js",
+      "distRoot": "Terminal/dist",
+      "env": {
+        "TERMINAL_DEFAULT_TIMEOUT_MS": "60000",
+        "TERMINAL_MAX_TIMEOUT_MS": "120000"
+      }
+    },
+    "web-browser": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/web-browser/mcp-server.js",
+      "distRoot": "WebBrowser/dist",
+      "env": {
+        "BROWSER_DEFAULT_TIMEOUT_MS": "20000",
+        "BROWSER_MAX_TIMEOUT_MS": "60000",
+        "BROWSER_MAX_CONTENT_CHARS": "12000",
+        "BROWSER_HEADLESS": "true"
+      }
+    },
+    "common": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/common/mcp-server.js",
+      "distRoot": "mcp/common/dist",
+      "env": {
+        "CALCULATOR_DEFAULT_PRECISION": "12",
+        "CALCULATOR_MAX_PRECISION": "20",
+        "DOC_SCRAPER_DEFAULT_TIMEOUT_MS": "20000",
+        "DOC_SCRAPER_MAX_TIMEOUT_MS": "60000",
+        "DOC_SCRAPER_MAX_CONTENT_BYTES": "52428800",
+        "DOC_SCRAPER_MAX_CONTENT_CHARS": "50000",
+        "DOC_SCRAPER_WORKSPACE_ROOT": "",
+        "CLOCK_DEFAULT_TIMEZONE": "",
+        "CLOCK_DEFAULT_LOCALE": "en-US",
+        "ASK_USER_DB_PATH": "./memory.db",
+        "ASK_USER_DEFAULT_EXPIRES_SECONDS": "1800",
+        "ASK_USER_MAX_EXPIRES_SECONDS": "86400",
+        "ASK_USER_MAX_QUESTIONS": "20"
+      }
+    },
+    "browserless": {
+      "command": "node",
+      "entry": "schema-proxy.js",
+      "entryPathTemplate": "{installDir}/browserless/schema-proxy.js",
+      "distRoot": "Browserless/scripts",
+      "env": {
+        "BROWSERLESS_TOKEN": ""
+      }
+    },
+    "python-shell": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/python-shell/mcp-server.js",
+      "distRoot": "PythonShell/dist",
+      "env": {
+        "PYTHON_SHELL_DEFAULT_TIMEOUT_MS": "60000",
+        "PYTHON_SHELL_MAX_TIMEOUT_MS": "120000",
+        "PYTHON_SHELL_MAX_OUTPUT_CHARS": "50000",
+        "PYTHON_SHELL_WORKSPACE_ROOT": ""
+      }
+    },
+    "skills": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/skills/mcp-server.js",
+      "distRoot": "Skills/dist",
+      "env": {
+        "SKILLS_DB_PATH": "./skills.db"
+      }
+    },
+    "blender-bridge": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/blender-bridge/mcp-server.js",
+      "distRoot": "BlenderBridge/dist",
+      "env": {
+        "BLENDER_MCP_HOST": "127.0.0.1",
+        "BLENDER_MCP_PORT": "9876",
+        "BLENDER_MCP_COMMAND": "blender-mcp",
+        "BLENDER_MCP_ARGS": ""
+      }
+    },
+    "3dtool": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/3dtool/mcp-server.js",
+      "distRoot": "3DTool/dist",
+      "env": {}
+    },
+    "lan-sub-agent": {
+      "command": "node",
+      "entry": "mcp-server.js",
+      "entryPathTemplate": "{installDir}/lan-sub-agent/mcp-server.js",
+      "distRoot": "LanSubAgent/dist/LanSubAgent/src",
+      "env": {
+        "LAN_SUBAGENT_CONFIG_PATH": "",
+        "SUBAGENT_LOCAL_HOST": "",
+        "SUBAGENT_LOCAL_PORT": ""
+      }
+    }
+  }
+}

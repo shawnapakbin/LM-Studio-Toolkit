@@ -82,23 +82,12 @@ slashcommands:
   calculatorEndpoint: http://localhost:3335
   webbrowserEndpoint: http://localhost:3334
   clockEndpoint: http://localhost:3337
-  terminalEndpoint: http://localhost:3330
+  terminalEndpoint: http://localhost:3333
   askuserEndpoint: http://localhost:3338
-  ragEndpoint: http://localhost:3339
   pythonshellEndpoint: http://localhost:3343
   skillsEndpoint: http://localhost:3341
-  ecmEndpoint: http://localhost:3342
-csvexporter:
-  port: 3339
-  exportRoot: ""
-fileeditor:
-  port: 3010
-  workspaceRoot: .
 git:
   port: 3011
-  workspaceRoot: .
-packagemanager:
-  port: 3012
   workspaceRoot: .
 observability:
   enabled: true

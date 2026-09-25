@@ -2,7 +2,7 @@
 
 Slash commands let you control the LLM Toolkit directly from the LM Studio chat window. Type a `/command` as your message and the LLM will recognize it and invoke the corresponding tool automatically — no terminal required.
 
-This works because the system prompt instructs the model to intercept messages that begin with `/` and route them to the appropriate MCP tool call before responding.
+This works via the registered `slash_command` MCP tool: the LLM sees it in its tool list and calls it whenever a message begins with `/`, so commands are intercepted and routed without requiring any system prompt.
 
 ---
 
@@ -107,7 +107,7 @@ Build the server with `npm run build:slash`.
 The `slash_command` MCP tool is registered in LM Studio alongside the other tools. When you type `/calc sin(30°)` or `/browse https://...` in chat, the LLM recognizes the `/` prefix from the tool's description and calls `slash_command` with your raw input. The MCP server parses the command, dispatches it to the right tool via HTTP, and returns the result — all without touching the system prompt.
 
 For this to work:
-1. The relevant tool servers must be running (see [INSTALL.md](../INSTALL.md))
+1. The relevant tool servers must be running (see [INSTALL.md](INSTALL.md))
 2. The `slash-commands` plugin must be provisioned via `npm run mcp:sync-lmstudio`
 3. Run `npm run build:slash` to build the server
 

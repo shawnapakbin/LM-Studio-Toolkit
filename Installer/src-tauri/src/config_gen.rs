@@ -1,6 +1,6 @@
 //! Per-tool environment configuration derivation (Step 4 — Env config, Req 7).
 //!
-//! This module derives the [`Tool_Environment_Config`] for **all 16** MCP tools
+//! This module derives the [`Tool_Environment_Config`] for **all 9** MCP tools
 //! from the unified `llm-toolkit.config.yaml` model ([`ToolkitConfig`]) and
 //! writes each tool's config to a **current-user-scoped** location so that no
 //! secret value (e.g. `BROWSERLESS_TOKEN`) ends up in a place readable by other
@@ -13,7 +13,7 @@
 //! LM Studio bridge sync uses. This module mirrors that per-server key set in
 //! [`canonical_env_keys`] so the derivation always produces *exactly* the keys
 //! `mcp-config.js` defines for each server, and no others (Property 11). The
-//! 16 server names themselves are borrowed from [`crate::tool_payload`] so the
+//! 9 server names themselves are borrowed from [`crate::tool_payload`] so the
 //! two sources cannot drift.
 //!
 //! The unified [`ToolkitConfig`] (parsed from `llm-toolkit.config.yaml`) supplies
@@ -30,7 +30,7 @@
 //! user-scoped-secrets property (Property 15) can drive it directly. The thin
 //! I/O seam ([`write_all`], [`user_scoped_config_dir`]) is kept separate.
 //!
-//! Requirements: 7.1 (derive per-tool env for all 16), 7.2 (write each before
+//! Requirements: 7.1 (derive per-tool env for all 9), 7.2 (write each before
 //! proceeding), 7.3 (current-user-scoped, no world-readable secrets), 7.4
 //! (on failure name the tool + cause, leave no partial config).
 //!
@@ -76,6 +76,186 @@ pub fn is_secret_key(key: &str) -> bool {
     SECRET_ENV_KEYS.contains(&key)
 }
 
+/// The known placeholder values that stand in for a Browserless token/API key
+/// but carry no real secret material. Kept in lock-step with the pipeline's
+/// placeholder handling: `is_placeholder_env_value` in `lmstudio.rs` treats
+/// these (and empty/whitespace) as "no value". Replicated here (rather than
+/// imported) so the staging secret guard can recognize a placeholder as
+/// non-secret without depending on the bridge-sync module.
+///
+/// Keep this list small and explicit so adding a real secret is a deliberate act.
+pub const KNOWN_PLACEHOLDER_SECRETS: [&str; 2] = [
+    "your-browserless-api-key-here",
+    "your-browserless-api-token-here",
+];
+
+/// True iff `value` (already trimmed by the caller, or trimmed here) is an
+/// empty or known-placeholder stand-in that carries no real secret material.
+///
+/// Mirrors the empty/placeholder handling elsewhere in the pipeline; used by
+/// [`scan_value_for_secret`] so placeholders and blanks never trip the guard.
+fn is_placeholder_or_empty_secret(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.is_empty() || KNOWN_PLACEHOLDER_SECRETS.contains(&trimmed)
+}
+
+/// Heuristic: does `value` look like a live Browserless API token?
+///
+/// Browserless tokens observed in the wild are long, unbroken alphanumeric
+/// credentials (the exposed one was a 48-char hex-ish string). We treat a value
+/// as token-shaped when it is a single run of at least 24 URL-safe token
+/// characters (letters, digits, `-`/`_`) with no whitespace. This is
+/// deliberately conservative: it flags credential-looking strings while leaving
+/// short/spaced/placeholder values alone. It is only ever consulted for
+/// non-empty, non-placeholder values via [`scan_value_for_secret`].
+fn looks_like_browserless_token(value: &str) -> bool {
+    let v = value.trim();
+    v.len() >= 24
+        && v.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Pure predicate backing the build/staging secret guard (Concern 2).
+///
+/// Flags `(key, value)` as carrying an embedded secret when the value is
+/// **non-empty and not a known placeholder** AND either:
+/// - `key` is one of [`SECRET_ENV_KEYS`] (i.e. `BROWSERLESS_TOKEN`), or
+/// - `value` is a Browserless-token-shaped credential (see
+///   [`looks_like_browserless_token`]).
+///
+/// Empty, whitespace-only, and the known placeholder values never count as a
+/// secret, matching the rest of the pipeline's placeholder-as-empty handling.
+/// This is a pure function (no I/O); the staging guard in `stage-payload.ts`
+/// mirrors its logic to abort the build when a real secret is found in the
+/// staged payload (task 3.5).
+pub fn scan_value_for_secret(key: &str, value: &str) -> bool {
+    if is_placeholder_or_empty_secret(value) {
+        return false;
+    }
+    is_secret_key(key) || looks_like_browserless_token(value)
+}
+
+// ─── Concern 3: install-dir path anchoring (task 3.8) ─────────────────────────
+
+/// The ENUMERATED set of path/db/dir/workspace-root env keys whose relative or
+/// empty DEFAULT values must be anchored under the install dir (Concern 3).
+///
+/// Only keys in this explicit list are ever anchored by [`anchor_env_path`];
+/// every other key (and any non-path value) passes through verbatim. Keeping
+/// the set small and explicit means a new path key is a deliberate addition and
+/// a non-path value can never be accidentally rewritten (Req 3.7, 3.8).
+///
+/// Two flavours live here:
+/// - **file/db paths** whose canonical default is a relative `./file` (e.g.
+///   `ASK_USER_DB_PATH = "./memory.db"`): anchored under
+///   `install_dir/<server_name>/<relative>`, matching where the tool's files land.
+/// - **workspace-root / dir keys** whose canonical default is empty `""` (e.g.
+///   `DOC_SCRAPER_WORKSPACE_ROOT`, `PYTHON_SHELL_WORKSPACE_ROOT`): an empty
+///   default is anchored to `install_dir` itself; a relative default is anchored
+///   under `install_dir/<server_name>/<relative>`.
+pub const PATH_ENV_KEYS: &[&str] = &[
+    "ASK_USER_DB_PATH",
+    "DOC_SCRAPER_WORKSPACE_ROOT",
+    "SKILLS_DB_PATH",
+    "PYTHON_SHELL_WORKSPACE_ROOT",
+];
+
+/// True iff `key` is one of the enumerated path/db/dir/workspace-root keys that
+/// [`anchor_env_path`] may anchor. Every other key is a NON-path key and is
+/// never rewritten.
+pub fn is_path_env_key(key: &str) -> bool {
+    PATH_ENV_KEYS.contains(&key)
+}
+
+/// True iff `value` is already an absolute path — a user-supplied path that must
+/// pass through [`anchor_env_path`] untouched (preserve user intent).
+///
+/// Recognizes both POSIX-absolute (`/foo`) and Windows-absolute forms: a drive
+/// path (`C:\...` / `C:/...`) or a UNC/root path (`\\server\share`, `//host`).
+/// Accepts either slash so the check is stable regardless of separator.
+fn is_absolute_path_value(value: &str) -> bool {
+    let v = value.trim();
+    if v.is_empty() {
+        return false;
+    }
+    let bytes = v.as_bytes();
+    // Drive-letter absolute: `C:\` or `C:/` (and even bare `C:`), where the
+    // third char is a separator.
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        return true;
+    }
+    // Root / UNC absolute: leading `/` or `\`.
+    matches!(bytes[0], b'/' | b'\\')
+}
+
+/// Strip a single leading `./` or `.\` from a relative value, if present, so the
+/// anchored result does not carry a redundant `.` segment.
+fn strip_leading_dot_slash(value: &str) -> &str {
+    let v = value.trim();
+    v.strip_prefix("./")
+        .or_else(|| v.strip_prefix(".\\"))
+        .unwrap_or(v)
+}
+
+/// Join path segments with a single forward slash, normalizing any existing
+/// back-slashes and collapsing duplicate separators. Produces the normalized,
+/// forward-slashed absolute string the pipeline uses for generated config
+/// values (matching the `\\` -> `/` convention used for bridge args).
+fn join_normalized(base: &str, rel: &str) -> String {
+    let base = base.replace('\\', "/");
+    let base = base.trim_end_matches('/');
+    let rel = rel.replace('\\', "/");
+    let rel = rel.trim_start_matches('/').trim_end_matches('/');
+    if rel.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}/{rel}")
+    }
+}
+
+/// Anchor a relative/empty path DEFAULT under the install dir (Concern 3).
+///
+/// For an ENUMERATED path key ([`PATH_ENV_KEYS`]) whose `value` is relative
+/// (e.g. `./memory.db`, `./.subagent-checkpoints/`) or an empty workspace-root
+/// default, resolve it against `install_dir` — file/db and relative-dir values
+/// under the tool's `install_dir/<server_name>/` subdir (matching where the
+/// tool's files land), and an empty workspace-root to `install_dir` itself.
+/// The result is a normalized, forward-slashed absolute path string.
+///
+/// Everything else passes through verbatim:
+/// - a NON-path key (`is_path_env_key(key) == false`) returns `value` unchanged;
+/// - an already-ABSOLUTE value (user-supplied, e.g. `D:/data/rag.db`) returns
+///   `value` unchanged.
+///
+/// This is a pure function with no filesystem I/O: it never touches the process
+/// CWD, so a relative default can never resolve against the dev repo. It anchors
+/// DEFAULTS only — the derivation (task 3.9) applies it exclusively when there
+/// is no user override, so user intent (an absolute config path) is preserved
+/// (Req 3.7, 3.8).
+pub fn anchor_env_path(install_dir: &Path, server_name: &str, key: &str, value: &str) -> String {
+    // Non-path keys are never rewritten.
+    if !is_path_env_key(key) {
+        return value.to_string();
+    }
+    // User-supplied absolute paths pass through untouched (preserve user intent).
+    if is_absolute_path_value(value) {
+        return value.to_string();
+    }
+
+    let base = install_dir.to_string_lossy();
+    let trimmed = value.trim();
+
+    if trimmed.is_empty() {
+        // Empty workspace-root default: anchor to the install dir itself.
+        return join_normalized(&base, "");
+    }
+
+    // Relative default (e.g. `./memory.db`, `./.subagent-checkpoints/`): anchor
+    // under the tool's `<server_name>/` subdir where its files are staged.
+    let rel = strip_leading_dot_slash(trimmed);
+    let under_server = join_normalized(server_name, rel);
+    join_normalized(&base, &under_server)
+}
+
 /// The canonical per-server env key set, mirroring the `env` maps in
 /// `scripts/workspace/mcp-config.js`.
 ///
@@ -87,7 +267,7 @@ pub fn is_secret_key(key: &str) -> bool {
 ///
 /// `browserless` intentionally lists `BROWSERLESS_TOKEN` (the env key), whose
 /// value is sourced from `browserless.apiKey` in the YAML — the one non-identity
-/// mapping. `3dtool` and `csv-exporter` carry no env keys, matching `mcp-config.js`.
+/// mapping. `3dtool` carries no env keys, matching `mcp-config.js`.
 pub const CANONICAL_ENV_KEYS: &[(&str, &[(&str, &str)])] = &[
     (
         "terminal",
@@ -126,25 +306,6 @@ pub const CANONICAL_ENV_KEYS: &[(&str, &[(&str, &str)])] = &[
     // Value sourced from browserless.apiKey (YAML) -> BROWSERLESS_TOKEN (env).
     ("browserless", &[("BROWSERLESS_TOKEN", "")]),
     (
-        "rag",
-        &[
-            ("RAG_DB_PATH", "./rag.db"),
-            ("RAG_EMBEDDINGS_MODE", "lmstudio"),
-            ("RAG_EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5"),
-            (
-                "RAG_DOC_SCRAPER_ENDPOINT",
-                "http://localhost:3336/tools/read_document",
-            ),
-            (
-                "RAG_ASK_USER_ENDPOINT",
-                "http://localhost:3338/tools/ask_user_interview",
-            ),
-            ("RAG_BYPASS_APPROVAL", "true"),
-            ("RAG_CHUNK_SIZE_TOKENS", "384"),
-            ("RAG_CHUNK_OVERLAP_TOKENS", "75"),
-        ],
-    ),
-    (
         "python-shell",
         &[
             ("PYTHON_SHELL_DEFAULT_TIMEOUT_MS", "60000"),
@@ -154,7 +315,6 @@ pub const CANONICAL_ENV_KEYS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     ("skills", &[("SKILLS_DB_PATH", "./skills.db")]),
-    ("slash-commands", &[("SLASH_DEFAULT_SESSION", "default")]),
     (
         "blender-bridge",
         &[
@@ -166,18 +326,6 @@ pub const CANONICAL_ENV_KEYS: &[(&str, &[(&str, &str)])] = &[
     ),
     ("3dtool", &[]),
     (
-        "sub-agent",
-        &[
-            ("SUBAGENT_MAX_CONCURRENCY", "1"),
-            ("SUBAGENT_CACHE_PATH", "./subagent-cache.db"),
-            ("SUBAGENT_CHECKPOINT_DIR", "./.subagent-checkpoints/"),
-            ("SUBAGENT_API_URL", "http://localhost:1234/v1/chat/completions"),
-            ("SUBAGENT_MODEL", "default"),
-            ("SUBAGENT_PROMPT_TOKEN_COST", ""),
-            ("SUBAGENT_COMPLETION_TOKEN_COST", ""),
-        ],
-    ),
-    (
         "lan-sub-agent",
         &[
             ("LAN_SUBAGENT_CONFIG_PATH", ""),
@@ -185,17 +333,10 @@ pub const CANONICAL_ENV_KEYS: &[(&str, &[(&str, &str)])] = &[
             ("SUBAGENT_LOCAL_PORT", ""),
         ],
     ),
-    ("git", &[("GIT_WORKSPACE_ROOT", "")]),
-    (
-        "package-manager",
-        &[("PACKAGE_MANAGER_WORKSPACE_ROOT", "")],
-    ),
-    ("csv-exporter", &[]),
-    ("file-editor", &[("FILE_EDITOR_WORKSPACE_ROOT", "")]),
 ];
 
 /// Returns the canonical env key/default pairs for `server_name`, or `None` if
-/// the name is not one of the 16 canonical servers.
+/// the name is not one of the 9 canonical servers.
 pub fn canonical_env_defaults(server_name: &str) -> Option<&'static [(&'static str, &'static str)]> {
     CANONICAL_ENV_KEYS
         .iter()
@@ -218,7 +359,7 @@ pub fn canonical_env_keys(server_name: &str) -> Vec<&'static str> {
 ///
 /// Only the fields the env derivation consumes are modeled; unknown fields in
 /// the YAML are ignored so the installer tolerates a config carrying extra
-/// settings for tools/features outside the 16 env maps. All sections are
+/// settings for tools/features outside the 9 env maps. All sections are
 /// optional: a missing section means "use the canonical defaults for that tool".
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -230,16 +371,10 @@ pub struct ToolkitConfig {
     pub clock: ClockConfig,
     pub askuser: AskUserConfig,
     pub browserless: BrowserlessConfig,
-    pub rag: RagConfig,
     pub pythonshell: PythonShellConfig,
     pub skills: SkillsConfig,
-    pub slashcommands: SlashCommandsConfig,
     pub blenderbridge: BlenderBridgeConfig,
-    pub subagent: SubAgentConfig,
     pub lansubagent: LanSubAgentConfig,
-    pub git: WorkspaceRootConfig,
-    pub packagemanager: WorkspaceRootConfig,
-    pub fileeditor: WorkspaceRootConfig,
 }
 
 /// Parse a [`ToolkitConfig`] from raw YAML text.
@@ -324,27 +459,6 @@ pub struct BrowserlessConfig {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
-pub struct RagConfig {
-    #[serde(rename = "dbPath")]
-    pub db_path: Option<String>,
-    #[serde(rename = "embeddingsMode")]
-    pub embeddings_mode: Option<String>,
-    #[serde(rename = "embeddingModel")]
-    pub embedding_model: Option<String>,
-    #[serde(rename = "docScraperEndpoint")]
-    pub doc_scraper_endpoint: Option<String>,
-    #[serde(rename = "askUserEndpoint")]
-    pub ask_user_endpoint: Option<String>,
-    #[serde(rename = "bypassApproval")]
-    pub bypass_approval: Option<bool>,
-    #[serde(rename = "chunkSizeTokens")]
-    pub chunk_size_tokens: Option<u64>,
-    #[serde(rename = "chunkOverlapTokens")]
-    pub chunk_overlap_tokens: Option<u64>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
 pub struct PythonShellConfig {
     #[serde(rename = "defaultTimeoutMs")]
     pub default_timeout_ms: Option<u64>,
@@ -365,24 +479,11 @@ pub struct SkillsConfig {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
-pub struct SlashCommandsConfig {
-    #[serde(rename = "defaultSession")]
-    pub default_session: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
 pub struct BlenderBridgeConfig {
     pub host: Option<String>,
     pub port: Option<u64>,
     pub command: Option<String>,
     pub args: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
-pub struct SubAgentConfig {
-    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -396,38 +497,58 @@ pub struct LanSubAgentConfig {
     pub local_port: Option<serde_yaml::Value>,
 }
 
-/// Shared shape for tools whose only env key is a workspace root
-/// (`git`, `package-manager`, `file-editor`).
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
-pub struct WorkspaceRootConfig {
-    #[serde(rename = "workspaceRoot")]
-    pub workspace_root: Option<String>,
-}
-
 // ─── Pure derivation ──────────────────────────────────────────────────────────
 
-/// Derives the [`ToolEnvConfigSet`] for **all 16** MCP tools from `config`.
+/// Derives the [`ToolEnvConfigSet`] for **all 9** MCP tools from `config`.
 ///
 /// Guarantees (Property 11):
-/// - the result has exactly one entry per canonical server (16 total), and
+/// - the result has exactly one entry per canonical server (9 total), and
 /// - each entry's key set is exactly [`canonical_env_keys`] for that server.
 ///
 /// For each key, the value is the setting from `config` when present, otherwise
 /// the canonical default from `mcp-config.js`. This is a pure function with no
 /// I/O.
-pub fn derive_all(config: &ToolkitConfig) -> ToolEnvConfigSet {
+///
+/// # Concern 3 anchoring layer (tasks 3.7-3.9)
+///
+/// Investigation finding (task 3.7) informing tasks 3.8-3.9: the relative/empty
+/// path DEFAULTS (`ASK_USER_DB_PATH = "./memory.db"`,
+/// `DOC_SCRAPER_WORKSPACE_ROOT = ""`, and the other enumerated path keys) used to
+/// be emitted VERBATIM here and were later resolved to absolute paths at RUNTIME
+/// inside each MCP tool against the tool's process CWD / module dir (e.g.
+/// DocumentScraper `getWorkspaceRoot()` -> `path.resolve(... || process.cwd())`,
+/// AskUser `path.resolve(__dirname, DB_PATH)`). On the dev machine that runtime
+/// CWD was the dev repo, which is why the generated config pointed at dev-repo
+/// paths. Anchoring now happens HERE, at generation time, against `install_dir`
+/// (task 3.9): for a canonical DEFAULT (no user override) whose key is an
+/// enumerated path key ([`is_path_env_key`]), the value is run through
+/// [`anchor_env_path`] so it resolves under `install_dir`
+/// (`%LOCALAPPDATA%\LLM-Toolkit`), never the process CWD or dev repo.
+///
+/// A user-supplied value from `llm-toolkit.config.yaml` (i.e. [`override_value`]
+/// returned `Some`) is NEVER anchored — it passes through verbatim so an absolute
+/// user path (or any deliberate user override) preserves user intent (Req 3.8).
+/// Non-path keys are likewise never rewritten, both because they are only
+/// anchored when they are the default AND because [`anchor_env_path`] itself
+/// no-ops for non-path keys.
+pub fn derive_all(config: &ToolkitConfig, install_dir: &Path) -> ToolEnvConfigSet {
     let mut out: ToolEnvConfigSet = BTreeMap::new();
 
-    // Iterate the canonical 16 server names (from tool_payload) so the entry set
-    // is exactly the 16 tools and cannot drift from the payload list.
+    // Iterate the canonical 9 server names (from tool_payload) so the entry set
+    // is exactly the 9 tools and cannot drift from the payload list.
     for tool in canonical_payloads() {
         let server = tool.server_name;
         let defaults = canonical_env_defaults(server).unwrap_or(&[]);
 
         let mut env: ToolEnvConfig = BTreeMap::new();
         for (key, default) in defaults {
-            let value = override_value(config, server, key).unwrap_or_else(|| (*default).to_string());
+            // A user override wins verbatim (preserve user intent — absolute
+            // config paths and non-path values are never anchored). Only the
+            // canonical DEFAULT is anchored, and only for enumerated path keys.
+            let value = match override_value(config, server, key) {
+                Some(user_value) => user_value,
+                None => anchor_env_path(install_dir, server, key, default),
+            };
             env.insert((*key).to_string(), value);
         }
         out.insert(server.to_string(), env);
@@ -469,15 +590,6 @@ fn override_value(config: &ToolkitConfig, server: &str, key: &str) -> Option<Str
         // The one non-identity mapping: browserless.apiKey (YAML) -> BROWSERLESS_TOKEN (env).
         ("browserless", "BROWSERLESS_TOKEN") => config.browserless.api_key.clone(),
 
-        ("rag", "RAG_DB_PATH") => config.rag.db_path.clone(),
-        ("rag", "RAG_EMBEDDINGS_MODE") => config.rag.embeddings_mode.clone(),
-        ("rag", "RAG_EMBEDDING_MODEL") => config.rag.embedding_model.clone(),
-        ("rag", "RAG_DOC_SCRAPER_ENDPOINT") => config.rag.doc_scraper_endpoint.clone(),
-        ("rag", "RAG_ASK_USER_ENDPOINT") => config.rag.ask_user_endpoint.clone(),
-        ("rag", "RAG_BYPASS_APPROVAL") => config.rag.bypass_approval.map(boolean),
-        ("rag", "RAG_CHUNK_SIZE_TOKENS") => config.rag.chunk_size_tokens.map(num),
-        ("rag", "RAG_CHUNK_OVERLAP_TOKENS") => config.rag.chunk_overlap_tokens.map(num),
-
         ("python-shell", "PYTHON_SHELL_DEFAULT_TIMEOUT_MS") => config.pythonshell.default_timeout_ms.map(num),
         ("python-shell", "PYTHON_SHELL_MAX_TIMEOUT_MS") => config.pythonshell.max_timeout_ms.map(num),
         ("python-shell", "PYTHON_SHELL_MAX_OUTPUT_CHARS") => config.pythonshell.max_output_chars.map(num),
@@ -485,14 +597,10 @@ fn override_value(config: &ToolkitConfig, server: &str, key: &str) -> Option<Str
 
         ("skills", "SKILLS_DB_PATH") => config.skills.db_path.clone(),
 
-        ("slash-commands", "SLASH_DEFAULT_SESSION") => config.slashcommands.default_session.clone(),
-
         ("blender-bridge", "BLENDER_MCP_HOST") => config.blenderbridge.host.clone(),
         ("blender-bridge", "BLENDER_MCP_PORT") => config.blenderbridge.port.map(num),
         ("blender-bridge", "BLENDER_MCP_COMMAND") => config.blenderbridge.command.clone(),
         ("blender-bridge", "BLENDER_MCP_ARGS") => config.blenderbridge.args.clone(),
-
-        ("sub-agent", "SUBAGENT_MODEL") => config.subagent.model.clone(),
 
         ("lan-sub-agent", "LAN_SUBAGENT_CONFIG_PATH") => config.lansubagent.config_path.clone(),
         ("lan-sub-agent", "SUBAGENT_LOCAL_HOST") => config.lansubagent.local_host.clone(),
@@ -501,10 +609,6 @@ fn override_value(config: &ToolkitConfig, server: &str, key: &str) -> Option<Str
             .local_port
             .as_ref()
             .and_then(yaml_scalar_to_string),
-
-        ("git", "GIT_WORKSPACE_ROOT") => config.git.workspace_root.clone(),
-        ("package-manager", "PACKAGE_MANAGER_WORKSPACE_ROOT") => config.packagemanager.workspace_root.clone(),
-        ("file-editor", "FILE_EDITOR_WORKSPACE_ROOT") => config.fileeditor.workspace_root.clone(),
 
         // No override in the unified config for this key: keep the canonical default.
         _ => None,
@@ -692,11 +796,11 @@ pub fn write_all_to(dir: &Path, configs: &ToolEnvConfigSet) -> Result<Vec<PathBu
 mod tests {
     use super::*;
 
-    /// The default config (all sections empty) must still derive all 16 tools
+    /// The default config (all sections empty) must still derive all 9 tools
     /// with their canonical defaults.
     #[test]
-    fn derive_all_yields_exactly_sixteen_tools() {
-        let set = derive_all(&ToolkitConfig::default());
+    fn derive_all_yields_exactly_nine_tools() {
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         assert_eq!(set.len(), CANONICAL_TOOL_COUNT);
 
         let expected: std::collections::BTreeSet<String> = canonical_payloads()
@@ -709,7 +813,7 @@ mod tests {
 
     #[test]
     fn each_tool_has_exactly_canonical_keys() {
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         for tool in canonical_payloads() {
             let env = &set[tool.server_name];
             let expected: std::collections::BTreeSet<&str> =
@@ -725,23 +829,21 @@ mod tests {
 
     #[test]
     fn defaults_match_mcp_config_when_config_empty() {
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         // A few representative defaults from mcp-config.js.
         assert_eq!(set["terminal"]["TERMINAL_DEFAULT_TIMEOUT_MS"], "60000");
         assert_eq!(set["common"]["CLOCK_DEFAULT_LOCALE"], "en-US");
-        assert_eq!(set["rag"]["RAG_CHUNK_SIZE_TOKENS"], "384");
+        assert_eq!(set["skills"].len(), 1);
         // browserless default token is empty when no apiKey is configured.
         assert_eq!(set["browserless"]["BROWSERLESS_TOKEN"], "");
-        // 3dtool and csv-exporter carry no env keys.
+        // 3dtool carries no env keys.
         assert!(set["3dtool"].is_empty());
-        assert!(set["csv-exporter"].is_empty());
     }
 
     #[test]
     fn tools_with_no_env_keys_have_empty_maps() {
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         assert!(set["3dtool"].is_empty());
-        assert!(set["csv-exporter"].is_empty());
     }
 
     #[test]
@@ -752,18 +854,18 @@ terminal:
   maxTimeoutMs: 9000
 webbrowser:
   headless: false
-rag:
-  chunkSizeTokens: 512
+pythonshell:
+  maxOutputChars: 12345
 "#;
         let config = parse_toolkit_config(yaml).expect("parse");
-        let set = derive_all(&config);
+        let set = derive_all(&config, Path::new("C:/test/Install"));
 
         assert_eq!(set["terminal"]["TERMINAL_DEFAULT_TIMEOUT_MS"], "5000");
         assert_eq!(set["terminal"]["TERMINAL_MAX_TIMEOUT_MS"], "9000");
         assert_eq!(set["web-browser"]["BROWSER_HEADLESS"], "false");
-        assert_eq!(set["rag"]["RAG_CHUNK_SIZE_TOKENS"], "512");
+        assert_eq!(set["python-shell"]["PYTHON_SHELL_MAX_OUTPUT_CHARS"], "12345");
         // Unset keys retain canonical defaults.
-        assert_eq!(set["rag"]["RAG_EMBEDDINGS_MODE"], "lmstudio");
+        assert_eq!(set["python-shell"]["PYTHON_SHELL_DEFAULT_TIMEOUT_MS"], "60000");
     }
 
     #[test]
@@ -773,7 +875,7 @@ browserless:
   apiKey: super-secret-token
 "#;
         let config = parse_toolkit_config(yaml).expect("parse");
-        let set = derive_all(&config);
+        let set = derive_all(&config, Path::new("C:/test/Install"));
         assert_eq!(set["browserless"]["BROWSERLESS_TOKEN"], "super-secret-token");
         // The env key is BROWSERLESS_TOKEN, never BROWSERLESS_API_KEY.
         assert!(!set["browserless"].contains_key("BROWSERLESS_API_KEY"));
@@ -795,7 +897,7 @@ terminal:
   defaultTimeoutMs: 1234
 "#;
         let config = parse_toolkit_config(yaml).expect("parse must ignore unknown sections");
-        let set = derive_all(&config);
+        let set = derive_all(&config, Path::new("C:/test/Install"));
         assert_eq!(set["terminal"]["TERMINAL_DEFAULT_TIMEOUT_MS"], "1234");
         assert_eq!(set.len(), CANONICAL_TOOL_COUNT);
     }
@@ -834,7 +936,7 @@ terminal:
             std::process::id()
         ));
         // temp_dir on Windows is under the user profile => user-scoped.
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
 
         // Only run the write assertions when temp is user-scoped (it is on
         // Windows CI); otherwise assert the guard refuses gracefully.
@@ -851,7 +953,7 @@ terminal:
 
     #[test]
     fn write_all_to_refuses_non_user_scoped_dir() {
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         let err = write_all_to(Path::new("C:\\ProgramData\\LLM-Toolkit"), &set)
             .expect_err("must refuse shared path");
         assert!(err.cause.contains("non-user-scoped"));
@@ -879,7 +981,7 @@ lansubagent:
   localPort: 1234
 "#;
         let config = parse_toolkit_config(yaml).expect("parse repo config");
-        let set = derive_all(&config);
+        let set = derive_all(&config, Path::new("C:/test/Install"));
         assert_eq!(set.len(), CANONICAL_TOOL_COUNT);
         assert_eq!(
             set["browserless"]["BROWSERLESS_TOKEN"],
@@ -1011,9 +1113,9 @@ mod derivation_completeness_property_tests {
         fn derive_all_is_complete_for_every_valid_config(yaml in arb_toolkit_yaml()) {
             let config = parse_toolkit_config(&yaml)
                 .expect("generated YAML must parse into a ToolkitConfig");
-            let set = derive_all(&config);
+            let set = derive_all(&config, Path::new("C:/test/Install"));
 
-            // The derivation yields exactly one entry per canonical server (16).
+            // The derivation yields exactly one entry per canonical server (9).
             prop_assert_eq!(set.len(), CANONICAL_TOOL_COUNT);
 
             let expected_servers: BTreeSet<&str> =
@@ -1091,7 +1193,7 @@ mod config_error_attribution_tests {
         let dir = user_scoped_scratch_dir("attrib");
         std::fs::create_dir_all(&dir).expect("create scratch dir");
 
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
 
         // Pick a real tool to sabotage (the first in BTreeMap/sorted order so we
         // know it is reached before any later write could succeed-then-fail).
@@ -1148,7 +1250,7 @@ mod config_error_attribution_tests {
         let dir = user_scoped_scratch_dir("not-all");
         std::fs::create_dir_all(&dir).expect("create scratch dir");
 
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         let target_server = set.keys().next().cloned().expect("non-empty");
 
         let sabotaged = dir.join(format!("{target_server}.json"));
@@ -1174,7 +1276,7 @@ mod config_error_attribution_tests {
     #[test]
     fn clean_write_creates_one_file_per_tool() {
         let dir = user_scoped_scratch_dir("clean");
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
 
         let written = write_all_to(&dir, &set).expect("clean write must succeed");
         assert_eq!(
@@ -1191,7 +1293,7 @@ mod config_error_attribution_tests {
 
     #[test]
     fn non_user_scoped_refusal_is_attributed_to_all() {
-        let set = derive_all(&ToolkitConfig::default());
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
         let err = write_all_to(Path::new("C:\\ProgramData\\LLM-Toolkit"), &set)
             .expect_err("must refuse a shared path");
         assert_eq!(err.server_name, "<all>");
@@ -1239,7 +1341,7 @@ mod secrets_user_scoped_property_tests {
 
     /// A [`ToolkitConfig`] carrying a random `browserless.apiKey` (which the
     /// derivation maps to the secret `BROWSERLESS_TOKEN` env value). Every other
-    /// section stays at its default so the derivation still yields all 16 tools.
+    /// section stays at its default so the derivation still yields all 9 tools.
     fn config_with_secret() -> impl Strategy<Value = (String, ToolkitConfig)> {
         secret_value().prop_map(|token| {
             let mut config = ToolkitConfig::default();
@@ -1331,7 +1433,7 @@ mod secrets_user_scoped_property_tests {
             root in shared_root(),
             seg in path_segment(),
         ) {
-            let set = derive_all(&config);
+            let set = derive_all(&config, Path::new("C:/test/Install"));
             let shared_dir = PathBuf::from(root).join(seg);
             prop_assert!(
                 !is_user_scoped_path(&shared_dir),
@@ -1367,7 +1469,7 @@ mod secrets_user_scoped_property_tests {
             (token, config) in config_with_secret(),
             unique in path_segment(),
         ) {
-            let set = derive_all(&config);
+            let set = derive_all(&config, Path::new("C:/test/Install"));
             // The derived secret must carry the generated token verbatim.
             prop_assert_eq!(
                 set["browserless"].get("BROWSERLESS_TOKEN"),
@@ -1427,5 +1529,484 @@ mod secrets_user_scoped_property_tests {
                 );
             }
         }
+    }
+}
+
+// ─── Bug condition exploration tests — Concern 3: path defaults not anchored ─
+
+#[cfg(test)]
+mod path_anchoring_bug_condition_tests {
+    //! Bugfix: installer-plugin-path-and-browserless-secret
+    //! Property 3 (Bug Condition — Path Defaults Anchored To Install Dir).
+    //!
+    //! These tests encode the EXPECTED (fixed) behavior and are expected to
+    //! FAIL on the unfixed code, confirming Concern 3: the `common` env
+    //! path-bearing DEFAULTS (`ASK_USER_DB_PATH = "./memory.db"`,
+    //! `DOC_SCRAPER_WORKSPACE_ROOT = ""`) are relative/empty, so they resolve
+    //! against the process CWD / dev repo instead of the per-user install dir.
+    //!
+    //! Bug condition (from design):
+    //!   isBugCondition_pathNotAnchored(input) ==
+    //!     is_path_key(key)
+    //!     AND (is_relative(value) OR is_empty_workspace_root(key, value))
+    //!     AND NOT resolves_under(install_dir, value)
+    //!
+    //! The anchoring seam (`anchor_env_path`) does not exist yet, so this test
+    //! asserts over the OBSERVABLE derived env value from `derive_all` (with no
+    //! user override) rather than referencing the not-yet-existing symbol. On
+    //! the unfixed code the derived values are `./memory.db` / `` — neither is
+    //! absolute nor anchored under the fake install dir — so the assertions
+    //! fail meaningfully.
+    //!
+    //! Validates: Requirements 2.1, 2.2
+
+    use super::*;
+
+    /// A fake, absolute install root standing in for `%LOCALAPPDATA%\LLM-Toolkit`.
+    const FAKE_INSTALL_DIR: &str = "C:/fake/Install";
+
+    /// Whether `value`, once resolved, sits under `install_dir`. A value is
+    /// considered anchored when it is an absolute path whose normalized,
+    /// forward-slashed form begins with the install dir prefix.
+    fn resolves_under(install_dir: &str, value: &str) -> bool {
+        let v = value.replace('\\', "/");
+        let root = install_dir.replace('\\', "/");
+        // Must be absolute and prefixed by the install dir.
+        v.starts_with(&root)
+    }
+
+    #[test]
+    fn common_ask_user_db_path_default_is_anchored_under_install_dir() {
+        // No user override -> canonical default is anchored under install_dir.
+        let set = derive_all(&ToolkitConfig::default(), Path::new(FAKE_INSTALL_DIR));
+        let common = &set["common"];
+        let value = common
+            .get("ASK_USER_DB_PATH")
+            .expect("common env must carry ASK_USER_DB_PATH")
+            .clone();
+
+        assert!(
+            resolves_under(FAKE_INSTALL_DIR, &value),
+            "ASK_USER_DB_PATH default `{}` must resolve under the install dir `{}` \
+             (unfixed: relative `./memory.db` resolves against the dev repo / CWD)",
+            value,
+            FAKE_INSTALL_DIR,
+        );
+    }
+
+    #[test]
+    fn common_doc_scraper_workspace_root_default_is_anchored_under_install_dir() {
+        let set = derive_all(&ToolkitConfig::default(), Path::new(FAKE_INSTALL_DIR));
+        let common = &set["common"];
+        let value = common
+            .get("DOC_SCRAPER_WORKSPACE_ROOT")
+            .expect("common env must carry DOC_SCRAPER_WORKSPACE_ROOT")
+            .clone();
+
+        assert!(
+            resolves_under(FAKE_INSTALL_DIR, &value),
+            "DOC_SCRAPER_WORKSPACE_ROOT default `{}` must resolve under the install dir `{}` \
+             (unfixed: empty workspace-root resolves against the dev repo / CWD)",
+            value,
+            FAKE_INSTALL_DIR,
+        );
+    }
+}
+
+// ─── Preservation baseline tests — Property 4 (secrets, mapping, user paths) ──
+
+#[cfg(test)]
+mod preservation_baseline_tests {
+    //! Bugfix: installer-plugin-path-and-browserless-secret
+    //! Property 4 (Preservation — Names, Command, Ownership, Env, Secrets,
+    //! User Paths Unchanged) — the `config_gen.rs` half.
+    //!
+    //! These tests encode behavior observed on the UNFIXED code that the fix
+    //! MUST preserve. The ones asserting existing secret handling and the
+    //! `browserless.apiKey -> BROWSERLESS_TOKEN` mapping PASS today (baseline).
+    //!
+    //! Two invariants concern the NEW `anchor_env_path` seam (Concern 3), which
+    //! does not exist yet, so they are split into:
+    //!   (a) an OBSERVABLE baseline over `derive_all` that PASSES today — a
+    //!       user-supplied ABSOLUTE path and any NON-path key flow through the
+    //!       derivation verbatim (there is no anchoring today, so the value the
+    //!       user set is exactly what comes out); and
+    //!   (b) `#[ignore]`d tests that state the post-fix preservation contract
+    //!       directly against `anchor_env_path`. They are marked pending the fix
+    //!       (task 3.8) and cannot run until the seam exists — running them with
+    //!       `--ignored` after the fix confirms preservation held.
+    //!
+    //! Validates: Requirements 3.6, 3.7, 3.8
+
+    use super::*;
+    use proptest::prelude::*;
+
+    // ── Secret-key detection preservation (Req 3.6) ───────────────────────────
+
+    /// `SECRET_ENV_KEYS` remains exactly `["BROWSERLESS_TOKEN"]` and
+    /// `is_secret_key` flags it and nothing else. The fix must not widen or
+    /// narrow the secret-key set.
+    #[test]
+    fn secret_env_keys_are_unchanged() {
+        assert_eq!(SECRET_ENV_KEYS, ["BROWSERLESS_TOKEN"]);
+        assert!(is_secret_key("BROWSERLESS_TOKEN"));
+        assert!(!is_secret_key("TERMINAL_DEFAULT_TIMEOUT_MS"));
+        assert!(!is_secret_key("RAG_DB_PATH"));
+        assert!(!is_secret_key("BROWSERLESS_API_KEY"));
+    }
+
+    /// The canonical `browserless` default token is EMPTY (never a baked
+    /// secret). Preserved exactly. (Req 3.6.)
+    #[test]
+    fn browserless_default_token_is_empty() {
+        let defaults = canonical_env_defaults("browserless").expect("browserless is canonical");
+        assert_eq!(defaults, &[("BROWSERLESS_TOKEN", "")]);
+
+        // And the empty default flows through derivation with no user apiKey.
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
+        assert_eq!(set["browserless"]["BROWSERLESS_TOKEN"], "");
+    }
+
+    /// Placeholder token values behave as empty: when supplied as the user's
+    /// `browserless.apiKey`, the derivation still maps them through (they are
+    /// only treated as empty at the write/merge layer, unchanged by this fix).
+    /// This documents that the placeholder strings themselves are preserved as
+    /// the known placeholders the pipeline recognizes.
+    #[test]
+    fn known_placeholder_values_are_recognized_and_preserved() {
+        // The two known placeholders documented across the pipeline.
+        for placeholder in ["your-browserless-api-key-here", "your-browserless-api-token-here"] {
+            let yaml = format!("browserless:\n  apiKey: {placeholder}\n");
+            let config = parse_toolkit_config(&yaml).expect("parse");
+            let set = derive_all(&config, Path::new("C:/test/Install"));
+            // derive_all maps apiKey -> BROWSERLESS_TOKEN verbatim (placeholder
+            // filtering happens later, in merge_env / drop-on-write, unchanged).
+            assert_eq!(set["browserless"]["BROWSERLESS_TOKEN"], placeholder);
+        }
+    }
+
+    // ── apiKey -> BROWSERLESS_TOKEN mapping preservation (Req 3.7) ─────────────
+
+    /// The one non-identity mapping — `browserless.apiKey` (YAML) ->
+    /// `BROWSERLESS_TOKEN` (env) — is preserved for arbitrary token values, and
+    /// the env key is never `BROWSERLESS_API_KEY`. (Property-based.)
+    #[test]
+    fn apikey_to_token_mapping_is_preserved_for_arbitrary_tokens() {
+        proptest!(|(token in "[A-Za-z0-9_.:/=+-]{1,40}")| {
+            let yaml = format!("browserless:\n  apiKey: \"{token}\"\n");
+            let config = parse_toolkit_config(&yaml).expect("parse");
+            let set = derive_all(&config, Path::new("C:/test/Install"));
+            prop_assert_eq!(set["browserless"].get("BROWSERLESS_TOKEN"), Some(&token));
+            prop_assert!(!set["browserless"].contains_key("BROWSERLESS_API_KEY"));
+        });
+    }
+
+    // ── User-supplied path / non-path preservation, observable baseline ───────
+
+    /// BASELINE (passes today): a user-supplied ABSOLUTE path in the config is
+    /// carried through `derive_all` verbatim. There is no anchoring today, so
+    /// the derived value equals exactly what the user set. After the fix,
+    /// `anchor_env_path` must keep this same pass-through for absolute user
+    /// paths — see the `#[ignore]`d contract test below. (Req 3.8.)
+    #[test]
+    fn user_absolute_path_flows_through_derivation_verbatim() {
+        proptest!(|(drive in "[A-Z]", tail in "[A-Za-z0-9_/-]{1,24}")| {
+            let abs = format!("{drive}:/data/{tail}");
+            let yaml = format!("pythonshell:\n  workspaceRoot: \"{abs}\"\n");
+            let config = parse_toolkit_config(&yaml).expect("parse");
+            let set = derive_all(&config, Path::new("C:/test/Install"));
+            // User-supplied absolute path is preserved exactly (no rewrite).
+            prop_assert_eq!(set["python-shell"].get("PYTHON_SHELL_WORKSPACE_ROOT"), Some(&abs));
+        });
+    }
+
+    /// BASELINE (passes today): a NON-path env key (e.g. `BLENDER_MCP_COMMAND`)
+    /// is never a path and is carried through `derive_all` verbatim. After the
+    /// fix, `anchor_env_path` must never rewrite a non-path key — see the
+    /// `#[ignore]`d contract test below. (Req 3.8.)
+    #[test]
+    fn non_path_env_value_flows_through_derivation_verbatim() {
+        proptest!(|(cmd in "[a-z][a-z0-9-]{0,15}")| {
+            let yaml = format!("blenderbridge:\n  command: \"{cmd}\"\n");
+            let config = parse_toolkit_config(&yaml).expect("parse");
+            let set = derive_all(&config, Path::new("C:/test/Install"));
+            prop_assert_eq!(set["blender-bridge"].get("BLENDER_MCP_COMMAND"), Some(&cmd));
+        });
+    }
+
+    // ── Pending-the-fix preservation contract against anchor_env_path ─────────
+    //
+    // The `anchor_env_path(install_dir, server_name, key, value)` seam does not
+    // exist on the unfixed code. These tests state the preservation half of its
+    // contract DIRECTLY. They are `#[ignore]`d so the suite compiles and passes
+    // today; once task 3.8 adds `anchor_env_path`, drop the `#[ignore]` (and the
+    // local shim) and run with `--ignored` to confirm preservation held:
+    //
+    //   * a user-supplied ABSOLUTE path passes through unchanged, and
+    //   * a NON-path key is never rewritten.
+    //
+    // Until then, the OBSERVABLE baselines above cover the same invariants
+    // through `derive_all`.
+
+    /// task 3.8 (Concern 3): `anchor_env_path` leaves an absolute user path
+    /// unchanged (preserve user intent). Enabled now that the seam exists.
+    #[test]
+    fn anchor_env_path_preserves_absolute_user_paths() {
+        let out = anchor_env_path(Path::new("C:/fake/Install"), "rag", "RAG_DB_PATH", "D:/data/rag.db");
+        assert_eq!(out, "D:/data/rag.db");
+    }
+
+    /// task 3.8 (Concern 3): `anchor_env_path` never rewrites a non-path key.
+    /// Enabled now that the seam exists.
+    #[test]
+    fn anchor_env_path_never_rewrites_non_path_keys() {
+        let out = anchor_env_path(
+            Path::new("C:/fake/Install"),
+            "rag",
+            "RAG_EMBEDDINGS_MODE",
+            "lmstudio",
+        );
+        assert_eq!(out, "lmstudio");
+    }
+}
+
+// ─── Secret-scan predicate tests — Concern 2 (build/staging secret guard) ─────
+
+#[cfg(test)]
+mod secret_scan_predicate_tests {
+    //! Bugfix: installer-plugin-path-and-browserless-secret
+    //! Property 2 (No Secret Embedded In Payload) + Property 4 (Preservation).
+    //!
+    //! Unit tests for the pure `scan_value_for_secret(key, value)` predicate
+    //! (task 3.4). It flags a value as an embedded secret when it is non-empty
+    //! and NOT a known placeholder, AND is either assigned to a `SECRET_ENV_KEYS`
+    //! key (`BROWSERLESS_TOKEN`) or is a Browserless-token-shaped credential.
+    //! Empty and both known placeholders are ignored.
+    //!
+    //! Validates: Requirements 2.4, 2.5, 3.6
+
+    use super::*;
+
+    /// The exposed-token shape observed in the bug report (48-char hex-ish run):
+    /// a live, non-placeholder Browserless token assigned to `BROWSERLESS_TOKEN`
+    /// MUST be flagged.
+    #[test]
+    fn flags_nonempty_live_browserless_token() {
+        let live = "2TNn0yOdSpEFIT49a897dc67e03352d172e69c1b07bf3d930";
+        assert!(
+            scan_value_for_secret("BROWSERLESS_TOKEN", live),
+            "a non-empty live token on the secret key must be flagged"
+        );
+    }
+
+    /// A short but non-placeholder value on the secret key still counts as a
+    /// secret: the key itself (`BROWSERLESS_TOKEN`) is authoritative.
+    #[test]
+    fn flags_any_nonempty_nonplaceholder_value_on_secret_key() {
+        assert!(scan_value_for_secret("BROWSERLESS_TOKEN", "abc123"));
+    }
+
+    /// An empty (and whitespace-only) value on the secret key is NOT a secret —
+    /// it matches the empty canonical default / empty-drop handling.
+    #[test]
+    fn ignores_empty_value_on_secret_key() {
+        assert!(!scan_value_for_secret("BROWSERLESS_TOKEN", ""));
+        assert!(!scan_value_for_secret("BROWSERLESS_TOKEN", "   "));
+    }
+
+    /// Both known placeholders are ignored on the secret key (placeholder-as-empty).
+    #[test]
+    fn ignores_both_known_placeholders_on_secret_key() {
+        assert!(!scan_value_for_secret(
+            "BROWSERLESS_TOKEN",
+            "your-browserless-api-key-here"
+        ));
+        assert!(!scan_value_for_secret(
+            "BROWSERLESS_TOKEN",
+            "your-browserless-api-token-here"
+        ));
+    }
+
+    /// A token-shaped credential is flagged even under a non-secret key name,
+    /// so a secret accidentally staged under another key is still caught.
+    #[test]
+    fn flags_token_shaped_value_under_nonsecret_key() {
+        let live = "2TNn0yOdSpEFIT49a897dc67e03352d172e69c1b07bf3d930";
+        assert!(scan_value_for_secret("SOME_OTHER_KEY", live));
+    }
+
+    /// A short, ordinary non-path value under a non-secret key is NOT flagged
+    /// (preservation: non-secret config values pass the guard untouched).
+    #[test]
+    fn ignores_ordinary_value_under_nonsecret_key() {
+        assert!(!scan_value_for_secret("RAG_EMBEDDINGS_MODE", "lmstudio"));
+        assert!(!scan_value_for_secret("TERMINAL_DEFAULT_TIMEOUT_MS", "60000"));
+        assert!(!scan_value_for_secret("SLASH_DEFAULT_SESSION", "default"));
+    }
+
+    /// A placeholder value is ignored regardless of the key it appears under.
+    #[test]
+    fn ignores_placeholder_under_any_key() {
+        assert!(!scan_value_for_secret(
+            "ANY_KEY",
+            "your-browserless-api-token-here"
+        ));
+    }
+
+    /// Preservation guard: the predicate does not alter the secret-key set or
+    /// the empty canonical default it relies on.
+    #[test]
+    fn preserves_secret_key_set_and_empty_default() {
+        assert_eq!(SECRET_ENV_KEYS, ["BROWSERLESS_TOKEN"]);
+        let set = derive_all(&ToolkitConfig::default(), Path::new("C:/test/Install"));
+        assert_eq!(set["browserless"]["BROWSERLESS_TOKEN"], "");
+        // The empty default must not be flagged as an embedded secret.
+        assert!(!scan_value_for_secret(
+            "BROWSERLESS_TOKEN",
+            &set["browserless"]["BROWSERLESS_TOKEN"]
+        ));
+    }
+}
+
+// ─── anchor_env_path unit tests — Concern 3 (task 3.8) ────────────────────────
+
+#[cfg(test)]
+mod anchor_env_path_tests {
+    //! Bugfix: installer-plugin-path-and-browserless-secret
+    //! Property 3 (Path Defaults Anchored To Install Dir) + Property 4
+    //! (Preservation — non-path keys and absolute user paths unchanged).
+    //!
+    //! Unit tests for the pure `anchor_env_path(install_dir, server_name, key,
+    //! value)` seam (task 3.8). It anchors relative/empty DEFAULTS of the
+    //! enumerated path keys under `install_dir`, and leaves NON-path keys and
+    //! already-absolute (user-supplied) paths verbatim.
+    //!
+    //! Validates: Requirements 2.1, 2.2, 3.7, 3.8
+
+    use super::*;
+
+    const INSTALL: &str = "C:/fake/Install";
+
+    /// Mirror of the bug-condition test's helper: a value is anchored when its
+    /// forward-slashed form begins with the install-dir prefix.
+    fn resolves_under(install_dir: &str, value: &str) -> bool {
+        value.replace('\\', "/").starts_with(&install_dir.replace('\\', "/"))
+    }
+
+    // ── Bug condition: relative / empty path defaults get anchored ────────────
+
+    /// A relative `./file` db default (`ASK_USER_DB_PATH = "./memory.db"`) is
+    /// anchored under `install_dir/<server_name>/` and resolves under the
+    /// install dir (Concern 3, common).
+    #[test]
+    fn anchors_relative_db_path_under_install_dir_server_subdir() {
+        let out = anchor_env_path(Path::new(INSTALL), "common", "ASK_USER_DB_PATH", "./memory.db");
+        assert_eq!(out, "C:/fake/Install/common/memory.db");
+        assert!(resolves_under(INSTALL, &out));
+    }
+
+    /// An empty workspace-root default (`DOC_SCRAPER_WORKSPACE_ROOT = ""`) is
+    /// anchored to the install dir itself (Concern 3, common).
+    #[test]
+    fn anchors_empty_workspace_root_to_install_dir() {
+        let out = anchor_env_path(Path::new(INSTALL), "common", "DOC_SCRAPER_WORKSPACE_ROOT", "");
+        assert_eq!(out, "C:/fake/Install");
+        assert!(resolves_under(INSTALL, &out));
+    }
+
+    /// A relative directory value with a trailing slash is anchored under the
+    /// server subdir, with separators normalized.
+    #[test]
+    fn anchors_relative_dir_default_under_server_subdir() {
+        let out = anchor_env_path(
+            Path::new(INSTALL),
+            "skills",
+            "SKILLS_DB_PATH",
+            "./.skills-data/",
+        );
+        assert_eq!(out, "C:/fake/Install/skills/.skills-data");
+        assert!(resolves_under(INSTALL, &out));
+    }
+
+    /// Every enumerated path key with a relative default resolves under the
+    /// install dir (covers the file/db path keys and the empty workspace roots).
+    #[test]
+    fn all_enumerated_relative_defaults_resolve_under_install_dir() {
+        let cases = [
+            ("common", "ASK_USER_DB_PATH", "./memory.db"),
+            ("skills", "SKILLS_DB_PATH", "./skills.db"),
+        ];
+        for (server, key, val) in cases {
+            let out = anchor_env_path(Path::new(INSTALL), server, key, val);
+            assert!(
+                resolves_under(INSTALL, &out),
+                "{key}={val} anchored to `{out}` must resolve under {INSTALL}"
+            );
+        }
+        // The empty-default workspace-root keys anchor to the install dir.
+        for (server, key) in [
+            ("python-shell", "PYTHON_SHELL_WORKSPACE_ROOT"),
+            ("common", "DOC_SCRAPER_WORKSPACE_ROOT"),
+        ] {
+            let out = anchor_env_path(Path::new(INSTALL), server, key, "");
+            assert_eq!(out, "C:/fake/Install", "{key} empty default anchors to install dir");
+        }
+    }
+
+    /// Back-slash install dirs and values normalize to forward slashes and
+    /// still resolve under the install dir.
+    #[test]
+    fn normalizes_backslash_install_dir_and_value() {
+        let out = anchor_env_path(Path::new(r"C:\fake\Install"), "common", "ASK_USER_DB_PATH", r".\memory.db");
+        assert_eq!(out, "C:/fake/Install/common/memory.db");
+    }
+
+    // ── Preservation: non-path keys and absolute user paths pass through ──────
+
+    /// A NON-path key is never rewritten, regardless of value shape.
+    #[test]
+    fn non_path_keys_pass_through_verbatim() {
+        assert_eq!(
+            anchor_env_path(Path::new(INSTALL), "rag", "RAG_EMBEDDINGS_MODE", "lmstudio"),
+            "lmstudio"
+        );
+        // Even a relative-looking value under a non-path key is left alone.
+        assert_eq!(
+            anchor_env_path(Path::new(INSTALL), "common", "CLOCK_DEFAULT_LOCALE", "./weird"),
+            "./weird"
+        );
+        assert_eq!(
+            anchor_env_path(Path::new(INSTALL), "terminal", "TERMINAL_DEFAULT_TIMEOUT_MS", "60000"),
+            "60000"
+        );
+    }
+
+    /// A user-supplied ABSOLUTE path on a path key passes through unchanged
+    /// (preserve user intent) — drive, forward-slash drive, and UNC forms.
+    #[test]
+    fn absolute_user_paths_pass_through_verbatim() {
+        assert_eq!(
+            anchor_env_path(Path::new(INSTALL), "rag", "RAG_DB_PATH", "D:/data/rag.db"),
+            "D:/data/rag.db"
+        );
+        assert_eq!(
+            anchor_env_path(Path::new(INSTALL), "common", "ASK_USER_DB_PATH", r"D:\data\memory.db"),
+            r"D:\data\memory.db"
+        );
+        assert_eq!(
+            anchor_env_path(Path::new(INSTALL), "git", "GIT_WORKSPACE_ROOT", r"\\server\share\ws"),
+            r"\\server\share\ws"
+        );
+    }
+
+    /// `is_path_env_key` recognizes exactly the enumerated keys and nothing else.
+    #[test]
+    fn is_path_env_key_matches_enumerated_set_only() {
+        for key in PATH_ENV_KEYS {
+            assert!(is_path_env_key(key), "{key} must be a path key");
+        }
+        assert!(!is_path_env_key("RAG_EMBEDDINGS_MODE"));
+        assert!(!is_path_env_key("BROWSERLESS_TOKEN"));
+        assert!(!is_path_env_key("CLOCK_DEFAULT_LOCALE"));
     }
 }

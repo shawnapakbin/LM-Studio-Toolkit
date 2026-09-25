@@ -9,7 +9,7 @@
 //   6.1 — the primary documented TOOLKIT version string equals the root
 //         package.json `version` (exactly, character-for-character), and no
 //         stale pre-cleanup toolkit version is presented as the toolkit version.
-//   6.2 / 6.3 — the registered plugin-entry count is 16, stated consistently
+//   6.2 / 6.3 — the registered plugin-entry count is 9, stated consistently
 //         (with the `common`-bundles-4 + Browserless-schema-proxy note), with no
 //         conflicting alternative *server/plugin* count.
 //   6.4 — ECM is never presented as an active runtime server.
@@ -45,7 +45,9 @@ const DOCS_DIR = path.join(REPO_ROOT, "docs");
 // the exact same logic the verify:mcp-sync gate runs.
 const { findReadmeOffenses } = require("../verify-mcp-sync");
 
-const AUTHORITATIVE_COUNT = 16;
+// Reconciled with feature `retire-and-gate-mcp-servers` (R4.3): the registered
+// Shipped-server / plugin-entry count was reduced from 16 to 9.
+const AUTHORITATIVE_COUNT = 9;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -162,10 +164,10 @@ describe("Feature: codebase-cleanup-plugin-registration — documentation accura
     });
   });
 
-  // ── Requirements 6.2 / 6.3: authoritative count of 16, no conflicts ─────────
+  // ── Requirements 6.2 / 6.3: authoritative count of 9, no conflicts ──────────
   describe("registered plugin-entry count (Requirements 6.2, 6.3)", () => {
-    it("README states the authoritative count of 16 with the bundling/schema-proxy note", () => {
-      expect(readme).toMatch(/\b16\b\s+(registered\s+)?plugin\s+entr(y|ies)/i);
+    it("README states the authoritative count of 9 with the bundling/schema-proxy note", () => {
+      expect(readme).toMatch(/\b9\b\s+(registered\s+)?plugin\s+entr(y|ies)/i);
       // `common` bundles 4 tools.
       expect(readme).toMatch(/common[^\n]*bundle[^\n]*4\s+tools/i);
       expect(readme).toMatch(/Calculator[^\n]*Clock[^\n]*AskUser[^\n]*DocumentScraper/i);
@@ -173,21 +175,21 @@ describe("Feature: codebase-cleanup-plugin-registration — documentation accura
       expect(readme).toMatch(/Browserless[^\n]*schema-proxy/i);
     });
 
-    it("the docs registration guides state the count of 16 with the bundling/schema-proxy note", () => {
+    it("the docs registration guides state the count of 9 with the bundling/schema-proxy note", () => {
       // The canonical registration guides that carry the count + note.
       const guideNames = ["mcp-json.md", "LM-Studio-MCP.md"];
       for (const name of guideNames) {
         const file = docFiles.find((f) => path.basename(f) === name);
         expect(file).toBeDefined();
         const content = readFile(file as string);
-        expect(content).toMatch(/\b16\b\s+(registered\s+)?plugin\s+entr(y|ies)/i);
+        expect(content).toMatch(/\b9\b\s+(registered\s+)?plugin\s+entr(y|ies)/i);
         expect(content).toMatch(/common[^\n]*bundle[^\n]*4\s+tools/i);
         expect(content).toMatch(/Browserless[^\n]*schema-proxy/i);
       }
     });
 
     it("presents no conflicting alternative server/plugin count anywhere in the toolkit docs", () => {
-      // A conflicting count is a number != 16 immediately qualifying
+      // A conflicting count is a number != AUTHORITATIVE_COUNT immediately qualifying
       // "registered servers/plugins/plugin entries" — the same phrasing the
       // authoritative statement uses. Counts of *tools* (e.g. 3DTool's 13
       // tools, or "4 tools" in the bundling note) are not server/plugin counts

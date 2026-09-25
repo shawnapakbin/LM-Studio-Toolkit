@@ -99,17 +99,20 @@ SQLite tables capture agent intelligence:
 | **AskUser** | Interactive interview and clarification workflows | 3338 | ✅ Working |
 | **Clock** | Current date/time + timezone | 3337 | ✅ Working |
 | **Browserless** | Advanced browser automation (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) | 3003 | ✅ Working |
-| **RAG** | Persistent retrieval augmented generation with source lifecycle + approval-gated writes | 3339 | ✅ Working |
 | **PythonShell** | Python execution + REPL/IDLE launch with startup detection guidance | 3343 | ✅ Working |
 | **Skills** | Persistent skill/playbook system — define parameterized step templates, execute by name | 3341 | ✅ Working |
-| **CSVExporter** | Export parsed table data to CSV files | 3340 | ✅ Working |
-| **Git** | Safe git operations with branch protection | 3011 | ✅ Working |
-| **FileEditor** | Safe file read/write/search with workspace sandboxing | 3010 | ✅ Working |
-| **PackageManager** | Multi-ecosystem package management (npm/pip/cargo/maven/go) | 3012 | ✅ Working |
+| **3DTool** | Browser-based Three.js 3D model viewer/editor (OBJ, glTF/GLB) | 3013 | ✅ Working |
+| **BlenderBridge** | Bridge to a Blender add-on (TCP client to the add-on, not its own HTTP server) | 9876 | ✅ Working |
+| **LanSubAgent** | Distributed multi-endpoint inference (UDP discovery 41234, local LM Studio 1234, GUI 9847) | N/A | ✅ Working |
 | **Observability** | Structured logging, metrics, tracing library | N/A | ✅ Working |
 | **BuildRunner** (Phase 2) | Compile, test, lint | TBD | 🔄 Planned |
 | **AIModel** (Phase 2) | In-agent Claude/OpenAI calls | TBD | 🔄 Planned |
 | **Orchestrator** (Phase 3) | Master agent runner | N/A | 🔄 Planned |
+
+> **Notes:**
+> - Calculator, Clock, AskUser, and DocumentScraper are bundled and registered under the `common` MCP server.
+> - `slash-commands`, `sub-agent`, and `git` remain in the repository and still build, but are Unshipped — not provisioned or installed in this release.
+> - See [PORT_REGISTRY.md](PORT_REGISTRY.md) for the canonical, up-to-date port assignments.
 
 ---
 
@@ -117,7 +120,7 @@ SQLite tables capture agent intelligence:
 
 ### CLI Workspace (`CLI/`)
 
-The `CLI/` workspace provides a `llm <command>` binary for invoking all tools directly from the terminal. It uses `commander` for argument parsing and routes requests to tool HTTP endpoints (ports 3330–3342).
+The `CLI/` workspace provides a `llm <command>` binary for invoking all tools directly from the terminal. It uses `commander` for argument parsing and routes requests to tool HTTP endpoints. See [PORT_REGISTRY.md](PORT_REGISTRY.md) for the canonical port assignments.
 
 **Install & build:**
 ```bash
@@ -138,7 +141,6 @@ npm link --workspace=CLI
 | `llm terminal` / `llm run` | `"<cmd>"` with `--cwd`, `--timeout` |
 | `llm skills` | `list`, `get`, `run`, `define`, `delete` |
 | `llm memory` | `stats`, `history`, `patterns`, `clear` |
-| `llm rag` | `query`, `ingest`, `list`, `delete` |
 | `llm ask` | `"<prompt>"` with `--title`, `--expires` |
 | `llm workflow` | `run <file.json>` with `--session`, `--auto-approve`, `--timeout` |
 | `llm config` | `show`, `set <key> <value>` |
@@ -154,21 +156,7 @@ The `SlashCommands/` workspace is an MCP server that exposes a single `slash_com
 - `router.ts` — maps parsed `DispatchDescriptor` to tool HTTP endpoints; `/tools health` runs parallel health checks
 - `mcp-server.ts` — registers the `slash_command` tool with the full command reference in its description
 
-**Handled commands:**
-
-| Command | Routes to |
-|---|---|
-| `/calc <expr>` | Calculator tool (port 3335) |
-| `/browse <url>` | WebBrowser tool (port 3334) |
-| `/clock` | Clock tool (port 3337) |
-| `/run <cmd>` | Terminal tool (port 3333) |
-| `/skills list\|run\|get` | Skills tool (port 3341) |
-| `/rag query\|ingest\|list` | RAG tool (port 3339) |
-| `/ask <prompt>` | AskUser tool (port 3338) |
-| `/tools list\|health\|schema` | All tool endpoints |
-| `/memory stats\|history\|patterns` | AgentRunner SQLite (direct query) |
-| `/config show` | CLI config |
-| `/workflow run <file>` | AgentRunner (port 3330) |
+**Handled commands:** See [SLASH-COMMANDS.md](SLASH-COMMANDS.md) for the full slash-command reference.
 
 **Setup:**
 ```json
@@ -251,7 +239,7 @@ const BLOCKED = [
 
 ### LM Studio (MCP Protocol)
 
-The toolkit uses a plugin-only configuration model — the sole supported method. All 16 registered servers are provisioned automatically as LM Studio plugins via `npm run mcp:sync-lmstudio`, which writes only to per-plugin directories and never to the user-editable top-level LM Studio config. See [LM-Studio-MCP.md](LM-Studio-MCP.md).
+The toolkit uses a plugin-only configuration model — the sole supported method. All 9 registered servers are provisioned automatically as LM Studio plugins via `npm run mcp:sync-lmstudio`, which writes only to per-plugin directories and never to the user-editable top-level LM Studio config. See [LM-Studio-MCP.md](LM-Studio-MCP.md).
 
 ### VS Code Extension (Copilot Chat integration)
 - Right-click context: "Fix with Agent", "Generate Tests"
@@ -323,4 +311,4 @@ await memory.recordDecision(taskRunId, step, "chose tool X because...", alternat
 ---
 
 **Last Updated**: April 2026  
-**Version**: 5.1.2
+**Version**: 5.2.0

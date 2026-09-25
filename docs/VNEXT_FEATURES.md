@@ -3,11 +3,11 @@
 Purpose: This file marks intentional enhancements that belong to the upcoming release scope so they are not mistaken for unrelated drift during hardening or review.
 
 Add 0.0.1 to x.x.x for every push and update documentation.
-Release target: `v2.4.0`
+Release target: `5.1.x`
 Status: `in-progress`
 Owner: `core-maintainers`
 
-## Included vNext Features (v2.4.0 — In Progress)
+## Included vNext Features (5.1.x — In Progress)
 
 1. Unified Configuration (`shared/config/`)
 - Scope: Single-source YAML configuration file (`llm-toolkit.config.yaml`) replacing per-tool environment variables. Includes `shared/config/` library, Zod schema validation, and `migrate-config` CLI command for upgrading from .env files.
@@ -15,15 +15,29 @@ Owner: `core-maintainers`
 - Branch: `2.4.x`
 
 2. Tauri Installer (`Installer/`)
-- Scope: Native GUI installer built with Tauri v2 + React for cross-platform distribution.
-- Artifacts: Windows portable EXE, macOS DMG, Linux AppImage.
-- Key paths: `Installer/src/`, `Installer/src-tauri/`, `Installer/manifests/`.
+- Scope: Native GUI installer built with Tauri v2 + Rust.
+- Artifacts: unsigned NSIS `setup.exe` (Windows; macOS/Linux deferred).
+- Key paths: `Installer/src-tauri/`, `Installer/scripts/`, `Installer/manifests/`.
 - Branch: `2.4.x`
 
 3. CI Pipeline Updates
-- Scope: GitHub Actions workflow updates for Tauri build matrix (Windows, macOS, Linux), artifact publishing, and unified config validation step.
+- Scope: GitHub Actions workflow updates for the Tauri build, artifact publishing, and unified config validation step.
 - Key paths: `.github/workflows/`.
 - Branch: `2.4.x`
+
+4. Dependency refresh to Node 24 (`dependency-refresh-node24`)
+- Scope: refresh dependencies and align the toolchain to Node.js 24+ across workspaces and CI.
+
+5. Installer plugin path + Browserless secret guard (`installer-plugin-path-and-browserless-secret`)
+- Scope: staging aborts if a real `BROWSERLESS_TOKEN` is embedded; default relative/empty paths are anchored under the install dir; entry scripts resolve to `install_dir/<serverName>/<entry>`.
+
+6. Retire and gate MCP servers (`retire-and-gate-mcp-servers`)
+- Scope: reduces the previous 16 registered MCP servers into three buckets with no runtime behavior change to any server that remains. The arithmetic is exact: 16 = 4 Retired + 3 Unshipped + 9 Shipped.
+- **Retired (4, deleted from the repo):** `rag`, `csv-exporter`, `file-editor`, `package-manager`. Their workspace directories (`RAG/`, `CSVExporter/`, `FileEditor/`, `PackageManager/`), registration entries, payload/env/schema entries, and docs are removed.
+- **Unshipped (3, kept in-repo and buildable, not provisioned):** `slash-commands`, `sub-agent`, `git`. Their `SlashCommands/`, `SubAgent/`, `Git/` workspaces, `build:tools` entries, and tests remain so they still build and test, but they are removed from the installer payload and LM Studio registration and are never provisioned.
+- **Shipped (9, canonical registered set):** `terminal`, `web-browser`, `common`, `browserless`, `python-shell`, `skills`, `blender-bridge`, `3dtool`, `lan-sub-agent`.
+- Count semantics: 9 = Shipped/registered/provisioned; 12 = remaining in-repo (9 Shipped + 3 Unshipped); 4 = deleted.
+- Key paths: `scripts/workspace/mcp-config.js`, `Installer/scripts/payload-manifest.ts`, `Installer/src-tauri/src/tool_payload.rs`, `Installer/src-tauri/src/config_gen.rs`, `shared/config/src/schema.ts`, `CLI/src/config.ts`.
 
 ## Released: v2.3.1
 
@@ -62,9 +76,8 @@ Owner: `core-maintainers`
 - Scope: async interview workflow for planning and approval collection.
 - Key paths: `AskUser/`.
 
-2. `RAG` tool
-- Scope: persistent ingestion/retrieval with source lifecycle and approval-gated writes.
-- Key paths: `RAG/`.
+2. `RAG` tool — **Retired in 5.2.0** (removed from the repository; see vNext feature 6 above)
+- Scope (historical): persistent ingestion/retrieval with source lifecycle and approval-gated writes.
 
 3. `Terminal` punchout mode
 - Scope: visible terminal window execution and terminal session reuse.
@@ -103,25 +116,22 @@ Owner: `core-maintainers`
 
 The following modules were fully integrated in the v2.2.0 release train and are now part of normal verification/build workflows.
 
-### `PackageManager/`
-- Scope: MCP server and policy layer for installing/removing npm packages on behalf of the agent. Key files: `src/mcp-server.ts`, `src/package-manager.ts`, `src/policy.ts`.
-- Status: integrated, compiles, included in `build:tools`.
+### `PackageManager/` — **Retired in 5.2.0** (removed from the repository; see vNext feature 6 above)
+- Scope (historical): MCP server and policy layer for installing/removing npm packages on behalf of the agent.
 
-### `Git/`
+### `Git/` — **Unshipped in 5.2.0** (in-repo and still builds, not provisioned; see vNext feature 6 above)
 - Scope: MCP server wrapping common git operations (status, diff, commit, push) with policy guards. Key files: `src/mcp-server.ts`, `src/git.ts`, `src/policy.ts`.
-- Status: integrated, compiles, included in `build:tools`.
+- Status: integrated, compiles, included in `build:tools`; removed from registration/payload so it is not provisioned.
 
-### `FileEditor/`
-- Scope: MCP server exposing read/write/patch file operations with safety policy. Key files: `src/file-editor.ts`, `src/policy.ts`.
-- Status: integrated, compiles, included in `build:tools`.
+### `FileEditor/` — **Retired in 5.2.0** (removed from the repository; see vNext feature 6 above)
+- Scope (historical): MCP server exposing read/write/patch file operations with safety policy.
 
 ### `Observability/`
 - Scope: Shared logging, metrics, and tracing library for all LLM Toolkit tools. Provides structured logger, OpenTelemetry-compatible tracer, and Prometheus-style metrics. Key files: `src/logger.ts`, `src/tracer.ts`, `src/metrics.ts`.
 - Status: library (no MCP entry point), compiles, wired as workspace dependency into Terminal, Clock, Calculator, AgentRunner.
 
-### `CSVExporter/`
-- Scope: MCP server for exporting parsed table data to CSV files. Key files: `src/mcp-server.ts`, `src/csv-exporter.ts`.
-- Status: integrated, compiles, included in `build:tools`.
+### `CSVExporter/` — **Retired in 5.2.0** (removed from the repository; see vNext feature 6 above)
+- Scope (historical): MCP server for exporting parsed table data to CSV files.
 
 ### `Manifesto/Vibing-Manifesto.md`
 - Scope: Project philosophy document — not a code workspace.
@@ -142,6 +152,8 @@ The following modules were fully integrated in the v2.2.0 release train and are 
 
 ## Planned for v2.5.0+
 
-- Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm file *`, `llm pkg *`, `llm build *`, `llm observe *`, `llm session *`
-- Corresponding slash commands: `/workflow`, `/git`, `/file`, `/build`, `/observe`, `/session`
+- Optional CLI commands: `llm workflow status`, `llm workflow list`, `llm doc scrape`, `llm git *`, `llm build *`, `llm observe *`, `llm session *`
+- Corresponding slash commands: `/workflow`, `/git`, `/build`, `/observe`, `/session`
 - Phase 2 tools as they become available
+
+> Note: the `git` and `sub-agent` (`slash-commands`) servers remain in-repo as Unshipped; the retired `file-editor` and `package-manager` servers are no longer planned targets for CLI/slash commands.

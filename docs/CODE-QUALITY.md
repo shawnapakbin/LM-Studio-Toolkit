@@ -135,11 +135,10 @@ Each tool folder must have `README.md` with:
 | Browserless | 30 seconds | P95 response time |
 
 ### Benchmark Tests
-```bash
-npm run benchmark  # Runs perf tests; fails if SLA exceeded
-```
 
-Add benchmark for each tool:
+Performance checks live alongside each tool's test suite and run via `npm run test:ci`. Track the SLA table above when adding perf-sensitive code.
+
+Add a benchmark for each tool:
 ```typescript
 // benchmarks/performance.test.ts
 test('Terminal: echo should respond < 100ms', async () => {
@@ -220,14 +219,14 @@ jest.mock('../src/fetch', () => ({
 ### Monthly Review
 - Check CI success rate (aim for 99%+ green)
 - Review code coverage trends (ensure not declining)
-- Measure performance SLA braaches (fix systematically)
+- Measure performance SLA breaches (fix systematically)
 - Collect linting violations (update rules if needed)
 
 ### Adding New Rules
 If a bug pattern keeps reoccurring:
 1. Add Biome linting rule (if available)
 2. Update `biome.json`
-3. Run `npm run check --apply` to fix codebase
+3. Run `npm run check --write` to fix codebase
 4. Document why in this file
 
 ---

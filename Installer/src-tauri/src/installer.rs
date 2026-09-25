@@ -489,28 +489,54 @@ fn missing_runtimes_report(
 /// tool payload lands at install time.
 ///
 /// The payload is declared in `tauri.conf.json` as `bundle.resources:
-/// ["payload/"]` (task 4.2). Tauri preserves the declared directory name, so a
-/// resource dir of `<X>/resources` places the payload at
-/// `<X>/resources/payload/<server_name>/`.
+/// ["payload/"]` (task 4.2). For the real Tauri v2 NSIS `perMachine` layout the
+/// executable is installed at the install root and the payload lands beside it
+/// at `<exe_dir>\payload\<server_name>\` — this subdir name has no `resources`
+/// segment. The historical `<exe_dir>\resources\payload` location is kept only
+/// as a resilience fallback.
 const PAYLOAD_RESOURCE_SUBDIR: &str = "payload";
 
 /// The resource directory name Tauri/NSIS places bundled resources under,
 /// alongside the installed executable.
 const RESOURCE_DIR_NAME: &str = "resources";
 
-/// Compute the bundled-payload resource root for a given executable directory.
+/// Compute the preferred bundled-payload resource root for a given executable
+/// directory.
 ///
 /// For a bundled Tauri v2 NSIS (`perMachine`) app the executable is installed
-/// at the install root and its bundled resources are laid out beside it under
-/// `resources/`. The payload declared as `resources: ["payload/"]` therefore
-/// resolves to `<exe_dir>/resources/payload/`, with each tool at
-/// `.../payload/<server_name>/`.
+/// at the install root and the payload declared as `resources: ["payload/"]`
+/// lands beside it at `<exe_dir>/payload/`, with each tool at
+/// `.../payload/<server_name>/`. This returns that preferred candidate — the
+/// first entry of [`payload_root_candidates_for_exe_dir`].
 ///
 /// Kept pure (no `current_exe()` call, no filesystem probing) so the path
 /// derivation is unit-testable without a real install layout. The live
 /// resolver [`resolve_payload_resource_root`] feeds it the real exe directory.
 fn payload_root_for_exe_dir(exe_dir: &Path) -> std::path::PathBuf {
-    exe_dir.join(RESOURCE_DIR_NAME).join(PAYLOAD_RESOURCE_SUBDIR)
+    // Prefer the real NSIS perMachine layout: `<exe_dir>/payload`.
+    let [preferred, _fallback] = payload_root_candidates_for_exe_dir(exe_dir);
+    preferred
+}
+
+/// Compute the ordered bundled-payload root candidates for an executable
+/// directory.
+///
+/// The real Tauri v2 NSIS (`perMachine`) install layout places the payload
+/// beside the executable at `<exe_dir>/payload/<server_name>/`, so the
+/// preferred candidate is `<exe_dir>/payload`. The historical
+/// `<exe_dir>/resources/payload` location is retained as a resilience fallback
+/// to tolerate Tauri layout differences.
+///
+/// Segment names are single-sourced through [`PAYLOAD_RESOURCE_SUBDIR`] and
+/// [`RESOURCE_DIR_NAME`]. Kept pure (no `current_exe()` call, no filesystem
+/// probing) so the ordering is unit-testable without a real install layout;
+/// the live resolver [`resolve_payload_resource_root`] probes these candidates
+/// in order.
+fn payload_root_candidates_for_exe_dir(exe_dir: &Path) -> [std::path::PathBuf; 2] {
+    [
+        exe_dir.join(PAYLOAD_RESOURCE_SUBDIR),
+        exe_dir.join(RESOURCE_DIR_NAME).join(PAYLOAD_RESOURCE_SUBDIR),
+    ]
 }
 
 /// Resolve the bundled-payload resource root at install time.
@@ -520,8 +546,15 @@ fn payload_root_for_exe_dir(exe_dir: &Path) -> std::path::PathBuf {
 /// `registry::run_silent_installation`), so the Tauri resource-path API is not
 /// available here. Instead the root is resolved relative to the running
 /// executable — the same `std::env::current_exe()` approach `registry.rs` uses
-/// for the uninstall command — which works identically in both modes for a
-/// bundled NSIS app: `<exe_dir>/resources/payload/`.
+/// for the uninstall command — which works identically in both modes.
+///
+/// The real Tauri v2 NSIS `perMachine` layout installs the payload beside the
+/// executable at `<exe_dir>\payload\<server_name>\`, so this probes the ordered
+/// candidates from [`payload_root_candidates_for_exe_dir`] — preferring
+/// `<exe_dir>\payload` and falling back to `<exe_dir>\resources\payload` for
+/// resilience — and returns the first that is an existing directory. When no
+/// candidate directory exists it returns an error naming every location
+/// checked.
 ///
 /// Returns an error string (attributed to the copy step) if the executable
 /// path cannot be determined.
@@ -531,13 +564,34 @@ fn resolve_payload_resource_root() -> Result<std::path::PathBuf, String> {
     let exe_dir = exe
         .parent()
         .ok_or_else(|| "installer executable has no parent directory".to_string())?;
-    Ok(payload_root_for_exe_dir(exe_dir))
+
+    // Probe the ordered candidates (preferring `<exe_dir>/payload`) and return
+    // the first that is an existing directory. Falls back to
+    // `<exe_dir>/resources/payload` for resilience across Tauri layout
+    // differences.
+    let candidates = payload_root_candidates_for_exe_dir(exe_dir);
+    if let Some(existing) = candidates.iter().find(|candidate| candidate.is_dir()) {
+        return Ok(existing.clone());
+    }
+
+    // No candidate exists — surface an error naming every location checked.
+    let checked = candidates
+        .iter()
+        .map(|candidate| candidate.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(format!(
+        "bundled payload resource root not found; checked: {}",
+        checked
+    ))
 }
 
 /// Step 2 — Copy tools (Req 5). Implemented via `bundle.rs`.
 ///
-/// Resolves the bundled payload resource root (`<exe_dir>/resources/payload/`),
-/// then hands the end-to-end copy to [`bundle::copy_payload`], which copies all
+/// Resolves the bundled payload resource root — `<exe_dir>\payload\` (the real
+/// NSIS `perMachine` layout beside the exe), with `<exe_dir>\resources\payload`
+/// retained only as a resilience fallback — then hands the end-to-end copy to
+/// [`bundle::copy_payload`], which copies all
 /// 16 tool `dist/` trees into the install directory with no network access
 /// (Req 3.4 / 5.1), verifies every output is present and non-empty (Req 5.2),
 /// and — on any failure — immediately deletes the partially copied outputs
@@ -550,7 +604,12 @@ fn step_copy_tools(install_path: &str) -> Result<(), String> {
     let phase = Step::CopyTools.name();
 
     // Resolve where the bundled payload was unpacked next to the installer exe.
-    let resource_root = resolve_payload_resource_root()?;
+    // The probing resolver can fail (exe path undeterminable, or no candidate
+    // directory exists), so attribute any such failure to the copy step so the
+    // orchestrator's fail-fast reporting stays "Copy Tools failed: ..."
+    // (Req 3.1) rather than surfacing the raw resolver message.
+    let resource_root =
+        resolve_payload_resource_root().map_err(|e| format!("Copy Tools failed: {}", e))?;
     logger::log_info(
         phase,
         &format!(
@@ -680,7 +739,12 @@ fn step_env_config(install_path: &str) -> Result<(), String> {
     };
 
     // 2. Derive the per-tool env config for all 16 tools (pure; Req 7.1).
-    let config_set = config_gen::derive_all(&config);
+    //    Anchor relative/empty path DEFAULTS under the real install dir
+    //    (`%LOCALAPPDATA%\LLM-Toolkit`) so a fresh install references
+    //    install-dir paths, never the build machine's CWD / dev repo
+    //    (Concern 3, Req 2.1/2.2). User-supplied config values pass through
+    //    unchanged (Req 3.8).
+    let config_set = config_gen::derive_all(&config, Path::new(install_path));
 
     // 3. Write each tool's config to the current-user-scoped config dir, one
     //    file fully before the next (Req 7.2), never into a world-readable
@@ -923,33 +987,78 @@ mod tests {
 
     #[test]
     fn test_payload_root_for_exe_dir_layout() {
-        // For a bundled NSIS app the payload lives at
-        // <exe_dir>/resources/payload/ (Req 5 resource resolution).
+        // For the real Tauri v2 NSIS `perMachine` bundle the executable sits at
+        // the install root and the payload declared as `resources: ["payload/"]`
+        // lands beside it at <exe_dir>\payload\ (each tool at
+        // .../payload/<server_name>/), with no `resources\` segment (Req 2.1).
+        // The pure helper returns that preferred candidate.
         let exe_dir = Path::new("C:\\Program Files\\LLM Toolkit");
         let root = payload_root_for_exe_dir(exe_dir);
-        assert_eq!(root, exe_dir.join("resources").join("payload"));
+        assert_eq!(root, exe_dir.join("payload"));
         // The per-tool source is resolved as root/<server_name>/ by copy_payload.
         assert!(root.ends_with("payload"));
     }
 
     #[test]
+    fn test_payload_root_candidates_ordering() {
+        // The probing resolver relies on the candidate ordering: the real NSIS
+        // perMachine location <exe_dir>\payload must be tried BEFORE the
+        // historical <exe_dir>\resources\payload resilience fallback (Req 2.3).
+        let exe_dir = Path::new("C:\\Program Files\\LLM Toolkit");
+        let candidates = payload_root_candidates_for_exe_dir(exe_dir);
+        assert_eq!(candidates[0], exe_dir.join("payload"));
+        assert_eq!(candidates[1], exe_dir.join("resources").join("payload"));
+    }
+
+    #[test]
     fn test_resolve_payload_resource_root_is_relative_to_current_exe() {
-        // The resolver derives the payload root from the running executable, so
-        // it must sit under <exe_dir>/resources/payload — matching the pure
-        // helper's layout for whatever the current exe's directory is.
-        let resolved = resolve_payload_resource_root().expect("resolve payload root");
+        // The resolver derives the payload root from the running executable and
+        // probes the ordered candidates under <exe_dir> (preferring
+        // <exe_dir>\payload, falling back to <exe_dir>\resources\payload). It
+        // stays relative to current_exe() with no AppHandle (Req 2.4, 3.4).
         let exe = std::env::current_exe().expect("current exe");
         let exe_dir = exe.parent().expect("exe parent");
-        assert_eq!(resolved, payload_root_for_exe_dir(exe_dir));
+        let candidates = payload_root_candidates_for_exe_dir(exe_dir);
+
+        match resolve_payload_resource_root() {
+            // If a candidate happens to exist beside the test binary, the
+            // resolver must return the FIRST existing candidate.
+            Ok(resolved) => {
+                let first_existing = candidates
+                    .iter()
+                    .find(|candidate| candidate.is_dir())
+                    .expect("Ok implies an existing candidate directory");
+                assert_eq!(&resolved, first_existing);
+            }
+            // In the normal test harness neither candidate exists beside the
+            // test binary, so the resolver returns a named-locations error that
+            // mentions every current_exe()-relative candidate it checked.
+            Err(msg) => {
+                assert!(
+                    msg.starts_with("bundled payload resource root not found; checked:"),
+                    "no-candidate resolution must name the checked locations: {msg}"
+                );
+                for candidate in &candidates {
+                    assert!(
+                        msg.contains(&candidate.display().to_string()),
+                        "error must name the current_exe()-relative candidate {}: {msg}",
+                        candidate.display()
+                    );
+                }
+            }
+        }
     }
 
     #[test]
     fn test_step_copy_tools_reports_missing_payload_by_message() {
         // In the test harness there is no bundled payload beside the test
-        // binary, so copy_payload hits a missing-resource-root or missing-tool
-        // failure. Whichever it is, step_copy_tools must surface it as a
-        // "Copy Tools failed" error (Req 5.4) rather than silently succeeding,
-        // and must NOT leave tool outputs behind (rollback — Req 5.5).
+        // binary, so neither <exe_dir>\payload nor <exe_dir>\resources\payload
+        // exists and resolve_payload_resource_root() returns the new
+        // named-locations error ("bundled payload resource root not found;
+        // checked: ..."). Whatever the underlying cause, step_copy_tools must
+        // still surface it as a "Copy Tools failed:" error (Req 3.1) rather
+        // than silently succeeding, and must NOT leave tool outputs behind
+        // (rollback).
         cancelled_flag().store(false, Ordering::SeqCst);
 
         let temp = std::env::temp_dir().join("llm_toolkit_test_copy_tools");
@@ -1990,6 +2099,499 @@ mod tests {
                     STEPS[..=fail_index].iter().map(|s| s.name()).collect();
                 prop_assert_eq!(&executed, &expected);
             }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Task 1 — Bug condition exploration test (Property 1).
+    //
+    // Feature: installer-payload-path-fix — "Resolver Returns The Real Payload
+    // Directory".
+    //
+    // Bug Condition (bugfix.md / design.md):
+    //   isBugCondition(exe_dir) =
+    //       exists(exe_dir / "payload") AND NOT exists(exe_dir / "resources" / "payload")
+    //
+    // Property 1 — for every `exe_dir` satisfying the bug condition, the
+    // resolved payload root MUST equal `exe_dir.join("payload")` and that path
+    // MUST be an existing directory, so Copy Tools proceeds against the real
+    // NSIS perMachine layout.
+    //
+    // CRITICAL — this is a bug-condition exploration test. It encodes the
+    // *expected* corrected behavior, which the UNFIXED code does NOT implement:
+    // the pure helper `payload_root_for_exe_dir(exe_dir)` currently returns
+    // `exe_dir/resources/payload` (it prepends the `resources` segment), so for
+    // a perMachine layout where only `<exe_dir>\payload` exists it yields the
+    // nonexistent `<exe_dir>\resources\payload`. These tests therefore FAIL on
+    // the unfixed code — that failure is the SUCCESS case: it proves the bug.
+    // DO NOT change the resolver here to make them pass; that is fix task 3.
+    //
+    // Fix task 3.7 re-runs these SAME tests against the fixed code, where they
+    // must PASS — confirming the resolver returns `<exe_dir>\payload` and that
+    // it is an existing directory.
+    //
+    // Requirements: 1.1, 1.2, 1.3, 2.1
+    // ─────────────────────────────────────────────────────────────────────────
+    mod payload_root_bug_condition_exploration_tests {
+        use super::*;
+
+        /// Construct a temp `exe_dir` satisfying the bug condition:
+        /// `<exe_dir>\payload\` exists and `<exe_dir>\resources\payload\` does
+        /// not. Returns the created `exe_dir`. The caller removes it.
+        ///
+        /// A unique suffix keeps concurrent test cases (proptest runs many
+        /// iterations in-process) from colliding on the same temp path.
+        fn make_bug_condition_exe_dir(suffix: &str) -> std::path::PathBuf {
+            let exe_dir = std::env::temp_dir()
+                .join("llm_toolkit_payload_bug_condition")
+                .join(suffix);
+            // Start clean so a leftover `resources\payload\` can never sneak in.
+            let _ = fs::remove_dir_all(&exe_dir);
+            // Real payload beside the exe (the NSIS perMachine layout).
+            fs::create_dir_all(exe_dir.join(PAYLOAD_RESOURCE_SUBDIR))
+                .expect("create <exe_dir>/payload");
+            // Sanity: the bug condition actually holds for this fixture.
+            assert!(
+                exe_dir.join(PAYLOAD_RESOURCE_SUBDIR).is_dir(),
+                "fixture must have <exe_dir>/payload present"
+            );
+            assert!(
+                !exe_dir
+                    .join(RESOURCE_DIR_NAME)
+                    .join(PAYLOAD_RESOURCE_SUBDIR)
+                    .exists(),
+                "fixture must NOT have <exe_dir>/resources/payload"
+            );
+            exe_dir
+        }
+
+        /// Assert Property 1 for a single bug-condition `exe_dir`: the resolved
+        /// payload root equals `<exe_dir>\payload` and is an existing directory.
+        ///
+        /// Uses the pure helper `payload_root_for_exe_dir`, which takes the
+        /// `exe_dir` directly (no I/O), so this exercises the exact derivation
+        /// the live resolver feeds from `current_exe()`. On UNFIXED code the
+        /// helper returns `<exe_dir>\resources\payload`, so this assertion FAILS
+        /// — the intended counterexample.
+        fn assert_resolves_to_real_payload(exe_dir: &Path) {
+            let resolved = payload_root_for_exe_dir(exe_dir);
+            let expected = exe_dir.join(PAYLOAD_RESOURCE_SUBDIR);
+            assert_eq!(
+                resolved, expected,
+                "bug-condition exe_dir must resolve to <exe_dir>/payload, not \
+                 <exe_dir>/resources/payload — got {}",
+                resolved.display()
+            );
+            assert!(
+                resolved.is_dir(),
+                "resolved payload root must be an existing directory: {}",
+                resolved.display()
+            );
+        }
+
+        #[test]
+        fn per_machine_layout_resolves_to_payload_beside_exe() {
+            // Concrete reproducible perMachine layout: `payload\` present,
+            // `resources\payload\` absent.
+            let exe_dir = make_bug_condition_exe_dir("per_machine_concrete");
+
+            // EXPECTED on unfixed code: this FAILS because the resolver yields
+            // <exe_dir>\resources\payload instead of <exe_dir>\payload.
+            assert_resolves_to_real_payload(&exe_dir);
+
+            let _ = fs::remove_dir_all(&exe_dir);
+        }
+
+        #[test]
+        fn pure_helper_returns_preferred_payload_candidate() {
+            // Assert the pure helper directly, matching the task's explicit
+            // requirement: payload_root_for_exe_dir(exe_dir) == exe_dir/payload.
+            // On UNFIXED code this returns exe_dir/resources/payload and FAILS.
+            let exe_dir = Path::new("C:\\Program Files\\LLM Toolkit Installer");
+            assert_eq!(
+                payload_root_for_exe_dir(exe_dir),
+                exe_dir.join(PAYLOAD_RESOURCE_SUBDIR),
+                "pure helper must prefer <exe_dir>/payload (real NSIS perMachine \
+                 layout), not <exe_dir>/resources/payload"
+            );
+        }
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(64))]
+
+            // Property 1 — for all exe_dir satisfying the bug condition
+            // (payload\ exists, resources\payload\ does not), the resolved
+            // payload root equals <exe_dir>\payload and is_dir() is true.
+            //
+            // The generator produces distinct temp exe_dir layouts (via a
+            // unique suffix) that each satisfy isBugCondition, then asserts the
+            // expected resolution. On UNFIXED code every case FAILS with the
+            // counterexample <exe_dir>\resources\payload.
+            //
+            // Validates: Requirements 1.1, 1.2, 1.3, 2.1
+            #[test]
+            fn prop_bug_condition_resolves_to_real_payload(case in 0u32..64) {
+                let suffix = format!("prop_{case}");
+                let exe_dir = make_bug_condition_exe_dir(&suffix);
+
+                let resolved = payload_root_for_exe_dir(&exe_dir);
+                let expected = exe_dir.join(PAYLOAD_RESOURCE_SUBDIR);
+                prop_assert_eq!(
+                    &resolved,
+                    &expected,
+                    "bug-condition exe_dir must resolve to <exe_dir>/payload; got {}",
+                    resolved.display()
+                );
+                prop_assert!(
+                    resolved.is_dir(),
+                    "resolved payload root must be an existing directory: {}",
+                    resolved.display()
+                );
+
+                let _ = fs::remove_dir_all(&exe_dir);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Task 2 — Preservation baseline tests (Property 2).
+    //
+    // Property 2 (design.md / bugfix.md):
+    //   For every `exe_dir` where isBugCondition is FALSE, the fixed resolver's
+    //   outcome is equivalent to the original scheme's outcome — legacy layout
+    //   (only `<exe_dir>\resources\payload` exists) resolves to
+    //   `<exe_dir>\resources\payload`; a no-candidate layout fails with an error
+    //   naming the checked location(s); and downstream copy → verify → rollback,
+    //   retry, cancellation, and logging behavior is unchanged.
+    //
+    // These tests were authored observation-first against the UNFIXED code to
+    // capture the non-bug OUTCOMES that must be preserved, and were reconciled
+    // by task 3.8 to model the FIXED probing resolver (candidate ordering +
+    // named no-candidate error). For every non-bug `exe_dir` they assert the
+    // fixed resolver's outcome is equivalent to the original scheme's outcome:
+    //
+    //   * Legacy layout (only `<exe_dir>\resources\payload` exists): probing
+    //     falls through to the fallback and resolves to
+    //     `<exe_dir>\resources\payload` — same as the original scheme.
+    //   * No-candidate layout (neither exists): resolution fails with an error
+    //     NAMING every checked location (Req 2.4), and `step_copy_tools` still
+    //     surfaces a `"Copy Tools failed:"`-attributed error with rollback.
+    //   * Resolution stays relative to `current_exe()` with no AppHandle.
+    //   * The ordered candidate helper prefers `<exe_dir>\payload` over the
+    //     `<exe_dir>\resources\payload` fallback.
+    //
+    // The matrix property models resolution as "first existing candidate among
+    // [<exe_dir>\payload, <exe_dir>\resources\payload], else named error" over a
+    // matrix of which candidate directories exist, constrained to non-bug
+    // layouts via `prop_assume!`. The bug layout (only payload present) is
+    // Property 1's concern, not this module's.
+    //
+    // Requirements: 2.4, 3.1, 3.2, 3.3, 3.4, 3.5
+    // ─────────────────────────────────────────────────────────────────────────
+    mod payload_root_preservation_tests {
+        use super::*;
+
+        /// Model the fixed probing resolver over a concrete `exe_dir` on disk:
+        /// return the first ordered candidate from
+        /// [`payload_root_candidates_for_exe_dir`] whose directory exists, or an
+        /// `Err` naming every checked location (mirroring the live resolver's
+        /// named-locations error). This lets the preservation tests exercise the
+        /// real probing/ordering semantics against temp layouts without invoking
+        /// `current_exe()`.
+        fn resolve_over_candidates(exe_dir: &Path) -> Result<std::path::PathBuf, String> {
+            let candidates = payload_root_candidates_for_exe_dir(exe_dir);
+            if let Some(existing) = candidates.iter().find(|candidate| candidate.is_dir()) {
+                return Ok(existing.clone());
+            }
+            let checked = candidates
+                .iter()
+                .map(|candidate| candidate.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            Err(format!(
+                "bundled payload resource root not found; checked: {}",
+                checked
+            ))
+        }
+
+        /// Bug condition from the design/bugfix docs. A pure predicate over the
+        /// filesystem state of `exe_dir`: the real payload sits beside the exe
+        /// (`<exe_dir>\payload`) and there is no `<exe_dir>\resources\payload`.
+        fn is_bug_condition(exe_dir: &Path) -> bool {
+            exe_dir.join(PAYLOAD_RESOURCE_SUBDIR).is_dir()
+                && !exe_dir
+                    .join(RESOURCE_DIR_NAME)
+                    .join(PAYLOAD_RESOURCE_SUBDIR)
+                    .is_dir()
+        }
+
+        /// Build a temp `exe_dir` with the two candidate directories present or
+        /// absent per the booleans. Returns the created `exe_dir`; caller cleans
+        /// it up. A unique suffix isolates concurrent proptest iterations.
+        fn make_layout(suffix: &str, payload: bool, resources_payload: bool) -> std::path::PathBuf {
+            let exe_dir = std::env::temp_dir()
+                .join("llm_toolkit_payload_preservation")
+                .join(suffix);
+            // Start clean so a stale directory never contaminates the layout.
+            let _ = fs::remove_dir_all(&exe_dir);
+            fs::create_dir_all(&exe_dir).expect("create exe_dir");
+            if payload {
+                fs::create_dir_all(exe_dir.join(PAYLOAD_RESOURCE_SUBDIR))
+                    .expect("create <exe_dir>/payload");
+            }
+            if resources_payload {
+                fs::create_dir_all(
+                    exe_dir.join(RESOURCE_DIR_NAME).join(PAYLOAD_RESOURCE_SUBDIR),
+                )
+                .expect("create <exe_dir>/resources/payload");
+            }
+            exe_dir
+        }
+
+        // ── BASELINE (A): PASS on unfixed code — behavior to preserve ─────────
+
+        /// Legacy/portable layout: only `<exe_dir>\resources\payload\` exists
+        /// (NOT the bug condition). PRESERVATION: the fixed probing resolver
+        /// finds no `<exe_dir>\payload`, falls through to the resilience
+        /// fallback, and resolves to `<exe_dir>\resources\payload` — the same
+        /// outcome the original scheme produced for this non-bug layout
+        /// (Req 3.5).
+        #[test]
+        fn legacy_layout_resolves_to_resources_payload() {
+            let exe_dir = make_layout("legacy_concrete", false, true);
+            // Precondition: this layout is NOT the bug condition.
+            assert!(
+                !is_bug_condition(&exe_dir),
+                "legacy layout (only resources/payload) must not be the bug condition"
+            );
+
+            // Model the fixed probing resolver over this concrete layout: the
+            // preferred `<exe_dir>\payload` is absent, so probing falls through
+            // to the existing `<exe_dir>\resources\payload` fallback.
+            let resolved =
+                resolve_over_candidates(&exe_dir).expect("legacy layout has an existing candidate");
+            assert_eq!(
+                resolved,
+                exe_dir.join(RESOURCE_DIR_NAME).join(PAYLOAD_RESOURCE_SUBDIR),
+                "legacy layout must resolve to <exe_dir>/resources/payload"
+            );
+            // The resolved directory is the one that actually exists here.
+            assert!(
+                resolved.is_dir(),
+                "legacy layout's resolved root must be an existing directory: {}",
+                resolved.display()
+            );
+
+            let _ = fs::remove_dir_all(&exe_dir);
+        }
+
+        /// Resolution stays relative to `current_exe()` with no AppHandle
+        /// dependency (Req 3.4). PRESERVATION: the live resolver derives its
+        /// candidates from `current_exe()`'s parent directory and returns the
+        /// first existing one; when none exist beside the test binary it returns
+        /// the named-locations error over those same `current_exe()`-relative
+        /// candidates. Either way the outcome is fully determined by
+        /// `current_exe()`'s directory — no AppHandle involved.
+        #[test]
+        fn resolution_stays_relative_to_current_exe() {
+            let exe = std::env::current_exe().expect("current exe");
+            let exe_dir = exe.parent().expect("exe parent");
+
+            // The live resolver's outcome must equal the probing model applied
+            // to current_exe()'s directory (first existing candidate, else the
+            // named-locations error) — proving resolution is derived solely from
+            // current_exe()'s parent.
+            match resolve_payload_resource_root() {
+                Ok(resolved) => {
+                    assert_eq!(
+                        Ok(resolved),
+                        resolve_over_candidates(exe_dir),
+                        "resolver must return the first existing candidate under current_exe()'s directory"
+                    );
+                }
+                Err(msg) => {
+                    // No candidate exists beside the test binary: the error must
+                    // name the current_exe()-relative candidates it checked.
+                    assert_eq!(
+                        Err(msg),
+                        resolve_over_candidates(exe_dir),
+                        "no-candidate resolution must name the current_exe()-relative locations"
+                    );
+                }
+            }
+        }
+
+        /// No payload beside the test binary → `step_copy_tools` fails with a
+        /// `"Copy Tools failed:"`-attributed error and leaves no tool outputs
+        /// behind (rollback). OBSERVED on unfixed code and preserved by the fix
+        /// (Req 3.1, 3.2). This mirrors
+        /// `test_step_copy_tools_reports_missing_payload_by_message` and locks
+        /// the failure attribution + rollback contract as a preservation baseline.
+        #[test]
+        fn step_copy_tools_missing_payload_fails_attributed_and_rolls_back() {
+            cancelled_flag().store(false, Ordering::SeqCst);
+
+            let temp = std::env::temp_dir().join("llm_toolkit_preservation_copy_tools");
+            let _ = fs::remove_dir_all(&temp);
+            fs::create_dir_all(&temp).expect("create temp install dir");
+
+            let result = step_copy_tools(&temp.to_string_lossy());
+            assert!(
+                result.is_err(),
+                "expected a copy failure without a real payload beside the binary"
+            );
+            let msg = result.unwrap_err();
+            assert!(
+                msg.starts_with("Copy Tools failed:"),
+                "failure must be attributed to the copy step: {msg}"
+            );
+
+            // Rollback: no canonical tool output remains in the install dir.
+            let plan = bundle::verify_install_dir(&temp);
+            assert!(
+                plan.present.is_empty(),
+                "a failed copy must leave no tool outputs behind, found: {:?}",
+                plan.present
+            );
+
+            let _ = fs::remove_dir_all(&temp);
+        }
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(64))]
+
+            // Property 2 (preservation) — for all NON-BUG `exe_dir` layouts the
+            // fixed probing resolver produces an outcome equivalent to the
+            // original scheme's OUTCOME. This models resolution over a matrix of
+            // which candidate directories exist (payload present/absent ×
+            // resources/payload present/absent), building each layout on disk and
+            // probing the ordered candidates.
+            //
+            // The design's preservation guarantee (design.md "Preservation
+            // Checking") is stated over exactly the non-bug layouts where the
+            // original scheme's `<exe_dir>\resources\payload` outcome is the one
+            // that must be kept:
+            //   * only resources/payload   → legacy layout: both the original
+            //                                 scheme and the fixed resolver
+            //                                 resolve to <exe_dir>\resources\payload.
+            //   * neither present          → both fail: the original scheme's
+            //                                 resources/payload does not exist,
+            //                                 and the fixed resolver yields the
+            //                                 named no-candidate error.
+            // Both of these have `payload == false`, so the matrix is constrained
+            // to that half. The BUG layout (only payload present) is Property 1's
+            // concern. The BOTH-present layout is a non-bug layout too, but its
+            // correct behavior is the documented candidate ORDERING (prefer
+            // <exe_dir>\payload), not preservation of the original scheme's
+            // resources/payload outcome — that precedence is covered by
+            // `candidate_order_prefers_payload_then_resources_payload` and the
+            // 3.6 ordering unit test, so it is intentionally excluded here.
+            //
+            // Validates: Requirements 3.1, 3.4, 3.5
+            #[test]
+            fn prop_non_bug_layout_matches_original_scheme(
+                case in 0u32..64u32,
+                resources_payload in any::<bool>(),
+            ) {
+                // Preserved-outcome layouts have no `<exe_dir>\payload` present
+                // (only-resources-payload and neither). This excludes both the
+                // bug layout and the both-present precedence layout.
+                let payload = false;
+
+                let suffix = format!("prop_{case}_{}_{}", payload as u8, resources_payload as u8);
+                let exe_dir = make_layout(&suffix, payload, resources_payload);
+
+                // Sanity: the generated layout is genuinely not the bug condition.
+                prop_assert!(
+                    !is_bug_condition(&exe_dir),
+                    "matrix must only cover non-bug layouts; got a bug layout for {}",
+                    exe_dir.display()
+                );
+
+                // Model the ORIGINAL scheme's outcome: F resolved to
+                // <exe_dir>\resources\payload, which was usable only when that
+                // directory existed; otherwise the copy failed.
+                let original_target = exe_dir.join(RESOURCE_DIR_NAME).join(PAYLOAD_RESOURCE_SUBDIR);
+                let original_outcome: Result<std::path::PathBuf, ()> =
+                    if original_target.is_dir() { Ok(original_target) } else { Err(()) };
+
+                // The fixed probing resolver's outcome over the same on-disk
+                // layout, reduced to Ok(path)/Err for comparison.
+                let fixed_outcome: Result<std::path::PathBuf, ()> =
+                    resolve_over_candidates(&exe_dir).map_err(|_| ());
+
+                // Equivalent OUTCOMES for every non-bug layout: where the legacy
+                // resources/payload exists both resolve there; where it does not
+                // both fail.
+                prop_assert_eq!(
+                    &fixed_outcome,
+                    &original_outcome,
+                    "non-bug layout must match the original scheme's outcome for {}",
+                    exe_dir.display()
+                );
+
+                let _ = fs::remove_dir_all(&exe_dir);
+            }
+        }
+
+        // ── Property 2's remaining half: named no-candidate error + ordering ─
+        //
+        // These describe the no-candidate failure that must produce an error
+        // NAMING the checked location(s) (Req 2.4), and the ordered candidate
+        // helper's probe order. Implemented against the fixed code by task 3.8.
+
+        /// No-candidate layout (NOT the bug condition): neither `<exe_dir>\payload`
+        /// nor `<exe_dir>\resources\payload` exists. PRESERVATION: probing yields
+        /// an `Err` that names EVERY checked location (Req 2.4), so the copy step
+        /// still fails with a diagnostic that points at the paths inspected —
+        /// preserving the "copy fails when no payload exists" outcome while
+        /// improving the message.
+        #[test]
+        fn no_candidate_layout_fails_with_named_locations() {
+            let exe_dir = make_layout("no_candidate_named", false, false);
+            // Precondition: an empty layout is not the bug condition.
+            assert!(
+                !is_bug_condition(&exe_dir),
+                "no-candidate layout must not be the bug condition"
+            );
+
+            let err = resolve_over_candidates(&exe_dir)
+                .expect_err("no-candidate layout must fail to resolve");
+            assert!(
+                err.starts_with("bundled payload resource root not found; checked:"),
+                "no-candidate failure must name the checked locations: {err}"
+            );
+            // The error must name BOTH checked candidate locations.
+            for candidate in payload_root_candidates_for_exe_dir(&exe_dir) {
+                assert!(
+                    err.contains(&candidate.display().to_string()),
+                    "error must name checked location {}: {err}",
+                    candidate.display()
+                );
+            }
+
+            let _ = fs::remove_dir_all(&exe_dir);
+        }
+
+        /// The ordered candidate helper `payload_root_candidates_for_exe_dir`
+        /// must yield the real NSIS perMachine location `<exe_dir>\payload` at
+        /// [0] BEFORE the historical `<exe_dir>\resources\payload` fallback at
+        /// [1], so the probing resolver prefers the payload beside the exe
+        /// (Req 2.3).
+        #[test]
+        fn candidate_order_prefers_payload_then_resources_payload() {
+            let exe_dir = Path::new("C:\\Program Files\\LLM Toolkit Installer");
+            let candidates = payload_root_candidates_for_exe_dir(exe_dir);
+            assert_eq!(
+                candidates[0],
+                exe_dir.join(PAYLOAD_RESOURCE_SUBDIR),
+                "preferred candidate must be <exe_dir>/payload"
+            );
+            assert_eq!(
+                candidates[1],
+                exe_dir.join(RESOURCE_DIR_NAME).join(PAYLOAD_RESOURCE_SUBDIR),
+                "fallback candidate must be <exe_dir>/resources/payload"
+            );
         }
     }
 }

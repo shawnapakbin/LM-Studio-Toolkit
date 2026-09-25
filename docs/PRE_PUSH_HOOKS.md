@@ -233,16 +233,6 @@ fi
 # ... rest of hook code
 ```
 
-### Add Evaluation Check
-
-Include the evaluation harness:
-
-```bash
-run_gate "Evaluation" "npm run eval:run" || FAILED=1
-```
-
-**Note**: This adds ~30-60 seconds to push time.
-
 ## Troubleshooting
 
 ### Hook Not Running
@@ -390,7 +380,7 @@ npm run check:ci && npm run type-check && npm run build
 - [Git Hooks Documentation](https://git-scm.com/docs/githooks)
 - [Husky Documentation](https://typicode.github.io/husky/)
 - [CICD.md](./CICD.md) - CI/CD and branch protection guide
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
 
 ## Summary
 

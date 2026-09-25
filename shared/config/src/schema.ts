@@ -179,58 +179,6 @@ export const askuserSchema = z.object({
     .describe("Maximum allowed expiration time in seconds"),
 });
 
-// ─── RAG ─────────────────────────────────────────────────────────────────────
-
-export const ragSchema = z.object({
-  port: portSchema.default(3339).describe("HTTP server port for RAG tool"),
-  dbPath: z.string().default("../rag.db").describe("Path to RAG SQLite database"),
-  docScraperEndpoint: z
-    .string()
-    .default("http://localhost:3336/tools/read_document")
-    .describe("DocumentScraper endpoint URL"),
-  askUserEndpoint: z
-    .string()
-    .default("http://localhost:3338/tools/ask_user_interview")
-    .describe("AskUser endpoint URL"),
-  bypassApproval: z.boolean().default(false).describe("Bypass approval checks (for development)"),
-  maxDocumentsPerIngest: z
-    .number()
-    .int()
-    .min(1)
-    .default(20)
-    .describe("Maximum documents per ingest operation"),
-  maxTextLength: z
-    .number()
-    .int()
-    .min(0)
-    .default(2000000)
-    .describe("Maximum text length for processing"),
-  chunkSizeTokens: z.number().int().min(1).default(350).describe("Default chunk size in tokens"),
-  chunkOverlapTokens: z
-    .number()
-    .int()
-    .min(0)
-    .default(40)
-    .describe("Default chunk overlap in tokens"),
-  maxChunkSizeTokens: z
-    .number()
-    .int()
-    .min(1)
-    .default(1200)
-    .describe("Maximum chunk size in tokens"),
-  maxOverlapTokens: z.number().int().min(0).default(300).describe("Maximum overlap in tokens"),
-  queryTopK: z.number().int().min(1).default(6).describe("Default number of results to return"),
-  maxTopK: z.number().int().min(1).default(25).describe("Maximum allowed top-K results"),
-  embeddingModel: z
-    .string()
-    .default("nomic-ai/nomic-embed-text-v1.5")
-    .describe("Embedding model identifier"),
-  embeddingsMode: z
-    .enum(["lmstudio", "mock"])
-    .default("lmstudio")
-    .describe("Embeddings provider mode"),
-});
-
 // ─── PythonShell ─────────────────────────────────────────────────────────────
 
 export const pythonshellSchema = z.object({
@@ -283,33 +231,17 @@ export const slashcommandsSchema = z.object({
   clockEndpoint: z.string().default("http://localhost:3337").describe("Clock tool endpoint URL"),
   terminalEndpoint: z
     .string()
-    .default("http://localhost:3330")
+    .default("http://localhost:3333")
     .describe("Terminal tool endpoint URL"),
   askuserEndpoint: z
     .string()
     .default("http://localhost:3338")
     .describe("AskUser tool endpoint URL"),
-  ragEndpoint: z.string().default("http://localhost:3339").describe("RAG tool endpoint URL"),
   pythonshellEndpoint: z
     .string()
     .default("http://localhost:3343")
     .describe("PythonShell tool endpoint URL"),
   skillsEndpoint: z.string().default("http://localhost:3341").describe("Skills tool endpoint URL"),
-  ecmEndpoint: z.string().default("http://localhost:3342").describe("ECM tool endpoint URL"),
-});
-
-// ─── CSVExporter ─────────────────────────────────────────────────────────────
-
-export const csvexporterSchema = z.object({
-  port: portSchema.default(3339).describe("HTTP server port for CSVExporter tool"),
-  exportRoot: z.string().default("").describe("Custom export directory (empty uses ~/Documents)"),
-});
-
-// ─── FileEditor ──────────────────────────────────────────────────────────────
-
-export const fileeditorSchema = z.object({
-  port: portSchema.default(3010).describe("HTTP server port for FileEditor tool"),
-  workspaceRoot: z.string().default(".").describe("Working directory for file operations"),
 });
 
 // ─── Git ─────────────────────────────────────────────────────────────────────
@@ -317,16 +249,6 @@ export const fileeditorSchema = z.object({
 export const gitSchema = z.object({
   port: portSchema.default(3011).describe("HTTP server port for Git tool"),
   workspaceRoot: z.string().default(".").describe("Working directory for git operations"),
-});
-
-// ─── PackageManager ──────────────────────────────────────────────────────────
-
-export const packagemanagerSchema = z.object({
-  port: portSchema.default(3012).describe("HTTP server port for PackageManager tool"),
-  workspaceRoot: z
-    .string()
-    .default(".")
-    .describe("Working directory for package manager operations"),
 });
 
 // ─── Observability ───────────────────────────────────────────────────────────
@@ -393,16 +315,12 @@ export const configSchema = z.object({
   clock: clockSchema.default({}),
   browserless: browserlessSchema.default({}),
   askuser: askuserSchema.default({}),
-  rag: ragSchema.default({}),
   pythonshell: pythonshellSchema.default({}),
   memory: memorySchema.default({}),
   skills: skillsSchema.default({}),
   cli: cliSchema.default({}),
   slashcommands: slashcommandsSchema.default({}),
-  csvexporter: csvexporterSchema.default({}),
-  fileeditor: fileeditorSchema.default({}),
   git: gitSchema.default({}),
-  packagemanager: packagemanagerSchema.default({}),
   observability: observabilitySchema.default({}),
   agentrunner: agentrunnerSchema.default({}),
   blenderbridge: blenderbridgeSchema.default({}),

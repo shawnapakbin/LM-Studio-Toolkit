@@ -17,18 +17,20 @@ describe("MCP plugin registration list", () => {
     warnSpy.mockRestore();
   });
 
-  // Requirement 1.2 — the nine already-registered runtime servers remain present.
+  // Requirement 1.2 — the nine Shipped runtime servers remain registered.
+  // (Retire-and-gate: `rag` and `slash-commands` are no longer Shipped; the
+  // Shipped set is the nine canonical servers.)
   describe("existing runtime servers (Requirement 1.2)", () => {
     const existingKeys = [
       "terminal",
       "web-browser",
       "common",
       "browserless",
-      "rag",
       "python-shell",
       "skills",
-      "slash-commands",
       "blender-bridge",
+      "3dtool",
+      "lan-sub-agent",
     ];
 
     it("registers all nine existing server keys", () => {
@@ -75,34 +77,26 @@ describe("MCP plugin registration list", () => {
     });
   });
 
-  // Requirements 1.5 / 8.3 — registered plugin-entry count equals 16.
+  // Requirements 1.5 / 8.3 — registered plugin-entry count equals the nine
+  // Shipped servers (retire-and-gate reduced the set from 16 to 9).
   describe("registered plugin-entry count (Requirements 1.5, 8.3)", () => {
-    it("registers exactly 16 plugin entries", () => {
-      expect(Object.keys(mcpServers)).toHaveLength(16);
+    it("registers exactly 9 plugin entries", () => {
+      expect(Object.keys(mcpServers)).toHaveLength(9);
     });
 
-    it("registers the nine existing plus seven added servers", () => {
+    it("registers exactly the nine Shipped servers", () => {
       const expectedKeys = [
-        // nine existing
         "terminal",
         "web-browser",
         "common",
         "browserless",
-        "rag",
         "python-shell",
         "skills",
-        "slash-commands",
         "blender-bridge",
-        // seven added
         "3dtool",
-        "sub-agent",
         "lan-sub-agent",
-        "git",
-        "package-manager",
-        "csv-exporter",
-        "file-editor",
       ];
-      expect(expectedKeys).toHaveLength(16);
+      expect(expectedKeys).toHaveLength(9);
       expect(Object.keys(mcpServers).sort()).toEqual(expectedKeys.sort());
     });
   });

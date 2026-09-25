@@ -42,137 +42,6 @@ beforeEach(() => {
   mockGet.mockResolvedValue({ ok: true });
 });
 
-// ── ECM ───────────────────────────────────────────────────────────────────────
-
-describe("route — ecm (non-compact)", () => {
-  it("posts to ECM endpoint with action and params", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "store_segment",
-      params: { sessionId: "s1", content: "hello", type: "conversation_turn" },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "store_segment",
-      sessionId: "s1",
-      content: "hello",
-      type: "conversation_turn",
-    });
-  });
-
-  it("posts retrieve_context action", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "retrieve_context",
-      params: { sessionId: "default", query: "what is the plan", topK: 3 },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "retrieve_context",
-      sessionId: "default",
-      query: "what is the plan",
-      topK: 3,
-    });
-  });
-
-  it("posts list_segments action", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "list_segments",
-      params: { sessionId: "default", limit: 10 },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "list_segments",
-      sessionId: "default",
-      limit: 10,
-    });
-  });
-
-  it("posts clear_session action", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "clear_session",
-      params: { sessionId: "mySession" },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "clear_session",
-      sessionId: "mySession",
-    });
-  });
-
-  it("posts set_continuous_compact action", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "set_continuous_compact",
-      params: { sessionId: "s1", enabled: true, keepNewest: 2 },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "set_continuous_compact",
-      sessionId: "s1",
-      enabled: true,
-      keepNewest: 2,
-    });
-  });
-
-  it("posts get_session_policy action", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "get_session_policy",
-      params: { sessionId: "s1" },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "get_session_policy",
-      sessionId: "s1",
-    });
-  });
-});
-
-describe("route — ecm compact (two-step)", () => {
-  it("calls post twice: summarize_session then list_segments", async () => {
-    mockPost
-      .mockResolvedValueOnce({ success: true, summary: "summarized" })
-      .mockResolvedValueOnce({ data: { total: 3 } });
-
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "compact",
-      params: { sessionId: "s1", keepNewest: 5 },
-    };
-    const result = (await route(desc)) as Record<string, unknown>;
-
-    expect(mockPost).toHaveBeenCalledTimes(2);
-    expect(mockPost).toHaveBeenNthCalledWith(1, `${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "summarize_session",
-      sessionId: "s1",
-      keepNewest: 5,
-    });
-    expect(mockPost).toHaveBeenNthCalledWith(2, `${ENDPOINTS.ecm}/tools/ecm`, {
-      action: "list_segments",
-      sessionId: "s1",
-      limit: 1,
-    });
-    expect(result.action).toBe("compact");
-    expect(result.segmentsRemaining).toBe(3);
-    expect(result.success).toBe(true);
-  });
-
-  it("returns 'unknown' for segmentsRemaining when list response has no data", async () => {
-    mockPost.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({});
-
-    const desc: DispatchDescriptor = {
-      tool: "ecm",
-      action: "compact",
-      params: { sessionId: "default", keepNewest: 5 },
-    };
-    const result = (await route(desc)) as Record<string, unknown>;
-    expect(result.segmentsRemaining).toBe("unknown");
-  });
-});
-
 // ── Calculator ────────────────────────────────────────────────────────────────
 
 describe("route — calculator", () => {
@@ -381,70 +250,6 @@ describe("route — skills", () => {
   });
 });
 
-// ── RAG ───────────────────────────────────────────────────────────────────────
-
-describe("route — rag", () => {
-  it("posts query action to rag endpoint", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "rag",
-      action: "query",
-      params: { query: "what is AI", topK: 5 },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-      action: "query_knowledge",
-      payload: {
-        query: "what is AI",
-        topK: 5,
-      },
-    });
-  });
-
-  it("posts ingest action with source", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "rag",
-      action: "ingest",
-      params: { content: "some text", source: "docs" },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-      action: "ingest_documents",
-      payload: {
-        documents: [
-          {
-            sourceKey: "docs",
-            text: "some text",
-          },
-        ],
-      },
-    });
-  });
-
-  it("posts list_sources action", async () => {
-    const desc: DispatchDescriptor = { tool: "rag", action: "list_sources", params: {} };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-      action: "list_sources",
-      payload: {},
-    });
-  });
-
-  it("posts delete_source action", async () => {
-    const desc: DispatchDescriptor = {
-      tool: "rag",
-      action: "delete_source",
-      params: { sourceId: "src-1" },
-    };
-    await route(desc);
-    expect(mockPost).toHaveBeenCalledWith(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-      action: "delete_source",
-      payload: {
-        sourceId: "src-1",
-      },
-    });
-  });
-});
-
 // ── AskUser ───────────────────────────────────────────────────────────────────
 
 describe("route — askuser", () => {
@@ -512,7 +317,7 @@ describe("route — tools_list", () => {
     expect(result.success).toBe(true);
     const tools = result.tools as Array<{ name: string; endpoint: string }>;
     expect(tools.some((t) => t.name === "Calculator")).toBe(true);
-    expect(tools.some((t) => t.name === "ECM")).toBe(true);
+    expect(tools.some((t) => t.name === "Skills")).toBe(true);
     expect(tools.length).toBe(Object.keys(ENDPOINTS).length);
   });
 });
@@ -629,7 +434,7 @@ describe("route — config_show", () => {
     const config = result.config as Record<string, unknown>;
     const tools = config.tools as Array<{ name: string; key: string; endpoint: string }>;
     expect(tools.some((t) => t.key === "calculator")).toBe(true);
-    expect(tools.some((t) => t.key === "ecm")).toBe(true);
+    expect(tools.some((t) => t.key === "skills")).toBe(true);
   });
 });
 

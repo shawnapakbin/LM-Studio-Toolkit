@@ -14,7 +14,7 @@ Quick reference for connecting LLM Toolkit to LM Studio via the Model Context Pr
 
 ## Plugin-Only Configuration
 
-The toolkit uses a **plugin-only configuration model** — this is the sole supported method. All 16 registered servers are provisioned automatically as LM Studio plugins; you never create, open, or edit any LM Studio config file by hand.
+The toolkit uses a **plugin-only configuration model** — this is the sole supported method. All 9 registered servers are provisioned automatically as LM Studio plugins; you never create, open, or edit any LM Studio config file by hand.
 
 Provision (or re-provision) every toolkit plugin:
 
@@ -34,34 +34,15 @@ Per-server environment values are read from the unified `llm-toolkit.config.yaml
 
 ---
 
-## Registered Plugin Entries (16)
+## Registered Plugin Entries (9)
 
-The toolkit registers **16 plugin entries** — the single authoritative count. The `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`), so registered entries are fewer than the underlying tools.
-
-| Registered entry | Description |
-|---|---|
-| `terminal` | Execute shell commands (OS-aware) |
-| `web-browser` | Headless Chromium — JS rendering, screenshots, markdown |
-| `common` | Bundles Calculator, Clock, AskUser, and DocumentScraper |
-| `browserless` | Advanced browser automation via the schema-proxy wrapper |
-| `rag` | Persistent retrieval-augmented generation |
-| `python-shell` | Python execution + REPL/IDLE launch |
-| `skills` | Define and execute named parameterized playbooks |
-| `slash-commands` | `/command` shortcuts for LM Studio chat |
-| `blender-bridge` | Bridge to a running Blender instance |
-| `3dtool` | 3D model viewer/editor |
-| `sub-agent` | Fan-out/fan-in parallel inference dispatch |
-| `lan-sub-agent` | LAN-aware multi-endpoint inference dispatch |
-| `git` | Safe git operations with branch protection |
-| `package-manager` | Multi-ecosystem package management |
-| `csv-exporter` | Export parsed table data to CSV |
-| `file-editor` | Safe file read/write/search (registered runtime MCP server) |
+See [mcp-json.md](mcp-json.md) for the full list of the 9 registered plugin entries. In short: the `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`), so registered entries are fewer than the underlying tools.
 
 ---
 
 ## Slash Commands
 
-The `slash-commands` server is registered as a plugin automatically by `npm run mcp:sync-lmstudio` — no manual configuration is required. Build it with `npm run build:slash`, then type `/calc sin(30°)`, `/browse https://...`, etc. directly in chat.
+The `slash-commands` server is currently **Unshipped** — it remains in the repository and still builds (`npm run build:slash`), but is not provisioned by `npm run mcp:sync-lmstudio` in this release. It can be re-enabled in a future release without reconstruction.
 
 See [SLASH-COMMANDS.md](SLASH-COMMANDS.md) for the full command reference.
 

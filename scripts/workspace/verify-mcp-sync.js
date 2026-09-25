@@ -14,7 +14,7 @@
  *   2. Artifact resolution — each non-external server's relativeScript resolves
  *      to its built-artifact path (via missingBuilds); each unresolved
  *      workspace is reported by name.
- *   3. Count assertion — the registered plugin-entry count equals 16.
+ *   3. Count assertion — the registered plugin-entry count equals 9.
  *   4. No top-level mcp.json toolkit entries — zero `_owner: "llm-toolkit"`
  *      entries remain in the top-level mcp.json; each offender is named.
  *   5. README hygiene — README contains no `mcp.json` example block and no
@@ -39,27 +39,20 @@ const { OWNER_ID, LEGACY_PLUGIN_NAMES, readJsonSafe } = require("./plugin-owners
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
-// ─── Authoritative intended runtime-server set (Component 4, count = 16) ──────
+// ─── Authoritative intended runtime-server set (Component 4, count = 9) ───────
 const INTENDED_RUNTIME_SERVERS = [
   "terminal",
   "web-browser",
   "common",
   "browserless",
-  "rag",
   "python-shell",
   "skills",
-  "slash-commands",
   "blender-bridge",
   "3dtool",
-  "sub-agent",
   "lan-sub-agent",
-  "git",
-  "package-manager",
-  "csv-exporter",
-  "file-editor",
 ];
 
-const EXPECTED_COUNT = 16;
+const EXPECTED_COUNT = 9;
 
 // ─── Pure detection helpers (exported for self-tests) ─────────────────────────
 
@@ -82,7 +75,7 @@ function checkRegistrationSet(registeredNames, intended = INTENDED_RUNTIME_SERVE
  * Assert the registered plugin-entry count equals the expected count.
  *
  * @param {number} count - number of registered entries
- * @param {number} [expected] - expected count (default 16)
+ * @param {number} [expected] - expected count (default 9)
  * @returns {{ ok: boolean, count: number, expected: number }}
  */
 function checkCount(count, expected = EXPECTED_COUNT) {
@@ -194,7 +187,7 @@ function runCli() {
     }
   }
 
-  // ─── Check 3: Registered plugin-entry count equals 16 ───────────────────────
+  // ─── Check 3: Registered plugin-entry count equals 9 ────────────────────────
   const countResult = checkCount(registeredNames.length);
   if (countResult.ok) {
     pass(`Registered plugin-entry count equals ${EXPECTED_COUNT}.`);

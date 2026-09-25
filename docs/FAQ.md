@@ -8,7 +8,7 @@ Common issues and solutions encountered when running this toolkit.
 
 ### Q: After changing my Browserless API key in LM Studio, I get `Cannot find module '...Browserless/dist/mcp-server.js'`. Why?
 
-> **Note:** This FAQ entry applies to the **legacy** internal Browserless MCP server (prior to v2 migration). The current setup uses `npx -y @browserless.io/mcp` and does not require a local `dist/` build. If you're seeing this error, run `npm run sync` to regenerate your LM Studio config.
+> **Note:** This FAQ entry applies to the **legacy** internal Browserless MCP server (prior to v2 migration). The current setup registers via `node Browserless/scripts/schema-proxy.js`, a schema-proxy wrapper around the official `@browserless.io/mcp` package. If you're seeing this error, run `npm run mcp:sync-lmstudio` to regenerate your LM Studio config.
 
 **Symptom**
 
@@ -20,12 +20,12 @@ Error: Cannot find module 'C:\Users\<you>\.lmstudio\extensions\plugins\mcp\brows
 
 **Fix (current architecture)**
 
-Run `npm run sync` from the toolkit root. This regenerates the `mcp-bridge-config.json` to use the official hosted Browserless.io MCP server:
+Run `npm run mcp:sync-lmstudio` from the toolkit root. This regenerates the `mcp-bridge-config.json` so Browserless registers through the schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`), which wraps the official `@browserless.io/mcp` package:
 
 ```json
 {
-  "command": "npx",
-  "args": ["-y", "@browserless.io/mcp"],
+  "command": "node",
+  "args": ["Browserless/scripts/schema-proxy.js"],
   "env": {
     "BROWSERLESS_API_KEY": "your-api-key-here",
     "BROWSERLESS_API_URL": ""

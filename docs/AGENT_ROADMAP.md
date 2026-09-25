@@ -7,19 +7,17 @@ This plan is tailored to the current LLM Toolkit workspace:
 - Clock
 - Browserless
 - AskUser
-- RAG
 - PythonShell
 - Skills
-- CSVExporter
-- Git
-- FileEditor (registered runtime MCP server)
-- PackageManager
 - BlenderBridge
 - 3DTool
-- SubAgent
 - LanSubAgent
 - Observability
 - CLI (`llm` binary)
+
+Unshipped (in-repo, still build, not provisioned in this release):
+- Git
+- SubAgent
 - SlashCommands (MCP `/command` shortcuts)
 
 ## Success Criteria
@@ -137,7 +135,7 @@ This plan is tailored to the current LLM Toolkit workspace:
 - [x] Track pass rate, retries, and failure categories
 - [x] Add "golden traces" for stable benchmark runs
 
-**Acceptance**: `npm run eval:run` writes evaluation results + golden traces and fails the gate if baseline thresholds are violated.
+**Acceptance**: the evaluation run writes results + golden traces and fails the gate if baseline thresholds are violated.
 
 ### 11) Workspace Operations ✅
 - [x] Add root task(s) to build/test all tools together
@@ -150,7 +148,7 @@ This plan is tailored to the current LLM Toolkit workspace:
 
 ## Immediate Next 15 Tasks (Execution Order)
 1. Add CI cache optimization for workspace builds/tests.
-2. Add root `verify:all` script that chains `check:ci`, `type-check`, `test:ci`, `startup:check:strict`, and `eval:run`.
+2. Add root `verify:all` script that chains `check:ci`, `type-check`, `test:ci`, and `startup:check:strict`.
 3. Add branch protection guidance for required status checks in repository settings.
 4. Add pre-push hook option (documented) for local readiness and regression gates.
 5. Expand evaluation dataset with negative-path scenarios per tool.
@@ -165,7 +163,7 @@ This plan is tailored to the current LLM Toolkit workspace:
 14. Add monthly dependency audit task to keep workspace packages current.
 15. Plan Phase 4 launchers implementation (LM Studio + CLI + VS Code + HTTP) using current gates.
 
-> **v2.2.0 status**: Extended toolset (Git/FileEditor/PackageManager/CSVExporter/PythonShell/Observability integrations) is in the shipped baseline with verify/build gates.
+> **v2.2.0 status**: Extended toolset (PythonShell/Observability integrations) is in the shipped baseline with verify/build gates. The former RAG, CSVExporter, FileEditor, and PackageManager servers have since been retired and removed from the repository.
 
 ---
 

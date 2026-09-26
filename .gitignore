@@ -136,6 +136,15 @@ venv_test/
 # Installer sources are tracked; only build/runtime artifacts are ignored (see blocks above and below)
 Installer/dist/
 Installer/src-tauri/target/
+# Ad-hoc Cargo target dirs from local verify/build runs
+Installer/src-tauri/target-*/
+# Stray local build/verify logs and scratch artifacts
+Installer/src-tauri/*.log
+Installer/src-tauri/*.txt
+Installer/src-tauri/*.exit
+Installer/src-tauri/*.exe.manifest
+Installer/src-tauri/proptest-regressions/
+stage-payload.log
 
 # Internal dot-directories — local only, not published (per workspace.md dot-dir rule, v5.1.1)
 .Manifesto/

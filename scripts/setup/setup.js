@@ -36,8 +36,17 @@ const TOOLS = [
 // Tools that use npx command-based MCP (no local binary to verify)
 const COMMAND_BASED_TOOLS = ["Browserless"];
 
-// All tools for LM Studio sync (includes command-based)
-const ALL_TOOLS = [...TOOLS, ...COMMAND_BASED_TOOLS];
+// Node-based tools that ship a compiled plugin but are NOT part of the Step 6
+// local-binary check subset (`TOOLS`). They must still be provisioned for LM
+// Studio in Step 7 — omitting them was Failure Mode 2 (missing
+// `mcp-bridge-config.json` → ENOENT for python-shell/skills/lan-sub-agent).
+const EXTRA_NODE_TOOLS = ["PythonShell", "Skills", "LanSubAgent"];
+
+// Every tool provisioned for LM Studio in Step 7. This MUST cover all nine
+// canonical shipped servers; it is validated against the canonical source of
+// truth (`scripts/workspace/mcp-config.js`) at provisioning time so the list
+// can never silently drift out of sync with the payload/installer again.
+const ALL_TOOLS = [...TOOLS, ...EXTRA_NODE_TOOLS, ...COMMAND_BASED_TOOLS];
 
 // ─── Colour helpers (no deps) ─────────────────────────────────────────────────
 
@@ -361,6 +370,33 @@ async function runSetup({ send, repair }) {
     getOwnedPluginDirs,
   } = require("../workspace/plugin-ownership");
 
+  // Drive provisioning from the canonical nine-tool set (the JS-visible source
+  // of truth in scripts/workspace/mcp-config.js). Assert the tools we iterate
+  // map exactly onto the canonical server names so the setup list can never
+  // again omit a shipped plugin (Property 3 — single source of truth).
+  const { buildMcpServers } = require("../workspace/mcp-config");
+  const canonicalServerNames = new Set(Object.keys(buildMcpServers().mcpServers));
+  const provisionedServerNames = new Set(ALL_TOOLS.map(toolToServerName));
+  const missingFromSetup = [...canonicalServerNames].filter(
+    (name) => !provisionedServerNames.has(name),
+  );
+  const unknownToSetup = [...provisionedServerNames].filter(
+    (name) => !canonicalServerNames.has(name),
+  );
+  if (missingFromSetup.length > 0 || unknownToSetup.length > 0) {
+    const parts = [];
+    if (missingFromSetup.length > 0) {
+      parts.push(`missing from setup: ${missingFromSetup.sort().join(", ")}`);
+    }
+    if (unknownToSetup.length > 0) {
+      parts.push(`not in canonical set: ${unknownToSetup.sort().join(", ")}`);
+    }
+    throw new Error(
+      `Setup provisioning list is out of sync with the canonical MCP server set (${parts.join("; ")}). ` +
+        "Update scripts/setup/setup.js and scripts/workspace/mcp-config.js together.",
+    );
+  }
+
   const pluginRoot = resolvePluginRootOwnership();
 
   if (!fs.existsSync(pluginRoot)) {
@@ -584,6 +620,11 @@ function toolToServerName(tool) {
     Browserless: "browserless",
     BlenderBridge: "blender-bridge",
     "3DTool": "3dtool",
+    // Hyphenated server names — the `tool.toLowerCase()` fallback would produce
+    // "pythonshell"/"lansubagent", which do not match the canonical set.
+    PythonShell: "python-shell",
+    Skills: "skills",
+    LanSubAgent: "lan-sub-agent",
   };
   return map[tool] || tool.toLowerCase();
 }
@@ -638,13 +679,50 @@ function buildBridgeConfig(tool) {
     };
   }
 
-  // Node-based tools (local binary)
-  const distScript = path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
+  // Node-based tools (local binary).
+  //
+  // Most tools emit a flat `dist/mcp-server.js`, but LanSubAgent's build uses a
+  // cross-workspace rootDir so its server lands at the nested
+  // `dist/LanSubAgent/src/mcp-server.js` (mirrors `tool_payload.rs` /
+  // `mcp-config.js`). The generic fallback below would incorrectly point at
+  // `LanSubAgent/dist/mcp-server.js`, so it is special-cased here.
+  const distRelByTool = {
+    PythonShell: path.join("PythonShell", "dist", "mcp-server.js"),
+    Skills: path.join("Skills", "dist", "mcp-server.js"),
+    LanSubAgent: path.join("LanSubAgent", "dist", "LanSubAgent", "src", "mcp-server.js"),
+  };
+  const distScript = distRelByTool[tool]
+    ? path.join(REPO_ROOT, distRelByTool[tool])
+    : path.join(REPO_ROOT, tool, "dist", "mcp-server.js");
+
+  // Env for each node-based tool. Path-like values (DB paths, workspace roots)
+  // use absolute, REPO_ROOT-resolved paths — matching the setup.js convention
+  // (`ASK_USER_DB_PATH`, `DOC_SCRAPER_WORKSPACE_ROOT` above) rather than the
+  // relative placeholders in scripts/workspace/mcp-config.js. Values are the
+  // canonical env keys for these servers from mcp-config.js.
   const envMap = {
     Terminal: { TERMINAL_DEFAULT_TIMEOUT_MS: "60000", TERMINAL_MAX_TIMEOUT_MS: "120000" },
     WebBrowser: { BROWSER_DEFAULT_TIMEOUT_MS: "20000", BROWSER_MAX_TIMEOUT_MS: "60000", BROWSER_MAX_CONTENT_CHARS: "12000" },
     BlenderBridge: { BLENDER_MCP_HOST: readEnvKey("BLENDER_MCP_HOST") || "127.0.0.1", BLENDER_MCP_PORT: readEnvKey("BLENDER_MCP_PORT") || "9876", BLENDER_MCP_COMMAND: readEnvKey("BLENDER_MCP_COMMAND") || "blender-mcp" },
     "3DTool": { THREEDTOOL_HTTP_PORT: "3344" },
+    PythonShell: {
+      PYTHON_SHELL_DEFAULT_TIMEOUT_MS: "60000",
+      PYTHON_SHELL_MAX_TIMEOUT_MS: "120000",
+      PYTHON_SHELL_MAX_OUTPUT_CHARS: "50000",
+      PYTHON_SHELL_WORKSPACE_ROOT: REPO_ROOT,
+    },
+    Skills: {
+      SKILLS_DB_PATH: path.join(REPO_ROOT, "Skills", "skills.db"),
+    },
+    // lan-sub-agent's config path / local host / port are user-supplied (the
+    // canonical set in mcp-config.js and config_gen.rs uses empty placeholders,
+    // filled in from user config). Keep them as empty placeholders here so the
+    // config keys are present without asserting machine-specific values.
+    LanSubAgent: {
+      LAN_SUBAGENT_CONFIG_PATH: "",
+      SUBAGENT_LOCAL_HOST: "",
+      SUBAGENT_LOCAL_PORT: "",
+    },
     SubAgent: { SUBAGENT_MAX_CONCURRENCY: "3", SUBAGENT_CACHE_PATH: path.join(REPO_ROOT, "SubAgent", "subagent-cache.db"), SUBAGENT_CHECKPOINT_DIR: path.join(REPO_ROOT, "SubAgent", ".subagent-checkpoints"), SUBAGENT_API_URL: "http://localhost:1234/v1/chat/completions", SUBAGENT_MODEL: "default", SUBAGENT_PROMPT_TOKEN_COST: "0", SUBAGENT_COMPLETION_TOKEN_COST: "0" },
   };
 

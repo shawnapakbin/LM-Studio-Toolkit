@@ -1,6 +1,6 @@
 {
   "productName": "LLM Toolkit Installer",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "identifier": "com.llmtoolkit.installer",
   "build": {
     "frontendDist": "../dist",
@@ -36,7 +36,7 @@
     ],
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "perMachine"
       }
     }
   }

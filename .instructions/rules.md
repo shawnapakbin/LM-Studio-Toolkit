@@ -3,6 +3,7 @@
 > Developed by: revDigit.link | Shawna Pakbin
 
 You MUST follow these rules after every code change. Failure causes CI failures.
+Use a single source of truth for the entire project.
 
 ## TRIGGER CONDITIONS
 

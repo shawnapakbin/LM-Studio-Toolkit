@@ -17,16 +17,16 @@ pub struct DependencyStatus {
 
 /// A parsed semantic version as (major, minor, patch)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct SemVer {
-    major: u64,
-    minor: u64,
-    patch: u64,
+pub struct SemVer {
+    pub major: u64,
+    pub minor: u64,
+    pub patch: u64,
 }
 
 impl SemVer {
     /// Parse a version string into (major, minor, patch).
     /// Handles formats like "20.18.0", "v20.18.0", "2.47.0.windows.1"
-    fn parse(version_str: &str) -> Option<SemVer> {
+    pub fn parse(version_str: &str) -> Option<SemVer> {
         let trimmed = version_str.trim().trim_start_matches('v');
         let parts: Vec<&str> = trimmed.split('.').collect();
         if parts.len() < 3 {
@@ -50,7 +50,7 @@ impl SemVer {
     }
 
     /// Returns true if self >= other
-    fn satisfies_minimum(&self, minimum: &SemVer) -> bool {
+    pub fn satisfies_minimum(&self, minimum: &SemVer) -> bool {
         self >= minimum
     }
 }

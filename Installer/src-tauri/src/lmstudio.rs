@@ -432,9 +432,16 @@ fn now_epoch_ms() -> u128 {
 /// Outcome of [`provision_plugin_dirs`].
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ProvisionResult {
-    /// Server names that were provisioned (one directory each).
+    /// Server names that were provisioned (one directory each). On a step
+    /// failure these successfully-provisioned dirs are **left in place** — the
+    /// step itself does not remove them (Req 8.6); the eventual pipeline
+    /// rollback / uninstall clears artifacts at their own level.
     pub provisioned: Vec<String>,
-    /// Owned/legacy directories removed during the cleanup pass.
+    /// Servers that failed to provision, as `(server_name, error)` pairs. Each
+    /// failing server's partial directory was removed before the error was
+    /// recorded (Req 8.5). An empty vec means every server succeeded.
+    pub failed: Vec<(String, String)>,
+    /// Owned/legacy directories removed during the cleanup pass (Req 8.3).
     pub removed: Vec<PathBuf>,
 }
 
@@ -448,8 +455,17 @@ pub struct ProvisionResult {
 ///    `manifest.json`, `install-state.json`, and `mcp-bridge-config.json`, each
 ///    bearing the ownership marker, UTF-8 with no BOM, empty env values dropped.
 ///
-/// On failure for a server, the affected server is named (Req 6.5) and that
-/// server's partial directory is rolled back (Req 6.6) before returning `Err`.
+/// ## Attempt-all-then-fail (Req 8.5, 8.6)
+///
+/// Provisioning does **not** abort on the first server failure. When a server
+/// fails: the affected server is named, that server's partial directory is
+/// removed, the error is recorded in [`ProvisionResult::failed`], and the pass
+/// **continues** to the next server (Req 8.5). After all servers have been
+/// attempted, if one or more failed the function returns `Err` naming every
+/// failed server — while **leaving the successfully-provisioned directories in
+/// place** (the step itself does not remove them — Req 8.6). Pipeline-level
+/// rollback (Req 12.4) and uninstall (Req 9) clear artifacts at their own level.
+///
 /// The plugin root is created if it does not exist.
 pub fn provision_plugin_dirs(
     plugin_root: &Path,
@@ -483,8 +499,14 @@ pub fn provision_plugin_dirs(
     }
 
     // ── Pass 3: provision fresh directories with ownership markers ──
+    //
+    // Attempt every server (Req 8.5). On a server failure, name it, remove its
+    // partial directory, record the error, and continue — do not abort. After
+    // all servers are attempted, if any failed, return an error naming every
+    // failed server while leaving the successful dirs in place (Req 8.6).
     let mut result = ProvisionResult {
         provisioned: Vec::new(),
+        failed: Vec::new(),
         removed: clean.removed,
     };
 
@@ -492,14 +514,34 @@ pub fn provision_plugin_dirs(
         let server = &config.server_name;
         let plugin_dir = plugin_root.join(server);
 
-        if let Err(e) = provision_one(&plugin_dir, config, existing_configs.get(server)) {
-            // Roll back this server's partial directory so no partial/misnamed
-            // owned dir is left behind (Req 6.6), then report by name (Req 6.5).
-            let _ = std::fs::remove_dir_all(&plugin_dir);
-            return Err(format!("failed to provision plugin for server '{server}': {e}"));
+        match provision_one(&plugin_dir, config, existing_configs.get(server)) {
+            Ok(()) => result.provisioned.push(server.clone()),
+            Err(e) => {
+                // Remove this server's partial directory so no partial/misnamed
+                // owned dir is left behind (Req 8.5), record the error by server
+                // name, and continue attempting the remaining servers.
+                let _ = std::fs::remove_dir_all(&plugin_dir);
+                result.failed.push((server.clone(), e));
+            }
         }
+    }
 
-        result.provisioned.push(server.clone());
+    if !result.failed.is_empty() {
+        // All servers were attempted; one or more failed. Report every failed
+        // server by name (Req 8.6). The successfully-provisioned dirs recorded
+        // in `result.provisioned` are intentionally left in place — the step
+        // does not remove them; pipeline rollback / uninstall handle that.
+        let names: Vec<String> = result
+            .failed
+            .iter()
+            .map(|(server, e)| format!("'{server}': {e}"))
+            .collect();
+        return Err(format!(
+            "failed to provision {} of {} LM Studio plugin server(s): {}",
+            result.failed.len(),
+            servers.len(),
+            names.join("; ")
+        ));
     }
 
     Ok(result)
@@ -1344,26 +1386,59 @@ mod plugin_error_attribution_tests {
     }
 
     #[test]
-    fn provision_failure_stops_before_provisioning_later_servers() {
-        // Fail-fast attribution: a mid-list server failure stops the pass, so
-        // servers ordered *after* the failing one are never provisioned. This
-        // confirms the error is raised at the point of failure (and thus the
-        // attribution names the right server) rather than swallowed.
-        let root = TempRoot::new("stops");
+    fn provision_attempts_all_servers_after_a_mid_list_failure() {
+        // Req 8.5: a mid-list server failure does NOT abort the pass — every
+        // remaining server is still attempted and (if it can) provisioned. The
+        // failing server is named, its partial dir is removed, and the servers
+        // ordered after it are still provisioned.
+        let root = TempRoot::new("attempt_all");
 
-        // Order: ok, FAIL, would-be-ok. The third must not get provisioned.
+        // Order: ok, FAIL, would-still-be-ok. The third MUST be provisioned.
         plant_manifest_conflict(&root.path, "middle");
         let servers = vec![cfg("first"), cfg("middle"), cfg("last")];
 
         let err = provision_plugin_dirs(&root.path, &servers).expect_err("must fail on 'middle'");
         assert!(err.contains("middle"), "error should name 'middle'; got: {err}");
 
-        // "first" was provisioned before the failure; "last" was never reached.
+        // "first" (before the failure) and "last" (after it) were both attempted
+        // and provisioned; only "middle" failed and had its partial dir removed.
         assert!(root.path.join("first").join(MANIFEST_FILE).is_file());
         assert!(
-            !root.path.join("last").exists(),
-            "servers after the failing one must not be provisioned"
+            root.path.join("last").join(MANIFEST_FILE).is_file(),
+            "servers after the failing one must still be attempted and provisioned"
         );
+
+        // The failing server's directory is removed; it is not left as a
+        // partial/misnamed owned dir.
+        let owned_names: Vec<String> = get_owned_plugin_dirs(&root.path)
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert!(
+            !owned_names.contains(&"middle".to_string()),
+            "the failed server 'middle' must not remain as an owned dir; owned: {owned_names:?}"
+        );
+    }
+
+    #[test]
+    fn provision_reports_every_failed_server_and_keeps_successful_dirs() {
+        // Req 8.5/8.6: after all servers are attempted, the error names every
+        // failed server, and the successfully-provisioned dirs are left in place.
+        let root = TempRoot::new("all_failed");
+
+        // Two of four servers are rigged to fail.
+        plant_manifest_conflict(&root.path, "alpha");
+        plant_manifest_conflict(&root.path, "gamma");
+        let servers = vec![cfg("alpha"), cfg("beta"), cfg("gamma"), cfg("delta")];
+
+        let err = provision_plugin_dirs(&root.path, &servers).expect_err("must fail");
+        assert!(err.contains("alpha"), "error must name 'alpha'; got: {err}");
+        assert!(err.contains("gamma"), "error must name 'gamma'; got: {err}");
+
+        // The successful servers' directories remain in place (step does not
+        // remove them on failure — Req 8.6).
+        assert!(root.path.join("beta").join(MANIFEST_FILE).is_file());
+        assert!(root.path.join("delta").join(MANIFEST_FILE).is_file());
     }
 
     #[test]

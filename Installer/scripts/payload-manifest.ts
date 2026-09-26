@@ -205,9 +205,35 @@ export function planPayloadStaging(presence: readonly DistPresence[]): PayloadSt
   return { required, present, missing };
 }
 
-/** True iff every canonical tool is present and non-empty (Req 3.3 satisfied). */
+/**
+ * True iff every canonical tool is present and non-empty (Req 3.3).
+ *
+ * This is the nine-tool dist completeness verdict: it reflects only the
+ * per-tool `dist` trees.
+ */
 export function isComplete(plan: PayloadStagingPlan): boolean {
   return plan.missing.length === 0;
+}
+
+/**
+ * True iff the FULL payload is stageable: every canonical tool `dist` tree is
+ * present and non-empty (Req 3.3).
+ *
+ * This is the gate the build step (`stage-payload.ts`) checks. The Lean_Payload
+ * ships only the nine plugin `dist` trees — no bundled `node_modules` — so this
+ * is exactly the nine-tool completeness verdict {@link isComplete}.
+ */
+export function isStagingComplete(plan: PayloadStagingPlan): boolean {
+  return isComplete(plan);
+}
+
+/**
+ * The names of every REQUIRED staging entry that is absent or empty, sorted —
+ * the exact set the build must name when it aborts. This is exactly the
+ * nine-tool `missing` set.
+ */
+export function stagingBlockers(plan: PayloadStagingPlan): string[] {
+  return [...plan.missing].sort();
 }
 
 // ─── Staging secret guard (Concern 2, TS mirror of Rust config_gen.rs) ───────

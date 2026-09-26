@@ -2,25 +2,30 @@
  * Payload-staging build step for the LLM Toolkit installer.
  *
  * Feature: windows-installer-setup-exe (Requirements 3.2, 3.3)
+ * Feature: installer-runtime-provisioning (Requirements 2.1, 2.2, 2.3, 2.4, 2.6, 2.7)
  *
  * Runs BEFORE `tauri build`. Its job:
  *
  *   1. (optionally) build all 16 MCP tools' `dist/` via the repo-root
  *      `npm run build` (skipped with `--no-build` / `STAGE_PAYLOAD_NO_BUILD=1`
  *      so CI can build once and stage separately);
- *   2. inspect each of the 16 canonical `dist` roots on disk;
+ *   2. inspect each of the nine canonical `dist` roots on disk;
  *   3. run the pure completeness planner (`planPayloadStaging`) — if ANY tool's
  *      `dist` root is absent or EMPTY, ABORT with a non-zero exit and print each
  *      missing tool BY NAME (Req 3.3), producing no staged payload;
  *   4. otherwise stage each tool's `dist` tree into the Tauri resource
  *      directory that `tauri.conf.json` `bundle.resources` embeds into the NSIS
- *      installer.
+ *      installer;
+ *   5. assert the staged tree is a Lean_Payload (installer-runtime-provisioning
+ *      Req 2): exactly the nine canonical server dirs at top level (naming any
+ *      unexpected entry, Req 2.1/2.7), no `node_modules` path segment at any
+ *      depth (Req 2.2/2.3), and a combined size ≤ 500 MB (Req 2.6).
  *
  * STAGING DIRECTORY (coordinate with task 4.2):
  *   Payload is staged under `Installer/src-tauri/payload/<serverName>/`.
  *   Task 4.2 must point `tauri.conf.json` `bundle.resources` at `payload/*`
  *   (paths in `bundle.resources` are resolved relative to `src-tauri/`), so the
- *   16 `dist` trees embed into the NSIS installer.
+ *   nine `dist` trees embed into the NSIS installer.
  *
  * Run with: `npm run stage:payload` (i.e. `tsx scripts/stage-payload.ts`).
  * Flags:
@@ -30,15 +35,16 @@
 
 import { execSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 import {
   CANONICAL_TOOL_PAYLOADS,
   type DistPresence,
   canonicalPayloads,
-  isComplete,
+  isStagingComplete,
   planPayloadStaging,
   scanPayloadForSecrets,
+  stagingBlockers,
   stagingDestDirName,
 } from "./payload-manifest.ts";
 
@@ -91,7 +97,7 @@ function repoRootOf(): string {
 /**
  * The staging root that Tauri embeds. `tauri.conf.json` `bundle.resources`
  * (task 4.2) points at `payload/*` relative to `src-tauri/`, so this is where
- * the 16 dist trees are collected. Resolved lazily so importing this module
+ * the nine dist trees are collected. Resolved lazily so importing this module
  * under a CommonJS test transform (where `import.meta` is unavailable) does not
  * evaluate `import.meta` at load time.
  */
@@ -133,7 +139,13 @@ export function observeDistPresence(
   return { serverName, exists: true, nonEmpty: entryCount > 0 };
 }
 
-/** Observe on-disk presence for all 16 canonical tools. */
+/**
+ * Observe on-disk presence for the nine canonical tool `dist` trees.
+ *
+ * The Lean_Payload (installer-runtime-provisioning Req 2) ships only the nine
+ * plugin `dist` trees — there is no bundled `node_modules` and nothing else to
+ * observe — so completeness is decided solely by the nine.
+ */
 export function observeAllPresence(repoRootDir: string): DistPresence[] {
   return canonicalPayloads().map((t) => observeDistPresence(repoRootDir, t.serverName, t.distRoot));
 }
@@ -165,6 +177,10 @@ function buildAllTools(): void {
  * `payload/<serverName>/` (via the shared `stagingDestDirName` seam mirror) so
  * install-time verification can key off server name, and so the leading dir of
  * the copied tree matches the bridge-config seam `installedEntryRelpath`.
+ *
+ * Lean_Payload (installer-runtime-provisioning Req 2.4): ONLY the nine
+ * `payload/<serverName>/` trees are staged — no `node_modules` sibling and no
+ * other top-level content. The `assertLeanPayload` guard below enforces this.
  */
 export function stagePayload(repoRootDir: string, stagingRoot: string): void {
   rmSync(stagingRoot, { recursive: true, force: true });
@@ -185,6 +201,98 @@ export function stagePayload(repoRootDir: string, stagingRoot: string): void {
   }
 }
 
+/** A single lean-payload violation, named for the abort report. */
+export interface LeanPayloadViolation {
+  /** The class of violation: an unexpected top-level entry, a `node_modules`
+   * path segment anywhere in the tree, or the combined-size budget. */
+  kind: "unexpected-top-level" | "node-modules" | "oversize";
+  /** A human-readable detail: the offending path, or the observed size. */
+  detail: string;
+}
+
+/** 500 MB combined-size budget for the staged payload (Req 2.6), in bytes. */
+export const MAX_STAGED_PAYLOAD_BYTES = 500 * 1024 * 1024;
+
+/**
+ * Recursively sum the byte size of every regular file under `dir`, while
+ * collecting any path segment equal to `node_modules` as a violation
+ * (installer-runtime-provisioning Req 2.2/2.3). Directories are walked; symlinks
+ * and other non-regular entries contribute zero bytes.
+ */
+function walkTree(dir: string, violations: LeanPayloadViolation[]): number {
+  let total = 0;
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return 0;
+  }
+  for (const name of entries) {
+    const full = resolve(dir, name);
+    if (name === "node_modules") {
+      violations.push({ kind: "node-modules", detail: full });
+    }
+    let st: ReturnType<typeof statSync>;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      total += walkTree(full, violations);
+    } else if (st.isFile()) {
+      total += st.size;
+    }
+  }
+  return total;
+}
+
+/**
+ * Assert the freshly staged tree is a Lean_Payload
+ * (installer-runtime-provisioning Req 2). Pure w.r.t. its arguments (reads the
+ * filesystem under `stagingRoot`, returns violations rather than exiting) so a
+ * test can drive it directly:
+ *
+ *   - Req 2.1/2.7: the set of top-level entries equals EXACTLY the nine
+ *     canonical server names; any other entry (e.g. a stray `node_modules`) is
+ *     a violation naming it.
+ *   - Req 2.2/2.3: no path segment equals `node_modules` anywhere in the tree.
+ *   - Req 2.6: the combined size of all staged files is ≤ 500 MB.
+ *
+ * @returns the (possibly empty) list of violations; empty == a lean payload.
+ */
+export function assertLeanPayload(stagingRootDir: string): LeanPayloadViolation[] {
+  const violations: LeanPayloadViolation[] = [];
+
+  const expected = new Set(CANONICAL_TOOL_PAYLOADS.map((t) => stagingDestDirName(t)));
+
+  let topLevel: string[] = [];
+  try {
+    topLevel = readdirSync(stagingRootDir);
+  } catch {
+    topLevel = [];
+  }
+  for (const entry of topLevel) {
+    if (!expected.has(entry)) {
+      violations.push({
+        kind: "unexpected-top-level",
+        detail: resolve(stagingRootDir, entry),
+      });
+    }
+  }
+
+  // Recursively walk for `node_modules` at any depth AND sum the combined size.
+  const totalBytes = walkTree(stagingRootDir, violations);
+  if (totalBytes > MAX_STAGED_PAYLOAD_BYTES) {
+    violations.push({
+      kind: "oversize",
+      detail: `${totalBytes} bytes (limit ${MAX_STAGED_PAYLOAD_BYTES} bytes / 500 MB)`,
+    });
+  }
+
+  return violations;
+}
+
 function main(): void {
   const opts = parseArgs(process.argv.slice(2));
 
@@ -202,11 +310,15 @@ function main(): void {
   const presence = observeAllPresence(repoRoot);
   const plan = planPayloadStaging(presence);
 
-  if (!isComplete(plan)) {
+  if (!isStagingComplete(plan)) {
+    // The build must abort and NAME every required staging entry that is
+    // absent/empty — the nine tool dist trees (Req 3.3). `stagingBlockers`
+    // returns exactly that set.
+    const blockers = stagingBlockers(plan);
     console.error(
-      `[stage-payload] ABORT — ${plan.missing.length} of ${plan.required.length} tool dist trees are missing or empty:`,
+      `[stage-payload] ABORT — ${blockers.length} required tool dist tree(s) are missing or empty:`,
     );
-    for (const name of plan.missing) {
+    for (const name of blockers) {
       const tool = CANONICAL_TOOL_PAYLOADS.find((t) => t.serverName === name);
       console.error(`[stage-payload]   - ${name}  (${tool?.distRoot ?? "?"})`);
     }
@@ -225,6 +337,35 @@ function main(): void {
   }
 
   stagePayload(repoRoot, stagingRootDir);
+
+  // Lean_Payload guard (installer-runtime-provisioning Req 2.1, 2.2, 2.3, 2.6,
+  // 2.7): the staged tree must be exactly the nine canonical server dirs, carry
+  // no `node_modules` at any depth, and total ≤ 500 MB. ABORT (non-zero) naming
+  // each violation — this catches a stray `node_modules` re-introduction or any
+  // other unexpected top-level content — mirroring the completeness-abort above.
+  const leanViolations = assertLeanPayload(stagingRootDir);
+  if (leanViolations.length > 0) {
+    console.error(
+      `[stage-payload] ABORT — the staged payload is not lean; ${leanViolations.length} violation(s):`,
+    );
+    for (const v of leanViolations) {
+      if (v.kind === "unexpected-top-level") {
+        console.error(
+          `[stage-payload]   - unexpected top-level entry: ${basename(v.detail)}  (${v.detail}); only the nine canonical server dirs may be staged`,
+        );
+      } else if (v.kind === "node-modules") {
+        console.error(
+          `[stage-payload]   - node_modules present at: ${v.detail}; the Lean_Payload must contain no node_modules at any depth`,
+        );
+      } else {
+        console.error(`[stage-payload]   - staged payload exceeds the size budget: ${v.detail}`);
+      }
+    }
+    console.error(
+      "[stage-payload] Restage a lean payload (only the nine plugin dist/ trees, no node_modules) under the size budget. The staged payload has been left in place for inspection.",
+    );
+    process.exit(1);
+  }
 
   // Concern 2 (task 3.5): enforce "no secret embedded" as a build invariant.
   // Scan the freshly staged payload and ABORT (non-zero) if any non-empty,
@@ -245,7 +386,7 @@ function main(): void {
   }
 
   console.log(
-    `[stage-payload] OK — staged ${plan.present.length} tool dist trees into ${stagingRootDir} (no embedded secrets)`,
+    `[stage-payload] OK — staged ${plan.present.length} tool dist trees into ${stagingRootDir} (lean payload, no embedded secrets)`,
   );
   process.exit(0);
 }

@@ -17,6 +17,13 @@ mod lmstudio;
 mod logger;
 mod manifest;
 mod path_validation;
+// The Runtimes provisioning decision core + `ElevatedShell` seam. Task 7.1
+// lands the data types and the trait; the pure functions (`classify_dependency`,
+// `plan_provisioning`, `aggregate_verification`) and the production seam impl +
+// `step_runtimes` wiring arrive in follow-up tasks (7.2/7.4/7.7/8.1), so the API
+// has no in-crate caller yet and is allowed to be dead code until then.
+#[allow(dead_code)]
+mod provision;
 mod registry;
 mod tool_payload;
 

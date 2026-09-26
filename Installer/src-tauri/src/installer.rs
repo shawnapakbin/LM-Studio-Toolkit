@@ -67,6 +67,96 @@ pub struct InstallationResult {
     pub message: String,
 }
 
+/// The step name carried by an elevation-gate failure result (Req 1.3, 1.4).
+///
+/// This is a pipeline-level pseudo-step: it is not one of the five [`Step`]
+/// values (the gate runs *before* any step), but it flows through the same
+/// [`InstallationResult::step`] field so callers can recognize an
+/// elevation-declined failure and map it to a non-zero exit code (task 6.3).
+pub const ELEVATION_STEP: &str = "elevation";
+
+/// Message shown when the installer is not running with administrator rights
+/// (declined UAC or a 120s no-response). Names the requirement — admin rights
+/// are needed to install system-wide dependencies (Req 1.4).
+pub const ADMIN_REQUIRED_MESSAGE: &str =
+    "Administrator rights are required to install system-wide dependencies. \
+The installer was not granted elevation, so no changes were made to this machine. \
+Please re-run the installer and approve the administrator (UAC) prompt.";
+
+/// The number of seconds the installer waits for the elevation request to be
+/// accepted or declined before treating it as declined (Req 1.6).
+pub const ELEVATION_TIMEOUT_SECS: u64 = 120;
+
+/// Outcome of the Windows UAC elevation request (Req 1.3, 1.6).
+///
+/// The installer requests administrator rights before running any step. This
+/// enum captures the three terminal outcomes of that request:
+///
+/// - `Granted` — the process is running elevated; the pipeline may proceed.
+/// - `Declined` — the user rejected the UAC prompt.
+/// - `TimedOut` — no response within [`ELEVATION_TIMEOUT_SECS`] seconds, which
+///   Req 1.6 says to treat identically to `Declined`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElevationOutcome {
+    /// Elevation was granted — the process holds administrator rights.
+    Granted,
+    /// The user declined the elevation (UAC) request.
+    Declined,
+    /// The elevation request was neither accepted nor declined within
+    /// [`ELEVATION_TIMEOUT_SECS`] seconds (Req 1.6).
+    TimedOut,
+}
+
+/// Pure elevation-gate decision (Req 1.3, 1.6, Property 1).
+///
+/// The pipeline may proceed **iff** elevation was `Granted`. Both `Declined`
+/// and `TimedOut` block the pipeline — Req 1.6 requires a 120s no-response to
+/// be handled identically to an explicit decline. This function performs no
+/// I/O so the gate contract is unit- and property-testable without a real UAC
+/// prompt or administrator rights.
+pub fn may_proceed(outcome: ElevationOutcome) -> bool {
+    matches!(outcome, ElevationOutcome::Granted)
+}
+
+/// Determine the current process's elevation outcome (Req 1.1, 1.3).
+///
+/// On Windows the Tauri NSIS `perMachine` installer and the embedded
+/// `requireAdministrator` manifest (task 6.1) mean the process is normally
+/// already elevated by the time this runs; the UAC prompt (accept / decline /
+/// 120s timeout) is resolved by the OS *before* the process starts. This check
+/// confirms the resulting token is elevated: if it is, the outcome is
+/// `Granted`; otherwise the elevation was effectively declined, so we report
+/// `Declined` (a genuine 120s no-response is surfaced by the OS as the same
+/// non-elevated state and is treated identically per Req 1.6).
+///
+/// On non-Windows targets (developer/test hosts) there is no UAC model, so this
+/// returns `Granted` — the gate is exercised directly through [`may_proceed`]
+/// and the property test rather than through this platform probe.
+fn process_elevation_outcome() -> ElevationOutcome {
+    #[cfg(windows)]
+    {
+        // `shell32!IsUserAnAdmin` returns non-zero when the calling process is
+        // running elevated. Declared inline via FFI to avoid adding a new
+        // platform crate (design: "no third-party crate").
+        #[link(name = "shell32")]
+        extern "system" {
+            fn IsUserAnAdmin() -> i32;
+        }
+        // SAFETY: `IsUserAnAdmin` takes no arguments, has no preconditions, and
+        // only reads the current process token.
+        let elevated = unsafe { IsUserAnAdmin() } != 0;
+        if elevated {
+            ElevationOutcome::Granted
+        } else {
+            ElevationOutcome::Declined
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        ElevationOutcome::Granted
+    }
+}
+
 /// The five ordered provisioning steps (Req 9.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Step {
@@ -176,8 +266,42 @@ where
 /// cancellation flag at its boundaries, and reports its name on success or
 /// failure (Req 9.1, 9.3, 9.4).
 pub fn run_installation(install_path: &str) -> InstallationResult {
+    // Resolve the real process elevation outcome and drive the gated pipeline.
+    // The outcome is threaded in as a parameter so the gate and the pipeline
+    // body are testable without a real UAC prompt or administrator rights
+    // (design: elevation is injected through a seam).
+    run_installation_with_elevation(install_path, process_elevation_outcome())
+}
+
+/// Run the installation pipeline behind the elevation gate with an explicit
+/// [`ElevationOutcome`] (Req 1.3, 1.6, Property 1).
+///
+/// This is the injectable core of [`run_installation`]: the production wrapper
+/// supplies [`process_elevation_outcome`], while tests supply any outcome to
+/// exercise the gate without real elevation. If the outcome does not permit
+/// proceeding ([`may_proceed`] is false — a declined or 120s-timed-out request,
+/// treated identically per Req 1.6), it returns an `elevation` failure with the
+/// admin-required message and runs **no** step: no path is created, no payload
+/// copied, no dependency provisioned, and no registry entry written, leaving
+/// the machine in its pre-launch state (Req 1.3). The caller maps this failure
+/// to a non-zero exit code (Req 1.4, task 6.3).
+pub fn run_installation_with_elevation(
+    install_path: &str,
+    elevation: ElevationOutcome,
+) -> InstallationResult {
     // Reset cancellation flag at the start of a new installation
     cancelled_flag().store(false, Ordering::SeqCst);
+
+    // Elevation gate (Req 1.3, 1.6, Property 1). If elevation was not granted,
+    // abort BEFORE running any step so the machine is left in its pre-launch
+    // state (Req 1.3).
+    if !may_proceed(elevation) {
+        return InstallationResult {
+            success: false,
+            step: ELEVATION_STEP.to_string(),
+            message: ADMIN_REQUIRED_MESSAGE.to_string(),
+        };
+    }
 
     // Validate the installation path first
     let validation = path_validation::validate_install_path(install_path);
@@ -916,11 +1040,75 @@ mod tests {
     }
 
     #[test]
+    fn test_may_proceed_only_when_granted() {
+        // Pure elevation gate (Req 1.3, 1.6): the pipeline may proceed iff the
+        // outcome is Granted. Declined and TimedOut both block (Req 1.6 — a
+        // 120s no-response is handled identically to a decline).
+        assert!(may_proceed(ElevationOutcome::Granted));
+        assert!(!may_proceed(ElevationOutcome::Declined));
+        assert!(!may_proceed(ElevationOutcome::TimedOut));
+    }
+
+    #[test]
+    fn test_timed_out_and_declined_are_handled_identically() {
+        // Req 1.6: a 120s no-response is treated exactly like an explicit
+        // decline for the purpose of the gate decision.
+        assert_eq!(
+            may_proceed(ElevationOutcome::TimedOut),
+            may_proceed(ElevationOutcome::Declined)
+        );
+    }
+
+    #[test]
+    fn test_elevation_constants() {
+        // The gate reports the dedicated pipeline-level "elevation" step and a
+        // 120-second timeout budget (Req 1.6), with an admin-required message
+        // that mentions administrator rights (Req 1.4).
+        assert_eq!(ELEVATION_STEP, "elevation");
+        assert_eq!(ELEVATION_TIMEOUT_SECS, 120);
+        let lower = ADMIN_REQUIRED_MESSAGE.to_ascii_lowercase();
+        assert!(lower.contains("administrator"));
+    }
+
+    #[test]
+    fn test_elevation_gate_blocks_and_leaves_pre_launch_state() {
+        // Req 1.3: when elevation is not granted the installer runs no step and
+        // leaves the machine in its pre-launch state — in particular it does
+        // not even create the install directory.
+        cancelled_flag().store(false, Ordering::SeqCst);
+
+        let temp = std::env::temp_dir().join("llm_toolkit_test_elevation_gate");
+        let _ = fs::remove_dir_all(&temp);
+        assert!(!temp.exists(), "precondition: install dir absent");
+
+        for outcome in [ElevationOutcome::Declined, ElevationOutcome::TimedOut] {
+            let result = run_installation_with_elevation(&temp.to_string_lossy(), outcome);
+
+            // The failure is attributed to the elevation gate with the
+            // admin-required message (Req 1.4).
+            assert!(!result.success);
+            assert_eq!(result.step, ELEVATION_STEP);
+            assert_eq!(result.message, ADMIN_REQUIRED_MESSAGE);
+
+            // No side effect: the install directory was never created.
+            assert!(
+                !temp.exists(),
+                "elevation-blocked install must not create the install dir ({outcome:?})"
+            );
+        }
+
+        let _ = fs::remove_dir_all(&temp);
+        cancelled_flag().store(false, Ordering::SeqCst);
+    }
+
+    #[test]
     fn test_run_installation_invalid_path() {
         // Reset cancel flag
         cancelled_flag().store(false, Ordering::SeqCst);
 
-        let result = run_installation("");
+        // Inject Granted elevation so the gate does not short-circuit the
+        // path-validation check regardless of the test host's elevation state.
+        let result = run_installation_with_elevation("", ElevationOutcome::Granted);
         assert!(!result.success);
         assert_eq!(result.step, "validation");
         assert!(result.message.contains("Invalid installation path"));
@@ -943,7 +1131,9 @@ mod tests {
 
         let temp = std::env::temp_dir().join("llm_toolkit_test_complete");
         let _ = fs::remove_dir_all(&temp);
-        let result = run_installation(&temp.to_string_lossy());
+        // Inject Granted so the pipeline runs regardless of the host's real
+        // elevation state; the elevation gate itself is covered separately.
+        let result = run_installation_with_elevation(&temp.to_string_lossy(), ElevationOutcome::Granted);
 
         if result.success {
             assert_eq!(result.step, "complete");

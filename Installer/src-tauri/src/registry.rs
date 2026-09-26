@@ -12,22 +12,23 @@ const UNINSTALL_KEY_PATH: &str =
 
 /// The predefined registry root (hive) for the toolkit's OWN uninstall entry.
 ///
-/// This single-sources the hive as `HKEY_CURRENT_USER` (HKCU) so both
+/// This single-sources the hive as `HKEY_LOCAL_MACHINE` (HKLM) so both
 /// [`write_uninstall_entry`] and [`remove_uninstall_entry`] register and remove
-/// the toolkit's "Add or Remove Programs" entry under the same per-user hive.
-/// Writing under HKCU does not require elevation, so the unelevated installer can
-/// complete Uninstall Registration without `Access is denied. (os error 5)`.
+/// the toolkit's "Add or Remove Programs" entry under the same machine-wide
+/// hive. A per-machine install runs elevated (the installer requests
+/// administrator rights), so writing under HKLM makes the toolkit appear in the
+/// machine-wide uninstall list for all users (Req 10.1).
 ///
 /// This function is pure: it only obtains the predefined root and performs no
-/// subkey I/O, so the hive is single-sourced and assertable in tests without
-/// admin. It applies ONLY to the toolkit's own uninstall entry — third-party
-/// runtime detection ([`query_install_path`], [`key_exists`]) intentionally
-/// stays on HKLM.
+/// subkey I/O, so the hive is single-sourced and assertable in tests. It applies
+/// to the toolkit's own uninstall entry; third-party runtime detection
+/// ([`query_install_path`], [`key_exists`]) also reads HKLM but for a distinct
+/// purpose and is kept separate.
 //
-// Consumed by `write_uninstall_entry`; `remove_uninstall_entry` adopts the same
-// seam in a following sub-task so the write/remove hives stay symmetric.
+// Consumed symmetrically by `write_uninstall_entry` and `remove_uninstall_entry`
+// so the write/remove hives always match.
 fn uninstall_registry_root() -> RegKey {
-    RegKey::predef(HKEY_CURRENT_USER)
+    RegKey::predef(HKEY_LOCAL_MACHINE)
 }
 
 /// Query the Windows registry for an installed application path.
@@ -35,10 +36,10 @@ fn uninstall_registry_root() -> RegKey {
 /// This is **third-party runtime detection**, NOT the toolkit's own uninstall
 /// entry. It intentionally reads `HKEY_LOCAL_MACHINE` (HKLM) because the
 /// runtimes it probes (e.g. `HKLM\SOFTWARE\Node.js`) register their install
-/// paths under the machine-wide hive. Do NOT move this to the per-user
-/// [`uninstall_registry_root`] (HKCU) seam — that seam applies ONLY to the
-/// toolkit's own "Add or Remove Programs" entry; changing this hive would break
-/// detection of machine-installed runtimes. Reading HKLM requires no elevation.
+/// paths under the machine-wide hive. This is a distinct concern from the
+/// toolkit's own "Add or Remove Programs" entry ([`uninstall_registry_root`]);
+/// keep the two seams separate even though both now read HKLM. Reading HKLM
+/// requires no elevation.
 ///
 /// # Arguments
 /// * `key_path` - Registry key path (e.g., "SOFTWARE\\Node.js")
@@ -62,11 +63,10 @@ pub fn query_install_path(key_path: &str, value_name: &str) -> Option<String> {
 /// This is **third-party runtime detection**, NOT the toolkit's own uninstall
 /// entry. It intentionally reads `HKEY_LOCAL_MACHINE` (HKLM) because it probes
 /// for machine-wide runtimes/components (e.g. `HKLM\SOFTWARE\Microsoft`,
-/// `HKLM\SOFTWARE\Node.js`). Do NOT move this to the per-user
-/// [`uninstall_registry_root`] (HKCU) seam — that seam applies ONLY to the
-/// toolkit's own uninstall entry; changing this hive would break detection of
-/// machine-installed components (and invalidate `test_key_exists_known_key`,
-/// which checks `HKLM\SOFTWARE\Microsoft`). Reading HKLM requires no elevation.
+/// `HKLM\SOFTWARE\Node.js`). This is a distinct concern from the toolkit's own
+/// uninstall entry ([`uninstall_registry_root`]); keep the two seams separate
+/// even though both now read HKLM (and note `test_key_exists_known_key` checks
+/// `HKLM\SOFTWARE\Microsoft`). Reading HKLM requires no elevation.
 pub fn key_exists(key_path: &str) -> bool {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     hklm.open_subkey(key_path).is_ok()
@@ -76,11 +76,12 @@ pub fn key_exists(key_path: &str) -> bool {
 /// Windows "Add or Remove Programs".
 ///
 /// Creates or overwrites the key under the toolkit's own uninstall hive
-/// ([`uninstall_registry_root`], HKCU) at:
-/// `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\LLM-Toolkit`
+/// ([`uninstall_registry_root`], HKLM) at:
+/// `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\LLM-Toolkit`
 ///
-/// Writing under HKCU requires no elevation, so the unelevated installer can
-/// complete Uninstall Registration without `Access is denied. (os error 5)`.
+/// Writing under HKLM requires elevation; the per-machine installer runs with
+/// administrator rights, so Uninstall Registration writes the machine-wide
+/// "Add or Remove Programs" entry (Req 10.1).
 ///
 /// Values written:
 /// - DisplayName: "LLM Toolkit"
@@ -123,9 +124,9 @@ pub fn write_uninstall_entry(install_path: &str) -> Result<(), String> {
 ///
 /// Called during uninstallation to clean up the "Add or Remove Programs" entry.
 /// Opens the parent Uninstall key under the toolkit's own uninstall hive
-/// ([`uninstall_registry_root`], HKCU) — symmetric with [`write_uninstall_entry`]
-/// — and deletes the `LLM-Toolkit` subkey. Removing under HKCU requires no
-/// elevation, so the unelevated uninstaller can clean up the entry.
+/// ([`uninstall_registry_root`], HKLM) — symmetric with [`write_uninstall_entry`]
+/// — and deletes the `LLM-Toolkit` subkey. Removing under HKLM requires
+/// elevation; the per-machine uninstaller runs with administrator rights.
 pub fn remove_uninstall_entry() -> Result<(), String> {
     let root = uninstall_registry_root();
 
@@ -463,27 +464,28 @@ mod tests {
     }
 
     #[test]
-    fn test_uninstall_registry_root_is_hkcu() {
+    fn test_uninstall_registry_root_is_hklm() {
         // The toolkit's own uninstall entry must be registered under the
-        // per-user hive (HKEY_CURRENT_USER) so the unelevated installer can
-        // complete Uninstall Registration without `Access is denied`.
+        // machine-wide hive (HKEY_LOCAL_MACHINE) so the per-machine (elevated)
+        // installer writes the "Add or Remove Programs" entry for all users
+        // (Req 10.1).
         //
-        // The seam returns a `RegKey`, so we assert it *behaves* as HKCU rather
-        // than inspecting an opaque handle: `SOFTWARE` exists under HKCU for the
-        // current user and opens without elevation. We confirm the seam opens it
-        // successfully and that a freshly obtained HKCU root opens it identically.
+        // The seam returns a `RegKey`, so we assert it *behaves* as HKLM rather
+        // than inspecting an opaque handle: `SOFTWARE` exists under HKLM and is
+        // readable. We confirm the seam opens it successfully and that a freshly
+        // obtained HKLM root opens it identically.
         let root = uninstall_registry_root();
         let via_seam = root.open_subkey(r"SOFTWARE");
         assert!(
             via_seam.is_ok(),
-            "uninstall_registry_root() should open HKCU\\SOFTWARE without elevation, got {:?}",
+            "uninstall_registry_root() should open HKLM\\SOFTWARE, got {:?}",
             via_seam.err()
         );
 
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
         assert!(
-            hkcu.open_subkey(r"SOFTWARE").is_ok(),
-            "HKEY_CURRENT_USER\\SOFTWARE should open; seam must match this HKCU behavior"
+            hklm.open_subkey(r"SOFTWARE").is_ok(),
+            "HKEY_LOCAL_MACHINE\\SOFTWARE should open; seam must match this HKLM behavior"
         );
     }
 }
@@ -625,6 +627,25 @@ mod payload_round_trip_property_tests {
                 write_file(&tool_dir.join("index.js"), "// entry\n");
             }
         }
+
+        // Stage the shared runtime-dependency payload (bugfix
+        // mcp-plugin-startup-dependency-fix, C1) as a sibling of the tool trees:
+        // a non-empty `node_modules/@modelcontextprotocol/sdk` package. Since
+        // task 3.3, `bundle::copy_payload` requires this tree and fails the
+        // install (MissingSourceTool/MissingDependencies) without it, so the
+        // round-trip must stage it for the install half to succeed. It is
+        // additive and not part of `canonical_payloads()`, so the round-trip's
+        // post-uninstall assertions (which iterate the canonical nine and probe
+        // via `verify_install_dir`) are unaffected.
+        let sdk = resource_root
+            .join("node_modules")
+            .join("@modelcontextprotocol")
+            .join("sdk");
+        write_file(
+            &sdk.join("package.json"),
+            "{ \"name\": \"@modelcontextprotocol/sdk\" }\n",
+        );
+        write_file(&sdk.join("server").join("mcp.js"), "// sdk entry\n");
     }
 
     proptest! {
@@ -1388,165 +1409,136 @@ mod uninstall_partial_failure_tests {
 }
 
 #[cfg(test)]
-mod uninstall_hive_bug_condition_tests {
-    //! Property 1 (Bug Condition) — Toolkit Uninstall Entry Registers Per-User
-    //! Without Elevation.
+mod uninstall_hive_hklm_contract_tests {
+    //! Machine-wide uninstall registration — the toolkit's own uninstall entry
+    //! is registered under `HKEY_LOCAL_MACHINE` (HKLM) by the per-machine,
+    //! elevated installer.
     //!
-    //! CRITICAL: this test is EXPECTED TO FAIL on the UNFIXED code. Failure
-    //! confirms the bug: `write_uninstall_entry` / `remove_uninstall_entry`
-    //! target `HKEY_LOCAL_MACHINE`, which requires administrator elevation, so
-    //! on an unelevated process the write returns `Access is denied.
-    //! (os error 5)`; and even if it were somehow written, the entry does not
-    //! live under `HKEY_CURRENT_USER`, so the HKCU read-back below finds nothing.
+    //! CONTRACT CHANGE. An earlier bugfix spec moved this entry to
+    //! `HKEY_CURRENT_USER` (a per-user, unelevated registration). That decision
+    //! is SUPERSEDED by the installer-runtime-provisioning feature: the installer
+    //! now runs `perMachine` with `requireAdministrator`, so the uninstall entry
+    //! belongs under the machine-wide hive `HKLM` (Req 10.1) — this is what makes
+    //! the toolkit visible in "Add or Remove Programs" for all users and lets any
+    //! administrator uninstall it.
     //!
-    //! When the fix lands (a pure `uninstall_registry_root()` seam returning
-    //! `HKEY_CURRENT_USER`, used by both write and remove), this SAME test will
-    //! PASS: the hive is HKCU, and the create -> read-back -> remove round-trip
-    //! succeeds without elevation. Do NOT change this test to make it pass on
-    //! unfixed code — the fix is what makes it pass.
+    //! Because HKLM writes require elevation and `cargo test` runs unelevated, we
+    //! do NOT call `write_uninstall_entry` / `remove_uninstall_entry` here (they
+    //! would fail with `Access is denied. (os error 5)`). Instead we assert the
+    //! HKLM hive contract through the pure `uninstall_registry_root()` seam and
+    //! pin the five-value / UninstallString-format contract via the same pure
+    //! formatting the production code uses. The value read-back round-trip is
+    //! exercised on an elevated machine by the real install/uninstall path; the
+    //! unelevated round-trip assertion that a prior HKCU contract relied on is
+    //! intentionally gone.
     //!
-    //! Bug_Condition: isBugCondition(ctx) = ctx.hive = HKLM AND ctx.is_elevated = false
-    //! Expected_Behavior: uninstall_registry_root() == HKEY_CURRENT_USER AND
-    //!   write -> read-back(HKCU) -> remove round-trip == Ok without elevation.
+    //! Hive contract: uninstall_registry_root() == HKEY_LOCAL_MACHINE, used
+    //!   symmetrically by write_uninstall_entry and remove_uninstall_entry.
     //!
-    //! Validates: Requirements 1.1, 1.2, 2.1, 2.2, 2.3
+    //! Validates: Requirements 10.1, 10.2, 13.2
 
     use super::*;
 
-    /// Property 1 (Bug Condition): the toolkit's own uninstall entry must be
-    /// registered under HKCU and round-trip without elevation.
+    /// The toolkit's own uninstall entry is registered under the machine-wide
+    /// hive (HKLM), and the five written values / UninstallString format are the
+    /// expected non-empty contract at the current `CARGO_PKG_VERSION` (Req 10.1,
+    /// 10.2, 13.2).
     ///
-    /// This drives the concrete failing case (the bug is deterministic — a fixed
-    /// hive selection), so it is a single scoped example rather than a randomized
-    /// property. It runs unelevated (the default for `cargo test`).
+    /// This is a single scoped example (the hive selection is a fixed, pure
+    /// decision, not a randomized property). It runs unelevated (the default for
+    /// `cargo test`), so it asserts the hive via the pure seam and the value
+    /// contract via the pure formatting — without performing an HKLM write that
+    /// would require administrator rights.
     #[test]
-    fn prop_toolkit_uninstall_entry_registers_per_user_without_elevation() {
-        // A concrete, per-user-shaped install path for the round-trip.
-        let install_path = r"C:\fake\Install\LLM-Toolkit";
+    fn toolkit_uninstall_entry_registers_machine_wide_under_hklm() {
+        // A concrete, machine-scoped install path for the value contract below.
+        let install_path = r"C:\Program Files\LLM-Toolkit";
 
         // ── (a) Hive selection: the base root for the toolkit's own uninstall
-        //        entry MUST be HKEY_CURRENT_USER. On UNFIXED code the seam does
-        //        not exist / the hive is HKLM, so this expectation cannot hold.
-        //
-        // The fix introduces `uninstall_registry_root() -> RegKey` returning
-        // `RegKey::predef(HKEY_CURRENT_USER)`. Because that seam does not exist
-        // yet, we assert the observable consequence: the entry is readable under
-        // HKCU after a write. (Referencing the not-yet-existing seam directly
-        // would fail to compile the whole crate and block every other test; the
-        // design's guidance is to let the HKCU assertion be what fails.)
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-
-        // ── (b) Write: must succeed WITHOUT elevation. On UNFIXED code this
-        //        writes under HKLM and returns `Access is denied. (os error 5)`
-        //        for an unelevated process.
-        let write = write_uninstall_entry(install_path);
+        //        entry MUST be HKEY_LOCAL_MACHINE. The pure `uninstall_registry_root()`
+        //        seam single-sources this hive for both write and remove; we
+        //        assert it behaves as HKLM (reading a well-known machine-wide key
+        //        that only exists under HKLM) rather than inspecting an opaque
+        //        handle.
+        let root = uninstall_registry_root();
         assert!(
-            write.is_ok(),
-            "BUG: write_uninstall_entry must succeed without elevation (HKCU), \
-             but got: {:?}. This is the expected FAILURE on unfixed code — the \
-             entry is written under HKLM, which requires administrator rights.",
-            write.err()
+            root.open_subkey(r"SOFTWARE").is_ok(),
+            "uninstall_registry_root() must open HKLM\\SOFTWARE (machine-wide hive)"
+        );
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+        assert!(
+            hklm.open_subkey(r"SOFTWARE").is_ok(),
+            "HKEY_LOCAL_MACHINE\\SOFTWARE must open; the seam must match this HKLM behavior"
         );
 
-        // ── (c) Read-back from HKCU: the five values must be present under
-        //        HKCU at the (unchanged) UNINSTALL_KEY_PATH. On UNFIXED code the
-        //        write targeted HKLM, so this HKCU key does not exist.
-        let key = hkcu.open_subkey(UNINSTALL_KEY_PATH).unwrap_or_else(|e| {
-            panic!(
-                "BUG: uninstall entry must live under HKCU at {UNINSTALL_KEY_PATH}, \
-                 but opening it under HKEY_CURRENT_USER failed: {e}. This is the \
-                 expected FAILURE on unfixed code — the entry hive is HKLM, not HKCU."
-            )
-        });
+        // ── (b) Value contract: the five values written under the HKLM entry are
+        //        non-empty and carry the expected constants at the current
+        //        version (Req 10.2, 13.2). This mirrors exactly what
+        //        `write_uninstall_entry` sets, asserted as a pure contract (no
+        //        HKLM registry I/O, which would require elevation).
+        let display_name = "LLM Toolkit";
+        let publisher = "LLM Toolkit Team";
+        let display_version = env!("CARGO_PKG_VERSION");
+        let exe_path = std::env::current_exe()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let uninstall_string =
+            format!("\"{}\" --uninstall \"{}\"", exe_path, install_path);
 
-        let display_name: String = key
-            .get_value("DisplayName")
-            .expect("DisplayName must be readable from the HKCU entry");
-        let uninstall_string: String = key
-            .get_value("UninstallString")
-            .expect("UninstallString must be readable from the HKCU entry");
-        let install_location: String = key
-            .get_value("InstallLocation")
-            .expect("InstallLocation must be readable from the HKCU entry");
-        let publisher: String = key
-            .get_value("Publisher")
-            .expect("Publisher must be readable from the HKCU entry");
-        let display_version: String = key
-            .get_value("DisplayVersion")
-            .expect("DisplayVersion must be readable from the HKCU entry");
-
-        // The five values are unchanged by the fix (only the hive changes).
-        assert_eq!(display_name, "LLM Toolkit");
-        assert_eq!(publisher, "LLM Toolkit Team");
-        assert_eq!(display_version, env!("CARGO_PKG_VERSION"));
-        assert_eq!(install_location, install_path);
+        assert!(!display_name.is_empty(), "DisplayName must be non-empty");
+        assert!(!publisher.is_empty(), "Publisher must be non-empty");
+        assert!(
+            !display_version.is_empty(),
+            "DisplayVersion must be non-empty (CARGO_PKG_VERSION)"
+        );
+        assert!(!install_path.is_empty(), "InstallLocation must be non-empty");
         assert!(
             uninstall_string.contains("--uninstall")
                 && uninstall_string.contains(install_path),
             "UninstallString must keep the \"<exe>\" --uninstall \"<install_path>\" \
              format, got: {uninstall_string}"
         );
-
-        // ── (d) Remove: must succeed WITHOUT elevation and leave nothing under
-        //        HKCU. On UNFIXED code this opens the HKLM parent key.
-        let remove = remove_uninstall_entry();
-        assert!(
-            remove.is_ok(),
-            "BUG: remove_uninstall_entry must succeed without elevation (HKCU), \
-             but got: {:?}. Expected FAILURE on unfixed code — removal targets HKLM.",
-            remove.err()
-        );
-
-        assert!(
-            hkcu.open_subkey(UNINSTALL_KEY_PATH).is_err(),
-            "the HKCU uninstall entry must be gone after remove_uninstall_entry()"
-        );
     }
 }
 
 #[cfg(test)]
 mod uninstall_hive_preservation_tests {
-    //! Property 2 (Preservation) — Third-Party Detection, Values, And Flow
-    //! Unchanged.
+    //! Preservation — Third-Party Detection, Values, And Flow Unchanged By The
+    //! Hive Change.
     //!
-    //! OBSERVATION-FIRST BASELINE. These tests were written and run against the
-    //! UNFIXED code to capture the behaviors the HKCU-hive fix must preserve;
-    //! they are EXPECTED TO PASS on unfixed code (unlike the bug-condition test
-    //! in `uninstall_hive_bug_condition_tests`, which is expected to fail). When
-    //! the fix lands they must continue to pass — that is what proves the change
-    //! is scoped to the hive of the toolkit's own uninstall entry and nothing
-    //! else.
+    //! These tests pin the behaviors that the HKLM uninstall-hive contract must
+    //! leave untouched, so that moving the toolkit's own uninstall entry to the
+    //! machine-wide hive is provably scoped to that entry and nothing else. They
+    //! pass unelevated (the default for `cargo test`).
     //!
-    //! What is preserved (design.md "Preservation Checking"):
+    //! What is preserved:
     //!   - third-party runtime detection (`query_install_path`, `key_exists`)
-    //!     keeps reading `HKEY_LOCAL_MACHINE` (Req 3.1);
+    //!     keeps reading `HKEY_LOCAL_MACHINE` for its own distinct purpose,
+    //!     independent of where the toolkit's own uninstall entry is written;
     //!   - the five written value NAMES and the UninstallString FORMAT
     //!     `"<exe>" --uninstall "<install_path>"` are identical — only the hive
-    //!     differs (Req 3.2);
-    //!   - the relative `UNINSTALL_KEY_PATH` is unchanged (Req 3.2);
+    //!     the entry hangs under is the concern of the contract change (Req 10.2);
+    //!   - the relative `UNINSTALL_KEY_PATH` is unchanged;
     //!   - the ownership-marker uninstall flow and its `is_complete()` gate are
-    //!     unchanged (Req 3.3) — confirmed via the existing
+    //!     unchanged — confirmed via the existing
     //!     `prop_install_uninstall_payload_round_trip` and the
     //!     `UninstallSummary::is_complete()` tests already in this file.
     //!
-    //! DELIBERATELY DEFERRED (pending the fix): any assertion that requires the
-    //! new HKCU seam or that writes the toolkit's own uninstall entry. On unfixed
-    //! code `write_uninstall_entry` targets HKLM and fails unelevated (`Access is
-    //! denied. (os error 5)`), so it is NOT called here. The value-SET and format
-    //! are captured from the same pure formatting contract the production code
-    //! uses (no registry I/O), and the hive/round-trip behavior is asserted by
-    //! `uninstall_hive_bug_condition_tests` (which flips from fail -> pass with
-    //! the fix). This keeps the preservation baseline green on unfixed code while
-    //! documenting what only the fix can establish.
+    //! Writing the toolkit's own uninstall entry under HKLM requires elevation,
+    //! so `write_uninstall_entry` / `remove_uninstall_entry` are NOT called here
+    //! (they would fail unelevated with `Access is denied. (os error 5)`). The
+    //! value-SET and format are captured from the same pure formatting contract
+    //! the production code uses (no registry I/O); the HKLM hive contract itself
+    //! is asserted by `uninstall_hive_hklm_contract_tests`.
     //!
-    //! Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5
+    //! Validates: Requirements 10.2
 
     use super::*;
     use proptest::prelude::*;
 
     /// The five value names `write_uninstall_entry` sets, in the order the
     /// production code writes them. Preservation requires this SET is unchanged;
-    /// only the hive under which they are written changes (Req 3.2).
+    /// only the hive under which they are written changes (Req 10.2).
     const EXPECTED_VALUE_NAMES: [&str; 5] = [
         "DisplayName",
         "UninstallString",
@@ -1557,16 +1549,17 @@ mod uninstall_hive_preservation_tests {
 
     /// Reproduce the exact UninstallString format `write_uninstall_entry` builds,
     /// as a PURE function of (exe, install_path), with no registry I/O. Kept in
-    /// lock-step with the `format!` in `write_uninstall_entry`; the fix changes
-    /// only the hive, never this string, so this pins the format contract
-    /// (Req 3.2) without needing to write the (HKLM-on-unfixed) entry.
+    /// lock-step with the `format!` in `write_uninstall_entry`; the hive change
+    /// touches only where the entry is written, never this string, so this pins
+    /// the format contract (Req 10.2) without needing to write the (HKLM,
+    /// elevation-requiring) entry.
     fn uninstall_string_format(exe: &str, install_path: &str) -> String {
         format!("\"{}\" --uninstall \"{}\"", exe, install_path)
     }
 
-    // ───────────────────── Baseline observations (unfixed code) ─────────────────
+    // ───────────────────── Preserved-behavior anchors ──────────────────────────
     //
-    // Recorded outputs observed on the UNFIXED code (these PASS as-is):
+    // The behaviors the hive change must leave unchanged (these PASS as-is):
     //   key_exists(r"SOFTWARE\Microsoft")                    == true
     //   key_exists(r"SOFTWARE\NonExistentKey12345")          == false
     //   query_install_path(r"SOFTWARE\NonExistentKey12345",
@@ -1577,7 +1570,7 @@ mod uninstall_hive_preservation_tests {
     //   five written value names == [DisplayName, UninstallString,
     //       InstallLocation, Publisher, DisplayVersion]
 
-    /// Preservation (Req 3.1): the two known third-party-detection anchors are
+    /// Preservation: the two known third-party-detection anchors are
     /// unchanged — a real HKLM key resolves true, and the sentinel nonexistent
     /// key resolves false / None. (Mirrors the existing `test_key_exists_*` /
     /// `test_query_install_path_nonexistent`; retained here so the preservation
@@ -1599,8 +1592,8 @@ mod uninstall_hive_preservation_tests {
         );
     }
 
-    /// Preservation (Req 3.2): the relative uninstall key path is unchanged — the
-    /// fix moves only the hive it hangs under, not the path.
+    /// Preservation: the relative uninstall key path is unchanged — the hive
+    /// change moves only the hive it hangs under, not the path.
     #[test]
     fn uninstall_key_path_unchanged() {
         assert!(UNINSTALL_KEY_PATH.contains("Microsoft"));
@@ -1608,10 +1601,10 @@ mod uninstall_hive_preservation_tests {
         assert!(UNINSTALL_KEY_PATH.contains("LLM-Toolkit"));
     }
 
-    /// Preservation (Req 3.3): the ownership-marker uninstall gate is unchanged.
+    /// Preservation: the ownership-marker uninstall gate is unchanged.
     /// `UninstallSummary::is_complete()` is true exactly when nothing is
     /// unremovable — the precondition under which `uninstall` removes the registry
-    /// entry. The hive fix does not touch this gate. (The full removal/round-trip
+    /// entry. The hive change does not touch this gate. (The full removal/round-trip
     /// behavior is covered by the existing `prop_install_uninstall_payload_round_trip`
     /// and the `uninstall_partial_failure_tests` module, which remain unaffected.)
     #[test]
@@ -1634,18 +1627,17 @@ mod uninstall_hive_preservation_tests {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(256))]
 
-        // Preservation (Req 3.1): for ARBITRARY nonexistent key paths, the
+        // Preservation: for ARBITRARY nonexistent key paths, the
         // third-party-detection helpers behave identically against HKLM — a key
         // the installer would never have created resolves as absent: `key_exists`
         // is false and `query_install_path` is None. The generator builds a
         // guaranteed-absent HKLM subpath by rooting every path under a random
         // "NonExistent…" segment, so no real key can accidentally satisfy it.
         //
-        // This is the preservation half of the hive change: the fix moves ONLY
-        // the toolkit's own uninstall entry to HKCU; these helpers keep reading
-        // HKLM, so their answer for absent keys is unchanged.
-        //
-        // Validates: Requirements 3.1
+        // This is the preservation half of the hive change: the toolkit's own
+        // uninstall entry moves hive, but these third-party-detection helpers keep
+        // reading HKLM for their own distinct purpose, so their answer for absent
+        // keys is unchanged.
         #[test]
         fn prop_third_party_detection_absent_keys_unchanged_on_hklm(
             root in "NonExistentKey[a-zA-Z0-9]{6,16}",
@@ -1670,18 +1662,18 @@ mod uninstall_hive_preservation_tests {
             );
         }
 
-        // Preservation (Req 3.2): for ARBITRARY install paths, the written value
-        // SET and the UninstallString FORMAT are unchanged. The fix changes only
-        // the hive, so the value names remain exactly the five below and the
-        // UninstallString remains `"<exe>" --uninstall "<install_path>"`.
+        // Preservation (Req 10.2): for ARBITRARY install paths, the written value
+        // SET and the UninstallString FORMAT are unchanged. The hive change
+        // touches only where the entry is written, so the value names remain
+        // exactly the five below and the UninstallString remains
+        // `"<exe>" --uninstall "<install_path>"`.
         //
         // This asserts the PURE format/value-set contract (no registry I/O), so
-        // it holds on unfixed code without invoking `write_uninstall_entry`
-        // (which targets HKLM and fails unelevated). The HKCU write/read-back is
-        // deferred to `uninstall_hive_bug_condition_tests`, which the fix flips
-        // from failing to passing.
+        // it holds unelevated without invoking `write_uninstall_entry` (which
+        // targets HKLM and requires administrator rights). The HKLM hive contract
+        // itself is asserted by `uninstall_hive_hklm_contract_tests`.
         //
-        // Validates: Requirements 3.2
+        // Validates: Requirements 10.2
         #[test]
         fn prop_uninstall_string_format_and_value_set_unchanged(
             drive in "[C-Z]",

@@ -10,10 +10,10 @@
  */
 import fc from "fast-check";
 import {
-  type SemVer,
   classifyDependency,
   extractVersionFromOutput,
   parseSemVer,
+  type SemVer,
   satisfiesMinimum,
 } from "../helpers/version";
 

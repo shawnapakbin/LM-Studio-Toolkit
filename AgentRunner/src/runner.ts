@@ -2,10 +2,16 @@
  * Agent Runner - Orchestrates multi-step workflows with retry and fallback logic
  */
 
-import { ErrorCode, OperationTimer, generateTraceId } from "@shared/types";
-import { type Logger, getLogger } from "llm-toolkit-observability";
-import { type MetricsRegistry, getRegistry } from "llm-toolkit-observability";
-import { SpanStatus, type Tracer, getTracer } from "llm-toolkit-observability";
+import { ErrorCode, generateTraceId, OperationTimer } from "@shared/types";
+import {
+  getLogger,
+  getRegistry,
+  getTracer,
+  type Logger,
+  type MetricsRegistry,
+  SpanStatus,
+  type Tracer,
+} from "llm-toolkit-observability";
 import { normalizeToolCall } from "../../shared/toolCallNormalizer";
 import { type ToolRegistry, ToolStatus } from "./registry";
 

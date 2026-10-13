@@ -13,10 +13,10 @@
  * **Validates: Requirements 2.6, 5.2, 12.1, 16.1, 16.3, 17.5**
  */
 
-import * as os from "os";
-import * as path from "path";
 import * as fs from "fs/promises";
 import nock from "nock";
+import * as os from "os";
+import * as path from "path";
 import { type InternalTask, SessionPool } from "../../src/session-pool";
 import type { SessionPoolConfig, TaskManifest } from "../../src/types";
 

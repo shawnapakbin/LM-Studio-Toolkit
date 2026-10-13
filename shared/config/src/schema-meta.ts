@@ -201,68 +201,6 @@ export const schemaMeta: Record<string, SchemaMetaEntry> = {
     legacyEnvKey: "PORT",
   },
 
-  // ─── RAG ─────────────────────────────────────────────────────────────────────
-  "rag.dbPath": {
-    env: "RAG_DB_PATH",
-    legacyEnvKey: "RAG_DB_PATH",
-  },
-  "rag.docScraperEndpoint": {
-    env: "RAG_DOC_SCRAPER_ENDPOINT",
-    legacyEnvKey: "RAG_DOC_SCRAPER_ENDPOINT",
-  },
-  "rag.askUserEndpoint": {
-    env: "RAG_ASK_USER_ENDPOINT",
-    legacyEnvKey: "RAG_ASK_USER_ENDPOINT",
-  },
-  "rag.bypassApproval": {
-    env: "RAG_BYPASS_APPROVAL",
-    legacyEnvKey: "RAG_BYPASS_APPROVAL",
-  },
-  "rag.maxDocumentsPerIngest": {
-    env: "RAG_MAX_DOCUMENTS_PER_INGEST",
-    legacyEnvKey: "RAG_MAX_DOCUMENTS_PER_INGEST",
-  },
-  "rag.maxTextLength": {
-    env: "RAG_MAX_TEXT_LENGTH",
-    legacyEnvKey: "RAG_MAX_TEXT_LENGTH",
-  },
-  "rag.chunkSizeTokens": {
-    env: "RAG_CHUNK_SIZE_TOKENS",
-    legacyEnvKey: "RAG_CHUNK_SIZE_TOKENS",
-  },
-  "rag.chunkOverlapTokens": {
-    env: "RAG_CHUNK_OVERLAP_TOKENS",
-    legacyEnvKey: "RAG_CHUNK_OVERLAP_TOKENS",
-  },
-  "rag.maxChunkSizeTokens": {
-    env: "RAG_MAX_CHUNK_SIZE_TOKENS",
-    legacyEnvKey: "RAG_MAX_CHUNK_SIZE_TOKENS",
-  },
-  "rag.maxOverlapTokens": {
-    env: "RAG_MAX_OVERLAP_TOKENS",
-    legacyEnvKey: "RAG_MAX_OVERLAP_TOKENS",
-  },
-  "rag.queryTopK": {
-    env: "RAG_QUERY_TOP_K",
-    legacyEnvKey: "RAG_QUERY_TOP_K",
-  },
-  "rag.maxTopK": {
-    env: "RAG_MAX_TOP_K",
-    legacyEnvKey: "RAG_MAX_TOP_K",
-  },
-  "rag.embeddingModel": {
-    env: "RAG_EMBEDDING_MODEL",
-    legacyEnvKey: "RAG_EMBEDDING_MODEL",
-  },
-  "rag.embeddingsMode": {
-    env: "RAG_EMBEDDINGS_MODE",
-    legacyEnvKey: "RAG_EMBEDDINGS_MODE",
-  },
-  "rag.port": {
-    env: "RAG_PORT",
-    legacyEnvKey: "PORT",
-  },
-
   // ─── PythonShell ─────────────────────────────────────────────────────────────
   "pythonshell.workspaceRoot": {
     env: "PYTHON_SHELL_WORKSPACE_ROOT",
@@ -334,10 +272,6 @@ export const schemaMeta: Record<string, SchemaMetaEntry> = {
     env: "ASKUSER_ENDPOINT",
     legacyEnvKey: "ASKUSER_ENDPOINT",
   },
-  "slashcommands.ragEndpoint": {
-    env: "RAG_ENDPOINT",
-    legacyEnvKey: "RAG_ENDPOINT",
-  },
   "slashcommands.pythonshellEndpoint": {
     env: "PYTHONSHELL_ENDPOINT",
     legacyEnvKey: "PYTHONSHELL_ENDPOINT",
@@ -346,34 +280,10 @@ export const schemaMeta: Record<string, SchemaMetaEntry> = {
     env: "SKILLS_ENDPOINT",
     legacyEnvKey: "SKILLS_ENDPOINT",
   },
-  "slashcommands.ecmEndpoint": {
-    env: "ECM_ENDPOINT",
-    legacyEnvKey: "ECM_ENDPOINT",
-  },
 
   // ─── CLI ─────────────────────────────────────────────────────────────────────
   "cli.port": {
     env: "CLI_PORT",
-    legacyEnvKey: "PORT",
-  },
-
-  // ─── CsvExporter ─────────────────────────────────────────────────────────────
-  "csvexporter.port": {
-    env: "CSVEXPORTER_PORT",
-    legacyEnvKey: "PORT",
-  },
-  "csvexporter.exportRoot": {
-    env: "CSV_EXPORT_ROOT",
-    legacyEnvKey: "CSV_EXPORT_ROOT",
-  },
-
-  // ─── FileEditor ──────────────────────────────────────────────────────────────
-  "fileeditor.workspaceRoot": {
-    env: "FILE_EDITOR_WORKSPACE_ROOT",
-    legacyEnvKey: "FILE_EDITOR_WORKSPACE_ROOT",
-  },
-  "fileeditor.port": {
-    env: "FILEEDITOR_PORT",
     legacyEnvKey: "PORT",
   },
 
@@ -384,16 +294,6 @@ export const schemaMeta: Record<string, SchemaMetaEntry> = {
   },
   "git.port": {
     env: "GIT_PORT",
-    legacyEnvKey: "PORT",
-  },
-
-  // ─── PackageManager ──────────────────────────────────────────────────────────
-  "packagemanager.workspaceRoot": {
-    env: "PACKAGE_MANAGER_WORKSPACE_ROOT",
-    legacyEnvKey: "PACKAGE_MANAGER_WORKSPACE_ROOT",
-  },
-  "packagemanager.port": {
-    env: "PACKAGEMANAGER_PORT",
     legacyEnvKey: "PORT",
   },
 

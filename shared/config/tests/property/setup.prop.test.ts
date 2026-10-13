@@ -1,6 +1,3 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 /**
  * Property tests for the Setup Script / Config Generator.
  *
@@ -10,6 +7,9 @@ import * as path from "path";
  * Validates: Requirements 5.3, 5.6
  */
 import fc from "fast-check";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { parse as yamlParse } from "yaml";
 
 import { generateConfigFile } from "../../src/generate";
@@ -279,14 +279,14 @@ describe("Feature: v2-4-0-unified-config-installer, Property 11: Setup Repair Pr
           ),
           { minLength: 0, maxLength: 80 },
         ),
-        (portVal, timeoutVal, precisionVal, ragPort, customApiKey) => {
+        (portVal, timeoutVal, precisionVal, skillsPort, customApiKey) => {
           const outputPath = path.join(tmpDir, "llm-toolkit.config.yaml");
           const envOutputPath = path.join(tmpDir, ".env");
 
           const existingValues = {
             terminal: { port: portVal, defaultTimeoutMs: timeoutVal },
             calculator: { defaultPrecision: precisionVal },
-            rag: { port: ragPort },
+            skills: { port: skillsPort },
             browserless: { apiKey: customApiKey },
           };
 
@@ -308,7 +308,7 @@ describe("Feature: v2-4-0-unified-config-installer, Property 11: Setup Repair Pr
           expect((generated.calculator as Record<string, unknown>).defaultPrecision).toBe(
             precisionVal,
           );
-          expect((generated.rag as Record<string, unknown>).port).toBe(ragPort);
+          expect((generated.skills as Record<string, unknown>).port).toBe(skillsPort);
           expect((generated.browserless as Record<string, unknown>).apiKey).toBe(customApiKey);
         },
       ),

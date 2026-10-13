@@ -6,12 +6,12 @@
 
 import {
   DEFAULT_PRECISION,
-  MAX_EXPRESSION_LENGTH,
-  MAX_PRECISION,
-  MIN_PRECISION,
   hasUnsafePatterns,
   isExpressionTooLong,
   isValidExpression,
+  MAX_EXPRESSION_LENGTH,
+  MAX_PRECISION,
+  MIN_PRECISION,
   validatePrecision,
 } from "../src/policy";
 

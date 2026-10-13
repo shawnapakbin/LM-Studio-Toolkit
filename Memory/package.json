@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-memory",
-  "version": "5.1.2",
+  "version": "5.4.1",
   "private": true,
   "main": "dist/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
-    "uuid": "^9.0.1"
+    "better-sqlite3": "^12.11.1",
+    "uuid": "^11.1.1"
   }
 }

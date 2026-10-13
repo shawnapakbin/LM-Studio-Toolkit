@@ -20,7 +20,7 @@ export function registerDocumentScraperTool(server: McpServer): void {
   const readDocumentInputSchema: Record<string, z.ZodTypeAny> = {
     url: z.string().url().optional().describe("Remote URL to fetch."),
     filePath: z.string().optional().describe("Workspace-relative local file path."),
-    headers: z.record(z.string()).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
     cookies: z.string().optional(),
     timeoutMs: z.number().int().positive().optional(),
     maxContentChars: z.number().int().positive().optional(),

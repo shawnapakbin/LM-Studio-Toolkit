@@ -8,17 +8,17 @@
 // Property 23: Checkpoint Cleanup
 // **Validates: Requirements 12.2, 12.3, 12.4, 12.5, 12.6**
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 import {
   CheckpointFile,
   CheckpointStore,
+  computeInputHash,
   TaskDefinition,
   TaskManifest,
   TelemetryRecord,
-  computeInputHash,
 } from "../../src/checkpoint-store";
 
 describe("Property 22: Checkpoint/Resume Round Trip", () => {

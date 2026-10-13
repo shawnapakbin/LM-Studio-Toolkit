@@ -3,10 +3,10 @@
 // Feature: 3dtool-viewer-improvements, Property 12: Material Range Validation
 // **Validates: Requirements 6.6**
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 import { SceneManager } from "../../src/scene-manager";
 import type { MaterialProps, SceneObject } from "../../src/types";
 

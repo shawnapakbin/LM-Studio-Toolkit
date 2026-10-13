@@ -6,7 +6,7 @@ Every tool-call entry point routes through the single shared `normalizeToolCall`
 
 Next phase, Implement a Unified system of Configuration and Settings...
 
-**Version**: 5.1.2  
+**Version**: 5.4.1  
 **Status**: Phase 0 (Foundation) ✅ Complete + installer hardening ✅ + CLI & Slash Commands ✅ + 3DTool MCP Server ✅ + SubAgent MCP Server ✅ + LAN SubAgent ✅ + Common Plugin Injection ✅ + unified config ✅ + Tauri installer ✅
 
 Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-backed memory, and unified quality gates.
@@ -19,7 +19,7 @@ Enterprise-grade LLM software engineer agent with multi-tool orchestration, SQL-
 
 Run '.\setup.bat' in the root folder.
 
-Preferred: GUI installer artifacts from Releases (Windows portable EXE, macOS DMG, Linux AppImage).
+Preferred: the NSIS `setup.exe` installer from Releases (Windows; macOS/Linux deferred).
 
 Fallback: script setup from a repo clone.
 
@@ -31,7 +31,7 @@ node scripts/setup/setup.js --gui   # Browser GUI (fallback when installer artif
 node scripts/setup/setup.js         # CLI
 ```
 
-The setup script handles everything: dependency install, build, `.env` scaffolding, and LM Studio bridge config sync. See [INSTALL.md](INSTALL.md) for full details.
+The setup script handles everything: dependency install, build, `.env` scaffolding, and LM Studio bridge config sync. See [INSTALL.md](docs/INSTALL.md) for full details.
 
 ### Repair
 
@@ -54,9 +54,9 @@ npm run startup:check   # Workspace readiness check
 
 Every tool-call entry point routes through the shared `normalizeToolCall` utility (`shared/toolCallNormalizer.ts`) before dispatch, regardless of origin. AgentRunner, SubAgent, and AskUser all use this one unified path — there are no passthrough stubs, legacy branches, or alternative normalization paths. This guarantees every tool invocation follows the same canonical schema, improving reliability and extensibility.
 
-### 16 Registered Plugin Entries
+### 9 Registered Plugin Entries
 
-The toolkit registers **16 plugin entries** with LM Studio. This is the single authoritative count. The `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`) rather than a `src/mcp-server.ts` entry point — so the number of registered plugin entries is fewer than the number of underlying tools.
+The toolkit registers **9 plugin entries** with LM Studio. This is the single authoritative count. The `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`) rather than a `src/mcp-server.ts` entry point — so the number of registered plugin entries is fewer than the number of underlying tools.
 
 Registered plugin entries:
 
@@ -64,18 +64,15 @@ Registered plugin entries:
 - **[WebBrowser](WebBrowser/README.md)** — Full headless Chromium browser — JS rendering, SPAs, cookies, screenshots, markdown output ✅
 - **[mcp/common](mcp/common/README.md)** — Unified common tools plugin bundling Calculator, Clock, AskUser, and DocumentScraper (4 tools in 1 entry) ✅
 - **[Browserless](Browserless/README.md)** — Advanced browser automation via the schema-proxy wrapper (screenshots, PDFs, scraping, content extraction, BrowserQL, Puppeteer code, downloads, export, Lighthouse audits) ✅
-- **[RAG](RAG/README.md)** — Persistent retrieval augmented generation with source lifecycle + approval-gated writes ✅
 - **[PythonShell](PythonShell/README.md)** — Python code execution + REPL/IDLE launch with startup detection guidance ✅
 - **[Skills](Skills/README.md)** — Persistent skill/playbook system — define parameterized step templates, execute by name ✅
-- **[SlashCommands](docs/SLASH-COMMANDS.md)** — MCP server exposing `/command` shortcuts for LM Studio chat ✅
 - **[BlenderBridge](BlenderBridge/README.md)** — Bridge to a running Blender instance for scene inspection and edits ✅
 - **[3DTool](3DTool/README.md)** — 3D model viewer/editor MCP server with multi-format support (OBJ, glTF/GLB), scene management, materials, undo/redo ✅
-- **[SubAgent](SubAgent/README.md)** — Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation ✅
 - **[LanSubAgent](LanSubAgent/README.md)** — LAN-aware multi-endpoint inference dispatcher — distributes tasks across LM Studio instances on the local network ✅
-- **[Git](Git/README.md)** — Safe git operations with branch protection ✅
-- **[PackageManager](PackageManager/README.md)** — Multi-ecosystem package management (npm/pip/cargo/maven/go) ✅
-- **[CSVExporter](CSVExporter/README.md)** — Export parsed table data to CSV files ✅
-- **[FileEditor](FileEditor/README.md)** — Safe file read/write/search with workspace sandboxing (registered runtime MCP server) ✅
+
+### Temporarily disabled / not shipped
+
+These servers exist in the repository and still build, but are not provisioned or installed in this release: `slash-commands`, `sub-agent`, `git`. They can be re-enabled in a future release without reconstruction.
 
 ### Supporting Library Workspaces (not registered as plugins)
 
@@ -83,7 +80,7 @@ Registered plugin entries:
 - **[Memory](Memory/README.md)** — SQLite-backed task history, solution patterns, and learned rules
 - **[AgentRunner](AgentRunner/README.md)** — Workflow runner and tool registry consumed by other workspaces
 - **[CLI](CLI/README.md)** — `llm <command>` terminal binary for invoking tools from the shell
-- **[Installer](Installer/README.md)** — Tauri-based native GUI installer (Windows EXE, macOS DMG, Linux AppImage)
+- **[Installer](Installer/README.md)** — Tauri v2 + Rust native installer producing an NSIS `setup.exe` (Windows; macOS/Linux deferred)
 - **shared** — Shared types and the `normalizeToolCall` utility
 
 ### Foundation Layer (Phase 0 ✅)
@@ -108,9 +105,9 @@ npm run build   # shared → observability → tools → common → memory
 - Phase 0: Foundation — code quality, tests, CI gates ✅
 - Phase 1: Tool hardening + safety ✅
 - Phase 2: Orchestration + workflow execution ✅
-- Phase 3: Extended tools (Git, FileEditor, PackageManager, CSVExporter, Observability) ✅
+- Phase 3: Extended tools (Git, Observability) ✅
 
-See [AGENT_ROADMAP.md](AGENT_ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+See [AGENT_ROADMAP.md](docs/AGENT_ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Release Scope Tracking
 
@@ -150,7 +147,7 @@ See [docs/CODE-QUALITY.md](docs/CODE-QUALITY.md) for full standards.
 ### Before Making Changes
 
 1. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-2. Read [CONTRIBUTING.md](CONTRIBUTING.md)
+2. Read [CONTRIBUTING.md](docs/CONTRIBUTING.md)
 3. Create feature branch: `git checkout -b feat/description`
 
 ### Workflow
@@ -178,7 +175,6 @@ You can control the toolkit directly from the LM Studio chat window by typing `/
 /clock --timezone UTC     → Get current time
 /run ls -la               → Execute a shell command
 /skills list              → List all defined skills
-/rag query <text>         → Query the knowledge base
 /tools health             → Health-check all tools
 /memory stats             → Show workflow run statistics
 ```
@@ -193,7 +189,7 @@ See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) for the full command refere
 
 ### LM Studio Integration (Plugin-Only)
 
-The toolkit uses a **plugin-only configuration model** — this is the sole supported method. All 16 registered servers are provisioned automatically as LM Studio plugins; there is no manual configuration step.
+The toolkit uses a **plugin-only configuration model** — this is the sole supported method. All 9 registered servers are provisioned automatically as LM Studio plugins; there is no manual configuration step.
 
 To auto-deploy BOM-free bridge configs into installed LM Studio MCP plugins:
 
@@ -207,7 +203,7 @@ On each sync, old toolkit-owned plugin directories are removed before fresh ones
 
 ### Managing Plugins
 
-Use the toolkit commands to manage all 16 plugin entries — no file editing required:
+Use the toolkit commands to manage all 9 plugin entries — no file editing required:
 
 ```bash
 npm run mcp:sync-lmstudio  # auto-deploy into LM Studio plugin directories
@@ -233,6 +229,17 @@ npm run mcp:sync-lmstudio
 2. **Set your token** in your `.env` file: `BROWSERLESS_API_KEY=your-token-here`
 3. **Run setup** to sync bridge configs: `node scripts/setup/setup.js`
 4. **Never commit your token to version control.**
+
+> **Security — token handling and rotation**
+>
+> - The Browserless token must be sourced **only** from your user config (`.env` /
+>   `llm-toolkit.config.yaml` via `browserless.apiKey`). It is never hardcoded in
+>   source and must never be committed to version control.
+> - If a token has ever been exposed — shared, committed, or observed in a
+>   generated bridge config — treat it as **compromised**. Rotate/revoke it from
+>   the [Browserless dashboard](https://browserless.io/account/) and issue a new
+>   one. Rotation is a manual operational step you perform in your Browserless
+>   account; the toolkit cannot do it for you.
 
 ### How It Works
 
@@ -267,7 +274,6 @@ BROWSERLESS_API_KEY=your-browserless-api-token-here
 ```bash
 npm test              # Run all tests (watch mode)
 npm run test:ci       # CI mode (coverage report)
-npm run benchmark     # Performance SLA checks
 ```
 
 ### GitHub Actions
@@ -330,14 +336,14 @@ See [Memory/README.md](Memory/README.md) for details.
 
 | Document | Purpose |
 |----------|---------|
-| [INSTALL.md](INSTALL.md) | Step-by-step installation and setup guide |
-| [AGENT_ROADMAP.md](AGENT_ROADMAP.md) | Implementation phases + progress |
+| [INSTALL.md](docs/INSTALL.md) | Step-by-step installation and setup guide |
+| [AGENT_ROADMAP.md](docs/AGENT_ROADMAP.md) | Implementation phases + progress |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design + patterns |
 | [docs/CICD.md](docs/CICD.md) | CI gates + branch protection guidance |
 | [docs/CODE-QUALITY.md](docs/CODE-QUALITY.md) | Quality standards + benchmarks |
 | [docs/VNEXT_FEATURES.md](docs/VNEXT_FEATURES.md) | Source of truth for intentional next-version scope |
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Release hardening and sign-off steps |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | PR workflow + code review checklist |
+| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | PR workflow + code review checklist |
 | [Memory/README.md](Memory/README.md) | Memory persistence API |
 | [Browserless/README.md](Browserless/README.md) | Browserless MCP tool usage, schemas, and troubleshooting |
 | [Skills/README.md](Skills/README.md) | Skills Tool — persistent playbook system |
@@ -358,11 +364,11 @@ See [Memory/README.md](Memory/README.md) for details.
 | 3DTool MCP Server | ✅ | Multi-format 3D viewer/editor with scene management, materials, validation, undo/redo |
 | SubAgent MCP Server | ✅ | Fan-out/fan-in parallel inference dispatcher for sub-agent task delegation |
 | LAN SubAgent | ✅ | Distributed inference across LAN — multi-endpoint load balancing, health checking, UDP discovery, GUI config |
-| FileEditor MCP Server | ✅ | Safe file read/write/search with workspace sandboxing — a registered runtime MCP server |
 | Tool call normalization | ✅ | Every entry point routes through the shared `normalizeToolCall` (one unified path) |
 | Unified configuration | ✅ | Single-source `llm-toolkit.config.yaml` for all tool settings |
-| Tauri installer | ✅ | Cross-platform native GUI installer — Windows EXE, macOS DMG, Linux AppImage |
-| 16 registered plugin entries | ✅ | Terminal, WebBrowser, common (bundles Calculator/Clock/AskUser/DocumentScraper), Browserless (schema-proxy), RAG, PythonShell, Skills, SlashCommands, BlenderBridge, 3DTool, SubAgent, LanSubAgent, Git, PackageManager, CSVExporter, FileEditor |
+| Tauri installer | ✅ | Tauri v2 + Rust native installer producing an NSIS `setup.exe` (Windows; macOS/Linux deferred) |
+| 9 registered plugin entries | ✅ | Terminal, WebBrowser, common (bundles Calculator/Clock/AskUser/DocumentScraper), Browserless (schema-proxy), PythonShell, Skills, BlenderBridge, 3DTool, LanSubAgent |
+| Temporarily disabled / not shipped | ⏸️ | SlashCommands, SubAgent, Git — kept in-repo and buildable, but not provisioned or installed this release |
 | WebBrowser headless upgrade | ✅ | Playwright Chromium — JS rendering, SPAs, cookies, screenshots, markdown |
 | Skills Tool | ✅ | Persistent parameterized playbooks with {{interpolation}} |
 | Biome format + lint | ✅ | CI gate, auto-fix on save |
@@ -370,7 +376,7 @@ See [Memory/README.md](Memory/README.md) for details.
 | SQLite memory | ✅ | Task history, patterns, rules |
 | GitHub Actions CI | ✅ | Biome + lint + test + build |
 | Tool hardening (Phase 1) | ✅ | Command denylist, SSRF blocking, output truncation |
-| Extended toolset (Phase 3) | ✅ | Git, FileEditor, PackageManager, CSVExporter, Observability |
+| Extended toolset (Phase 3) | ✅ | Git, Observability |
 | Planned expansion (future) | 🔄 | BuildRunner, AIModel, broader orchestration surface |
 | Agent orchestrator (Phase 3) | 🔄 | Multi-step task planning + pattern replay |
 | Multi-interface launchers (Phase 4) | 🔄 | LM Studio + CLI + VS Code + HTTP |
@@ -381,7 +387,7 @@ See [Memory/README.md](Memory/README.md) for details.
 ### Tool Call Normalization
 All contributors must ensure that any new tool or workflow entry point uses the shared normalization utility for tool calls. This is critical for maintaining compatibility and reliability across the system.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for:
 - Development setup
 - Code review checklist
 - Adding new tools

@@ -11,7 +11,7 @@
 import http from "http";
 import https from "https";
 import { EndpointRegistry } from "./endpoint-registry";
-import { Logger, logger as defaultLogger } from "./logger";
+import { logger as defaultLogger, Logger } from "./logger";
 import { EndpointState } from "./types";
 
 // ─── Config Interface ────────────────────────────────────────────────────────

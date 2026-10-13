@@ -1,6 +1,6 @@
 # LM Studio Integration (Plugin-Only)
 
-The toolkit uses a **plugin-only configuration model**, and this is the sole supported method. You never create, open, or edit any top-level LM Studio config by hand — all 16 registered servers are provisioned automatically as LM Studio plugins.
+The toolkit uses a **plugin-only configuration model**, and this is the sole supported method. You never create, open, or edit any top-level LM Studio config by hand — all 9 registered servers are provisioned automatically as LM Studio plugins.
 
 ## How registration works
 
@@ -18,9 +18,9 @@ To remove all toolkit plugins from LM Studio:
 npm run uninstall
 ```
 
-## Registered plugin entries (16)
+## Registered plugin entries (9)
 
-The toolkit registers **16 plugin entries** — the single authoritative count. Note that the `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`) rather than a `src/mcp-server.ts` entry point, so the number of registered entries is fewer than the number of underlying tools.
+The toolkit registers **9 plugin entries** — the single authoritative count. Note that the `common` entry bundles 4 tools (Calculator, Clock, AskUser, DocumentScraper) into one plugin, and Browserless registers via its schema-proxy wrapper (`Browserless/scripts/schema-proxy.js`) rather than a `src/mcp-server.ts` entry point, so the number of registered entries is fewer than the number of underlying tools.
 
 | # | Registered entry | Notes |
 |---|------------------|-------|
@@ -28,18 +28,15 @@ The toolkit registers **16 plugin entries** — the single authoritative count. 
 | 2 | web-browser | Headless Chromium |
 | 3 | common | Bundles Calculator, Clock, AskUser, DocumentScraper |
 | 4 | browserless | Registers via schema-proxy wrapper |
-| 5 | rag | Retrieval augmented generation |
-| 6 | python-shell | Python execution + REPL |
-| 7 | skills | Persistent playbooks |
-| 8 | slash-commands | `/command` shortcuts |
-| 9 | blender-bridge | Bridge to a running Blender instance |
-| 10 | 3dtool | 3D viewer/editor |
-| 11 | sub-agent | Parallel inference dispatch |
-| 12 | lan-sub-agent | LAN-aware inference dispatch |
-| 13 | git | Safe git operations |
-| 14 | package-manager | Multi-ecosystem package management |
-| 15 | csv-exporter | Export table data to CSV |
-| 16 | file-editor | Safe file read/write/search (registered runtime MCP server) |
+| 5 | python-shell | Python execution + REPL |
+| 6 | skills | Persistent playbooks |
+| 7 | blender-bridge | Bridge to a running Blender instance |
+| 8 | 3dtool | 3D viewer/editor |
+| 9 | lan-sub-agent | LAN-aware inference dispatch |
+
+## Unshipped / not provisioned
+
+These servers exist in the repository and still build, but are **not** provisioned or installed in this release: `slash-commands`, `sub-agent`, `git`. They are never registered as LM Studio plugins by `npm run mcp:sync-lmstudio` and can be re-enabled in a future release without reconstruction.
 
 ## Environment overrides
 
@@ -61,6 +58,5 @@ npm run mcp:sync-lmstudio
 ## Additional Resources
 
 - **Full documentation:** [../README.md](../README.md)
-- **RAG workflows:** [QUICKSTART-RAG.md](QUICKSTART-RAG.md)
 - **Sudo / privileged commands:** [QUICKSTART-SUDO.md](QUICKSTART-SUDO.md)
 - **Troubleshooting guide:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

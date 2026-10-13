@@ -4,10 +4,10 @@
 // Property 10: Transform Partial Update
 // **Validates: Requirements 5.1, 5.3, 5.4, 5.7**
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 import { SceneManager } from "../../src/scene-manager";
 import type { SceneObject, Vec3 } from "../../src/types";
 
@@ -23,6 +23,7 @@ import type { SceneObject, Vec3 } from "../../src/types";
 // The workspace root and fixture path used for Property 8 tests.
 // SceneManager.addObject validates file existence, so we use a real fixture.
 import { fileURLToPath } from "url";
+
 const __dirnameLocal = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRootProp8 = path.resolve(__dirnameLocal, "../..");
 const fixturePathProp8 = "tests/fixtures/cube.obj";

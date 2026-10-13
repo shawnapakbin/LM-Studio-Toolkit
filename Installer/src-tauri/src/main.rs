@@ -17,6 +17,15 @@ mod lmstudio;
 mod logger;
 mod manifest;
 mod path_validation;
+// The Runtimes provisioning decision core + `ElevatedShell` seam. The data
+// types, pure functions (`classify_dependency`, `plan_provisioning`,
+// `aggregate_verification`), the `run_runtimes_step` orchestrator, and the
+// production `PowerShellElevatedShell` are wired into `installer::step_runtimes`
+// (task 8.1). Some seam surface (log levels, timeout constants) is exercised
+// only through tests / the real elevated run, so dead-code is still allowed for
+// the pieces without an in-crate caller in every build configuration.
+#[allow(dead_code)]
+mod provision;
 mod registry;
 mod tool_payload;
 
@@ -54,6 +63,7 @@ fn main() {
                     commands::start_installation,
                     commands::cancel_installation,
                     commands::get_install_log,
+                    commands::exit_installer,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");

@@ -13,10 +13,10 @@
  * Design: Property 3
  */
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 
 // Real ownership constants/helpers from the production module, so this test
 // exercises the actual `_owner` marker value and the real owned-dir detection

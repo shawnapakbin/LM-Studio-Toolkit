@@ -33,7 +33,6 @@
     "Clock/src/**/*",
     "Browserless/src/**/*",
     "AskUser/src/**/*",
-    "RAG/src/**/*",
     "Memory/src/**/*",
     "testing/**/*"
   ],

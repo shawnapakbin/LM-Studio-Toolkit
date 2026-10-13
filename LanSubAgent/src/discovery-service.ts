@@ -14,13 +14,13 @@
 import * as dgram from "dgram";
 
 import {
-  type DiscoveryResponse,
   createDiscoveryProbe,
+  type DiscoveryResponse,
   isValidResponse,
   serializeMessage,
 } from "./discovery-protocol";
 import { EndpointRegistry } from "./endpoint-registry";
-import { type Logger, logger as defaultLogger } from "./logger";
+import { logger as defaultLogger, type Logger } from "./logger";
 import type { EndpointDefinition } from "./types";
 
 // ─── Configuration ───────────────────────────────────────────────────────────

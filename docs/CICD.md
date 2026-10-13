@@ -260,5 +260,5 @@ Add to README.md:
 
 - Set up branch protection rules as described above
 - Configure pre-push hooks for local enforcement
-- Review [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines
-- See [AGENT_ROADMAP.md](../AGENT_ROADMAP.md) for feature development roadmap
+- Review [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines
+- See [AGENT_ROADMAP.md](AGENT_ROADMAP.md) for feature development roadmap

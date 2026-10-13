@@ -1,9 +1,9 @@
 // Feature: v2-4-0-unified-config-installer, Property 19: Tool Namespace Registration
 // **Validates: Requirements 10.5**
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as path from "path";
-import * as fc from "fast-check";
 import { configSchema } from "../../src/schema";
 
 /**

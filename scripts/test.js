@@ -150,16 +150,6 @@ async function runTests() {
     }
   });
 
-  // Test 7: QUICKSTART-RAG.md exists
-  test("RAG quickstart guide exists", async () => {
-    try {
-      await fs.access("QUICKSTART-RAG.md");
-      return true;
-    } catch {
-      return false;
-    }
-  });
-
   // Test 8: package.json has all scripts
   test("Package.json has all npm scripts", async () => {
     try {

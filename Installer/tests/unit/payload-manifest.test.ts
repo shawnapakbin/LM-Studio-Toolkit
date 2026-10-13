@@ -13,13 +13,13 @@
 import {
   CANONICAL_TOOL_COUNT,
   CANONICAL_TOOL_PAYLOADS,
-  type DistPresence,
   canonicalPayloads,
+  type DistPresence,
   isComplete,
   planPayloadStaging,
 } from "../../scripts/payload-manifest";
 
-/** All 16 tools present and non-empty. */
+/** All nine tools present and non-empty. */
 function allPresent(): DistPresence[] {
   return canonicalPayloads().map((t) => ({
     serverName: t.serverName,
@@ -29,7 +29,7 @@ function allPresent(): DistPresence[] {
 }
 
 describe("canonical payload list", () => {
-  it("has exactly 16 tools with unique names and dist roots", () => {
+  it("has exactly 9 tools with unique names and dist roots", () => {
     expect(CANONICAL_TOOL_PAYLOADS.length).toBe(CANONICAL_TOOL_COUNT);
     const names = new Set(CANONICAL_TOOL_PAYLOADS.map((t) => t.serverName));
     const roots = new Set(CANONICAL_TOOL_PAYLOADS.map((t) => t.distRoot));
@@ -38,24 +38,17 @@ describe("canonical payload list", () => {
   });
 
   it("mirrors the Rust tool_payload.rs server names", () => {
-    // The exact 16 server names from tool_payload.rs / mcp-config.js.
+    // The exact nine Shipped server names from tool_payload.rs / mcp-config.js.
     const expected = [
       "terminal",
       "web-browser",
       "common",
       "browserless",
-      "rag",
       "python-shell",
       "skills",
-      "slash-commands",
       "blender-bridge",
       "3dtool",
-      "sub-agent",
       "lan-sub-agent",
-      "git",
-      "package-manager",
-      "csv-exporter",
-      "file-editor",
     ].sort();
     const actual = CANONICAL_TOOL_PAYLOADS.map((t) => t.serverName).sort();
     expect(actual).toEqual(expected);
@@ -63,7 +56,7 @@ describe("canonical payload list", () => {
 });
 
 describe("planPayloadStaging", () => {
-  it("reports complete when all 16 dist roots are present and non-empty", () => {
+  it("reports complete when all 9 dist roots are present and non-empty", () => {
     const plan = planPayloadStaging(allPresent());
     expect(isComplete(plan)).toBe(true);
     expect(plan.missing).toEqual([]);
@@ -82,27 +75,27 @@ describe("planPayloadStaging", () => {
 
   it("treats an EMPTY dist root as missing (Req 3.3)", () => {
     const presence = allPresent().map((p) =>
-      p.serverName === "git" ? { ...p, exists: true, nonEmpty: false } : p,
+      p.serverName === "skills" ? { ...p, exists: true, nonEmpty: false } : p,
     );
     const plan = planPayloadStaging(presence);
     expect(isComplete(plan)).toBe(false);
-    expect(plan.missing).toEqual(["git"]);
+    expect(plan.missing).toEqual(["skills"]);
   });
 
   it("names every missing/empty tool, sorted, and omits no present tool", () => {
     const presence = allPresent().map((p) => {
-      if (p.serverName === "file-editor") return { ...p, exists: false, nonEmpty: false };
+      if (p.serverName === "web-browser") return { ...p, exists: false, nonEmpty: false };
       if (p.serverName === "3dtool") return { ...p, exists: true, nonEmpty: false };
-      if (p.serverName === "rag") return { ...p, exists: false, nonEmpty: false };
+      if (p.serverName === "browserless") return { ...p, exists: false, nonEmpty: false };
       return p;
     });
     const plan = planPayloadStaging(presence);
-    expect(plan.missing).toEqual(["3dtool", "file-editor", "rag"]);
+    expect(plan.missing).toEqual(["3dtool", "browserless", "web-browser"]);
     // No present tool is reported missing.
     for (const name of plan.present) {
       expect(plan.missing).not.toContain(name);
     }
-    // present and missing partition the 16 canonical tools exactly.
+    // present and missing partition the nine canonical tools exactly.
     expect(plan.present.length + plan.missing.length).toBe(CANONICAL_TOOL_COUNT);
   });
 
@@ -114,7 +107,7 @@ describe("planPayloadStaging", () => {
     expect(isComplete(plan)).toBe(false);
   });
 
-  it("reports all 16 missing when nothing is built", () => {
+  it("reports all 9 missing when nothing is built", () => {
     const plan = planPayloadStaging([]);
     expect(isComplete(plan)).toBe(false);
     expect(plan.missing.length).toBe(CANONICAL_TOOL_COUNT);

@@ -1,23 +1,23 @@
-import { execFile } from "child_process";
-import { platform } from "os";
 import { getConfig } from "@shared/config";
 import {
-  ErrorCode,
-  OperationTimer,
-  type ToolResponse,
   createErrorResponse,
   createSuccessResponse,
+  ErrorCode,
   generateTraceId,
+  OperationTimer,
+  type ToolResponse,
 } from "@shared/types";
+import { execFile } from "child_process";
 import cors from "cors";
 import express, { type Request, type Response } from "express";
 import { getRegistry } from "llm-toolkit-observability";
+import { platform } from "os";
 import {
   DEFAULT_MAX_OUTPUT_CHARS,
-  WORKSPACE_ROOT,
   isCommandBlocked,
   resolveSafeCwd,
   truncateOutput,
+  WORKSPACE_ROOT,
 } from "./policy";
 import { runPunchout } from "./punchout";
 

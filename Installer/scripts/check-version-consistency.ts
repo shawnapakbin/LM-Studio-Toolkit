@@ -16,11 +16,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  type ManifestId,
-  type ManifestVersions,
   checkVersionConsistency,
   extractCargoVersion,
   extractJsonVersion,
+  type ManifestId,
+  type ManifestVersions,
 } from "./version-consistency.ts";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));

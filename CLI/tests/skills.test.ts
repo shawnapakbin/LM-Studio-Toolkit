@@ -2,8 +2,8 @@
  * CLI skills command — unit tests with mocked HTTP
  */
 
-import fs from "fs";
 import { Command } from "commander";
+import fs from "fs";
 import { registerSkillsCommands } from "../src/commands/skills";
 
 jest.mock("../src/http", () => ({

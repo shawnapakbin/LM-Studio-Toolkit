@@ -1,5 +1,5 @@
-import http from "http";
 import { jest } from "@jest/globals";
+import http from "http";
 import { DEFAULT_CONFIG, LanSubAgentConfig } from "../../src/config-schema";
 import { ConfigWatcher } from "../../src/config-watcher";
 import { EndpointRegistry } from "../../src/endpoint-registry";

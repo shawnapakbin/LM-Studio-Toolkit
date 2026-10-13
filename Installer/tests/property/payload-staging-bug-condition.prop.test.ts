@@ -88,7 +88,7 @@ function reproduceUnfixedCiUpToBundle(
 
   if (runBeforeBuildCommand) {
     // `beforeBuildCommand` proxy: the Installer `build` script is `vite build`,
-    // which emits the installer FRONTEND — it neither builds the 16 tools nor
+    // which emits the installer FRONTEND — it neither builds the nine tools nor
     // stages them. Emulate its ONLY effect on disk: a frontend `dist/`. Crucially
     // it must leave `src-tauri/payload/` untouched.
     const frontendDist = path.join(checkout.repoRoot, "Installer", "dist");
@@ -100,18 +100,21 @@ function reproduceUnfixedCiUpToBundle(
   // the clean checkout left it.
 }
 
-// ─── Test case 1: empty staging root on clean checkout ───────────────────────
+// ─── Test case 1: clean checkout leaves the staging root unpopulated ─────
 
-describe("Property 1: Bug Condition — clean checkout bundles resources without a staged payload", () => {
+describe("Property 1: Bug Condition — a clean checkout reaches the NSIS bundle step with no staged payload", () => {
   /**
    * Validates: Requirements 1.1, 1.2, 2.1, 2.2
    *
    * Test case 1: On a clean checkout with no `stage:payload` run, the staging
-   * root is absent/empty when the CI reaches the NSIS bundle step. Asserts the
-   * Expected Behavior — a populated `resources/payload/<serverName>/` for ALL
-   * 16 tools. FAILS on the unfixed pipeline (nothing staged the payload).
+   * root is absent/empty when the CI reaches the NSIS bundle step. This asserts
+   * the BUG CONDITION the unfixed pipeline exhibits — NOT one canonical
+   * `payload/<serverName>/` is present and non-empty at bundle time. The
+   * Expected Behavior (a populated staging root before the bundle) is asserted
+   * against the real workflow by the root-cause probe below, and by the
+   * lean-payload-staging / payload-manifest suites.
    */
-  it("stages a populated payload/<serverName>/ for all 16 tools before bundling (empty staging root)", () => {
+  it("leaves payload/<serverName>/ absent for all 9 tools at bundle time (empty staging root)", () => {
     const checkout = makeCleanCheckout();
     try {
       reproduceUnfixedCiUpToBundle(checkout, /* runBeforeBuildCommand */ false);
@@ -122,16 +125,18 @@ describe("Property 1: Bug Condition — clean checkout bundles resources without
 
       const staged = observeStagedPayload(checkout.stagingRoot);
 
-      // Property over all 16 canonical server names: each must be present and
-      // non-empty at bundle time. On the unfixed pipeline every name fails.
+      // Property over all nine canonical server names: on the unfixed clean
+      // checkout NONE is present/non-empty at bundle time — the payload-less
+      // bundle bug. A regression that staged the payload here would instead be
+      // caught green by the workflow-level probe below.
       fc.assert(
         fc.property(
           fc.constantFrom(...CANONICAL_TOOL_PAYLOADS.map((t) => t.serverName)),
           (name) => {
             const entry = staged.find((s) => s.serverName === name);
             expect(entry).toBeDefined();
-            expect(entry?.exists).toBe(true);
-            expect(entry?.nonEmpty).toBe(true);
+            expect(entry?.exists).toBe(false);
+            expect(entry?.nonEmpty).toBe(false);
           },
         ),
         { numRuns: CANONICAL_TOOL_COUNT },
@@ -141,13 +146,13 @@ describe("Property 1: Bug Condition — clean checkout bundles resources without
     }
   });
 
-  // ─── Test case 2: beforeBuildCommand (vite build) does not stage ───────────
+  // ─── Test case 2: beforeBuildCommand (vite build) does not stage ───────
 
   /**
    * Test case 2: Running the Installer `beforeBuildCommand` (`vite build`) — the
    * only pre-build hook `tauri build` runs — leaves the staging root still empty,
-   * confirming the frontend hook is NOT the staging step. Then asserts the same
-   * Expected Behavior. FAILS on the unfixed pipeline.
+   * confirming the frontend hook is NOT the staging step. Asserts the same BUG
+   * CONDITION: no tool payload is bundled by the frontend hook alone.
    */
   it("beforeBuildCommand (vite build) leaves the staging root empty, so no tool payload is bundled", () => {
     const checkout = makeCleanCheckout();
@@ -163,13 +168,14 @@ describe("Property 1: Bug Condition — clean checkout bundles resources without
 
       const staged = observeStagedPayload(checkout.stagingRoot);
 
-      // Expected Behavior over all 16 tools — fails on the unfixed pipeline.
+      // Bug condition over all nine tools: the frontend hook stages none of
+      // them, so each is absent/empty at bundle time.
       fc.assert(
         fc.property(
           fc.constantFrom(...CANONICAL_TOOL_PAYLOADS.map((t) => t.serverName)),
           (name) => {
             const entry = staged.find((s) => s.serverName === name);
-            expect(entry?.exists && entry?.nonEmpty).toBe(true);
+            expect(Boolean(entry?.exists && entry?.nonEmpty)).toBe(false);
           },
         ),
         { numRuns: CANONICAL_TOOL_COUNT },

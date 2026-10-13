@@ -8,7 +8,7 @@ Quick reference for setting up LLM Toolkit.
 
 | Requirement | Minimum | Check |
 |-------------|---------|-------|
-| Node.js | 18+ | `node --version` |
+| Node.js | 24+ | `node --version` |
 | npm | 8+ | `npm --version` |
 | LM Studio | Any | [lmstudio.ai](https://lmstudio.ai) |
 | Browserless API key | — | [browserless.io/account](https://browserless.io/account/) |
@@ -17,12 +17,11 @@ Quick reference for setting up LLM Toolkit.
 
 ## Option A — Native GUI Installer (recommended)
 
-Download the latest release artifact for your OS from GitHub Releases:
-- Windows: `install-XXXX.exe` (portable)
-- macOS: `install.dmg`
-- Linux: `install.AppImage`
+Download the latest release artifact from GitHub Releases:
+- Windows: NSIS `setup.exe` (from `bundle/nsis/*.exe`) — installs to `%LOCALAPPDATA%\LLM-Toolkit` (unelevated, `currentUser`)
+- macOS / Linux: deferred (not yet published)
 
-If your platform artifact is temporarily unavailable, use Option B fallback below.
+If your platform artifact is unavailable, use Option B fallback below.
 
 ---
 
@@ -67,7 +66,7 @@ npm run setup:gui      # Browser GUI
 
 | Step | Action |
 |------|--------|
-| 1 | Checks Node 18+ and npm 8+ |
+| 1 | Checks Node 24+ and npm 8+ |
 | 2 | Creates `.env` from `.env.example` if missing |
 | 3 | Runs `npm install` |
 | 4 | Runs `npm run build` (compiles all tools + CLI + SlashCommands) |
@@ -79,7 +78,7 @@ npm run setup:gui      # Browser GUI
 
 ## Unified Configuration
 
-Starting with v2.4.0, all tool settings are managed through a single YAML file at the project root:
+The unified configuration system manages all tool settings through a single YAML file at the project root:
 
 ```
 llm-toolkit.config.yaml
@@ -109,10 +108,8 @@ browserless:
   apiKey: YOUR_API_KEY_HERE   # Browserless API key (replace with your key)
   apiUrl: https://production-sfo.browserless.io
 
-rag:
-  port: 3339                  # HTTP port for RAG server
-  dbPath: ./rag.db            # Path to RAG SQLite database
-  embeddingModel: nomic-ai/nomic-embed-text-v1.5
+skills:
+  dbPath: ./skills.db         # Path to Skills SQLite database
 ```
 
 > All examples use placeholder values. Never commit real API keys to version control.
@@ -175,11 +172,11 @@ Changes take effect on the next tool server restart (re-run `npm run setup:repai
 |---------|-----|
 | `Cannot find module '...dist/mcp-server.js'` | Run `npm run setup:repair` — sets `cwd` in bridge configs |
 | `BROWSERLESS_API_KEY is not configured` | Add key to `.env`, then re-run `npm run setup:repair` |
-| Build fails | Check Node version (`node --version` must be 18+) |
+| Build fails | Check Node version (`node --version` must be 24+) |
 | LM Studio doesn't see tools | Restart LM Studio after setup |
 | Plugin not installed in LM Studio | Install the MCP plugin in LM Studio first, then re-run setup |
 
-See [docs/FAQ.md](docs/FAQ.md) for detailed issue explanations.
+See [FAQ.md](FAQ.md) for detailed issue explanations.
 
 ---
 

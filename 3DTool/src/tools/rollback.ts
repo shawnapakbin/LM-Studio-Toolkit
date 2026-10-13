@@ -8,11 +8,10 @@ import { sceneManager } from "../shared-state";
  *
  * Validates: Requirements 7.2, 7.3, 7.4
  */
-export function rollback(args: {
-  backupId: string;
-  filePath: string;
-  workspaceRoot: string;
-}): { content: Array<{ type: string; text: string }>; isError?: boolean } {
+export function rollback(args: { backupId: string; filePath: string; workspaceRoot: string }): {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+} {
   const { backupId, filePath, workspaceRoot } = args;
 
   const historyManager = new HistoryManager(workspaceRoot);

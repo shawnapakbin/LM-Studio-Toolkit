@@ -17,7 +17,7 @@ import { LanSubAgentConfig } from "../config-schema";
 import { ConfigWatcher } from "../config-watcher";
 import { EndpointRegistry } from "../endpoint-registry";
 import { HealthChecker } from "../health-checker";
-import { Logger, logger as defaultLogger } from "../logger";
+import { logger as defaultLogger, Logger } from "../logger";
 import { EndpointDefinition } from "../types";
 
 // ─── Config Interface ────────────────────────────────────────────────────────

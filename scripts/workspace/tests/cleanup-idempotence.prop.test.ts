@@ -25,10 +25,10 @@
  */
 
 import { execFileSync } from "child_process";
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 
 // ─── Stray-artifact model (mirrors tasks 8.1 / 8.2) ───────────────────────────
 

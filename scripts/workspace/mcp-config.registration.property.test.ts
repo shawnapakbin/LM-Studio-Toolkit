@@ -24,30 +24,23 @@ import * as fc from "fast-check";
 const { buildMcpServers } = require("./mcp-config");
 
 /**
- * The 16 registered Runtime_Server_Workspaces, keyed by their kebab-case server
- * name as it appears in the `servers` map of `mcp-config.js` (Req 1.1, 1.2, and
- * the seven additions from task 3.1). This is the authoritative registered set:
- * 9 existing + 7 added = 16 (Req 1.5, 8.3).
+ * The nine registered Runtime_Server_Workspaces (Shipped set), keyed by their
+ * kebab-case server name as it appears in the `servers` map of `mcp-config.js`.
+ * After the retire-and-gate-mcp-servers change the four Retired servers
+ * (rag, csv-exporter, file-editor, package-manager) are deleted and the three
+ * Unshipped servers (slash-commands, sub-agent, git) are deregistered, leaving
+ * exactly these nine as the authoritative registered set.
  */
 const RUNTIME_SERVER_KEYS = [
-  // 9 existing
   "terminal",
   "web-browser",
   "common",
   "browserless",
-  "rag",
   "python-shell",
   "skills",
-  "slash-commands",
   "blender-bridge",
-  // 7 added (task 3.1)
   "3dtool",
-  "sub-agent",
   "lan-sub-agent",
-  "git",
-  "package-manager",
-  "csv-exporter",
-  "file-editor",
 ] as const;
 
 /**
@@ -117,7 +110,7 @@ describe("mcp-config registration property tests", () => {
       );
     });
 
-    it("the registered set equals exactly the 16 Runtime_Server_Workspaces (Req 1.5, 8.3)", () => {
+    it("the registered set equals exactly the nine Runtime_Server_Workspaces (Req 1.5, 8.3)", () => {
       const runtimeSet = new Set<string>(RUNTIME_SERVER_KEYS);
       const registeredSet = new Set(registeredKeys);
 
@@ -129,9 +122,9 @@ describe("mcp-config registration property tests", () => {
       for (const key of runtimeSet) {
         expect(registeredSet.has(key)).toBe(true);
       }
-      // Count reconciliation: exactly 16 registered plugin entries.
-      expect(registeredKeys.length).toBe(16);
-      expect(RUNTIME_SERVER_KEYS.length).toBe(16);
+      // Count reconciliation: exactly nine registered plugin entries.
+      expect(registeredKeys.length).toBe(9);
+      expect(RUNTIME_SERVER_KEYS.length).toBe(9);
     });
 
     it("no Library_Workspace ever appears in the registered set (Req 1.3)", () => {

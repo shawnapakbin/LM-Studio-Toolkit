@@ -9,10 +9,8 @@ export const ENDPOINTS = {
   clock: getConfig().slashcommands.clockEndpoint,
   terminal: getConfig().slashcommands.terminalEndpoint,
   askuser: getConfig().slashcommands.askuserEndpoint,
-  rag: getConfig().slashcommands.ragEndpoint,
   pythonshell: getConfig().slashcommands.pythonshellEndpoint,
   skills: getConfig().slashcommands.skillsEndpoint,
-  ecm: getConfig().slashcommands.ecmEndpoint,
 } as const;
 
 export const DEFAULT_SESSION = getConfig().slashcommands.defaultSession;
@@ -54,13 +52,8 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
   { key: "clock", name: "Clock", namespace: "clock", distDir: "Clock" },
   { key: "terminal", name: "Terminal", namespace: "terminal", distDir: "Terminal" },
   { key: "askuser", name: "AskUser", namespace: "askuser", distDir: "AskUser" },
-  { key: "rag", name: "RAG", namespace: "rag", distDir: "RAG" },
   { key: "pythonshell", name: "PythonShell", namespace: "pythonshell", distDir: "PythonShell" },
   { key: "skills", name: "Skills", namespace: "skills", distDir: "Skills" },
-  // ECM has no config namespace of its own; its endpoint is resolved from the
-  // slashcommands routing table (see endpointForServer's fallback). We point its
-  // namespace at `slashcommands` so the entry stays typed to a real Config key.
-  { key: "ecm", name: "ECM", namespace: "slashcommands", distDir: "ECM" },
   { key: "browserless", name: "Browserless", namespace: "browserless", distDir: "Browserless" },
   {
     key: "documentscraper",
@@ -75,16 +68,8 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     namespace: "observability",
     distDir: "Observability",
   },
-  { key: "fileeditor", name: "FileEditor", namespace: "fileeditor", distDir: "FileEditor" },
   { key: "git", name: "Git", namespace: "git", distDir: "Git" },
-  {
-    key: "packagemanager",
-    name: "PackageManager",
-    namespace: "packagemanager",
-    distDir: "PackageManager",
-  },
   { key: "threedtool", name: "3DTool", namespace: "threedtool", distDir: "3DTool" },
-  { key: "csvexporter", name: "CSVExporter", namespace: "csvexporter", distDir: "CSVExporter" },
 ] as const;
 
 /**
@@ -108,18 +93,16 @@ export function realBoundPort(entry: ServerRegistryEntry): number | undefined {
  * `tools_list` to report each server at its actual port (e.g. Terminal at
  * `3333`, not the stale `3330`).
  *
- * For servers without a port of their own (e.g. `ecm`, whose endpoint lives in
- * the slashcommands routing table), the entry's `slashcommands.*Endpoint` value
- * is used as a fallback when available; otherwise `undefined` is returned and
- * discovery decides how to handle the entry.
+ * For servers without a port of their own, the entry's `slashcommands.*Endpoint`
+ * value is used as a fallback when available; otherwise `undefined` is returned
+ * and discovery decides how to handle the entry.
  */
 export function endpointForServer(entry: ServerRegistryEntry): string | undefined {
   const port = realBoundPort(entry);
   if (port !== undefined) {
     return `http://localhost:${port}`;
   }
-  // Fallback for servers with no port of their own but a known routing endpoint
-  // (e.g. ECM -> slashcommands.ecmEndpoint).
+  // Fallback for servers with no port of their own but a known routing endpoint.
   const slashEndpointKey = `${entry.key}Endpoint` as keyof Config["slashcommands"];
   const fallback = getConfig().slashcommands[slashEndpointKey];
   return typeof fallback === "string" ? fallback : undefined;

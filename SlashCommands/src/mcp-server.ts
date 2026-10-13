@@ -17,15 +17,6 @@ import { route } from "./router";
 const COMMAND_REFERENCE = `
 Supported slash commands:
   /help
-  /compact [--session <id>] [--keep-newest <n>]
-  /ecm store <text> [--session <id>] [--type <type>] [--importance <0-1>]
-  /ecm retrieve <query> [--session <id>] [--top-k <n>]
-  /ecm list [--session <id>]
-  /ecm summarize [--session <id>] [--keep-newest <n>]
-  /ecm clear [--session <id>]
-  /ecm continuous on [--session <id>] [--keep-newest <n>]
-  /ecm continuous off [--session <id>]
-  /ecm policy [--session <id>]
   /calc <expression> [--precision <n>]
   /browse <url> [--format text|markdown|html] [--screenshot] [--wait-selector <css>]
   /clock [--timezone <iana-tz>]
@@ -34,10 +25,6 @@ Supported slash commands:
   /skills get <name>
   /skills run <name> [--params <json>]
   /skills delete <name>
-  /rag query <text> [--top-k <n>]
-  /rag ingest <text> [--source <label>]
-  /rag list
-  /rag delete <sourceId>
   /ask <prompt> [--title <title>] [--expires <seconds>]
   /tools list
   /tools health [<tool-name>]

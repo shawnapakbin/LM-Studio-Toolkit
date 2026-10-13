@@ -6,9 +6,10 @@ import { sceneManager } from "../shared-state";
  *
  * Validates: Requirements 10.3, 10.4
  */
-export function acknowledgeInteraction(args: {
-  id: string;
-}): { content: Array<{ type: string; text: string }>; isError?: boolean } {
+export function acknowledgeInteraction(args: { id: string }): {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+} {
   const { id } = args;
 
   const found = sceneManager.acknowledgeInteraction(id);

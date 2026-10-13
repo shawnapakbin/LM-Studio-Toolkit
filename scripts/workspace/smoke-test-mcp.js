@@ -23,12 +23,9 @@ const tools = [
   { name: "DocumentScraper", dist: "DocumentScraper/dist/mcp-server.js" },
   { name: "Clock", dist: "Clock/dist/mcp-server.js" },
   ...(isCI ? [] : [{ name: "AskUser", dist: "AskUser/dist/mcp-server.js" }]),
-  { name: "RAG", dist: "RAG/dist/mcp-server.js" },
   { name: "PythonShell", dist: "PythonShell/dist/mcp-server.js" },
   { name: "Skills", dist: "Skills/dist/mcp-server.js" },
-  { name: "SlashCommands", dist: "SlashCommands/dist/mcp-server.js" },
   { name: "BlenderBridge", dist: "BlenderBridge/dist/mcp-server.js" },
-  { name: "SubAgent", dist: "SubAgent/dist/mcp-server.js" },
 ];
 
 function smokeTest(tool) {
@@ -42,9 +39,6 @@ function smokeTest(tool) {
       stdio: ["pipe", "ignore", "pipe"],
       env: {
         ...process.env,
-        RAG_DB_PATH: ":memory:",
-        RAG_EMBEDDINGS_MODE: "mock",
-        RAG_BYPASS_APPROVAL: "true",
       },
     });
 

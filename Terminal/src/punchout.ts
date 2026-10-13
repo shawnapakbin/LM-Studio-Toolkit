@@ -13,8 +13,7 @@
 import { spawn } from "child_process";
 import { randomBytes } from "crypto";
 import { existsSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { platform } from "os";
+import { platform, tmpdir } from "os";
 import { join } from "path";
 
 // ---------------------------------------------------------------------------

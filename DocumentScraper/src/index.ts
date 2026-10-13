@@ -3,8 +3,8 @@ import cors from "cors";
 import express, { type Request, type Response } from "express";
 import {
   type CrawlDocumentsInput,
-  type ReadDocumentInput,
   crawlDocuments,
+  type ReadDocumentInput,
   readDocument,
 } from "./document-scraper";
 import { runPreflightChecks } from "./preflight-check";

@@ -24,40 +24,40 @@
 ### 3. Build Verification ✅
 - [ ] Run `npm run build`
 - [ ] All tools compile successfully
-- [ ] Check `dist/` directories exist for all tools:
+- [ ] Check `dist/` directories exist for the nine Shipped servers:
   - Terminal/dist/
   - WebBrowser/dist/
-  - Calculator/dist/
-  - DocumentScraper/dist/
-  - Clock/dist/
-  - Browserless/dist/
-  - AskUser/dist/
-  - RAG/dist/
+  - mcp/common (bundled Calculator + Clock + AskUser + DocumentScraper)
+  - Browserless/scripts/ (browserless has no dist; registers via `scripts/schema-proxy.js`)
+  - PythonShell/dist/
   - Skills/dist/
+  - BlenderBridge/dist/
+  - 3DTool/dist/
+  - LanSubAgent/dist/
+- [ ] Confirm supporting workspaces still compile:
   - Memory/dist/
   - AgentRunner/dist/
   - Observability/dist/
-  - CSVExporter/dist/
-  - Git/dist/
-  - FileEditor/dist/
-  - PackageManager/dist/
   - CLI/dist/
+- [ ] Confirm the three Unshipped servers still build (their workspaces remain in-repo) but are **not** staged or shipped:
   - SlashCommands/dist/
+  - SubAgent/dist/
+  - Git/dist/
 
 ### 4. MCP Readiness ✅
 - [ ] Run `npm run startup:check:strict`
 - [ ] All MCP binaries present (`dist/mcp-server.js`)
 - [ ] Environment variables validated
-- [ ] Plugin registration synchronized (`npm run verify:mcp-sync` exits 0 — 16 registered entries)
-- [ ] Run `npm run test:mcp` and confirm MCP integration suites pass for AskUser, RAG, and Terminal
+- [ ] Plugin registration synchronized (`npm run verify:mcp-sync` exits 0 — 9 registered entries)
+- [ ] Run `npm run test:mcp` and confirm MCP integration suites pass for AskUser and Terminal
 - [ ] Run live gates (`npm run test:mcp:live` and `npm run test:mcp:live:matrix`) with `LMSTUDIO_LIVE_TEST=true`
 - [ ] Confirm matrix flow unloads all loaded LM Studio models before loading each target model
 
 ### 5. Evaluation & Regression ✅
-- [ ] Run `npm run eval:run`
+- [ ] Run the evaluation suite (via `npm run test:ci`)
 - [ ] Pass rate meets baseline threshold
 - [ ] Average retries within acceptable range
-- [ ] Run `npm run eval:drift` to check for regressions
+- [ ] Check for regressions against the baseline
 - [ ] Review golden traces for anomalies
 
 ### 6. Complete Verification ✅
@@ -172,7 +172,6 @@ npm outdated
 
 ```bash
 npm run verify:all && \
-npm run eval:drift && \
 test -f docs/VNEXT_FEATURES.md && \
 echo "✅ Ready for release"
 ```

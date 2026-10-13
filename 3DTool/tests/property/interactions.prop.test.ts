@@ -1,9 +1,9 @@
 // Feature: poll-interactions-fix, Property 1: Bug Condition - Poll Drains Interactions Making Acknowledgment Impossible
 // **Validates: Requirements 1.2, 1.3, 2.1, 2.3**
 
+import * as fc from "fast-check";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as fc from "fast-check";
 import { SceneManager } from "../../src/scene-manager";
 
 const __filename_esm = fileURLToPath(import.meta.url);

@@ -32,6 +32,12 @@ LM Studio ←→ schema-proxy.js ←→ npx @browserless.io/mcp ←→ Browserle
 
 The setup scripts automatically map `BROWSERLESS_API_KEY` to `BROWSERLESS_TOKEN` in the bridge config so the official package authenticates correctly.
 
+## Security — Token Handling and Rotation
+
+- Source the token **only** from your user config: `BROWSERLESS_API_KEY` in your local `.env` (or `browserless.apiKey` in `llm-toolkit.config.yaml`). The canonical default is empty, and the value is injected at install/runtime from your config — it is never hardcoded in source and must never be committed to version control.
+- If a Browserless token has ever been exposed — shared, committed, or observed in a generated `mcp-bridge-config.json` — treat it as **compromised**. Rotate/revoke it from the [Browserless dashboard](https://browserless.io/account/) and issue a new one, then update your `.env` and re-run setup.
+- Rotation/revocation is a **manual operational step** you perform in your Browserless account; the toolkit cannot do it for you.
+
 ## Scripts
 
 | Script | Purpose |

@@ -2,11 +2,11 @@
  * Router — takes a DispatchDescriptor and executes the appropriate tool call
  */
 
-import fs from "fs";
-import path from "path";
 import { getConfig } from "@shared/config";
 import Database from "better-sqlite3";
-import { DEFAULT_SESSION, ENDPOINTS } from "./config";
+import fs from "fs";
+import path from "path";
+import { ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
 import type { DispatchDescriptor } from "./parser";
 
@@ -17,25 +17,12 @@ const TOOL_NAMES: Record<string, string> = {
   terminal: "Terminal",
   pythonshell: "PythonShell",
   askuser: "AskUser",
-  rag: "RAG",
   skills: "Skills",
-  ecm: "ECM",
 };
 
 const HELP_TEXT = `Available slash commands:
 
   /help                                  Show this help message
-
-  Context Memory (ECM)
-  /compact [--session <id>] [--keep-newest <n>]
-  /ecm store <text> [--session <id>] [--type <type>] [--importance <0-1>]
-  /ecm retrieve <query> [--session <id>] [--top-k <n>]
-  /ecm list [--session <id>]
-  /ecm summarize [--session <id>] [--keep-newest <n>]
-  /ecm clear [--session <id>]
-  /ecm continuous on [--session <id>] [--keep-newest <n>]
-  /ecm continuous off [--session <id>]
-  /ecm policy [--session <id>]
 
   Calculator
   /calc <expression> [--precision <n>]
@@ -60,12 +47,6 @@ const HELP_TEXT = `Available slash commands:
   /skills run <name> [--params <json>]
   /skills delete <name>
 
-  RAG (Knowledge Base)
-  /rag query <text> [--top-k <n>]
-  /rag ingest <text> [--source <label>]
-  /rag list
-  /rag delete <sourceId>
-
   AskUser
   /ask <prompt> [--title <title>] [--expires <seconds>]
 
@@ -84,38 +65,6 @@ const HELP_TEXT = `Available slash commands:
 
 export async function route(desc: DispatchDescriptor): Promise<unknown> {
   switch (desc.tool) {
-    // ── ECM ───────────────────────────────────────────────────────────────
-    case "ecm": {
-      if (desc.action === "compact") {
-        // Two-step: summarize then report remaining count
-        const { sessionId = DEFAULT_SESSION, keepNewest = 5 } = desc.params;
-        const summary = await post(`${ENDPOINTS.ecm}/tools/ecm`, {
-          action: "summarize_session",
-          sessionId,
-          keepNewest,
-        });
-        const list = (await post(`${ENDPOINTS.ecm}/tools/ecm`, {
-          action: "list_segments",
-          sessionId,
-          limit: 1,
-        })) as Record<string, unknown>;
-        const data = list.data as Record<string, unknown> | undefined;
-        return {
-          success: true,
-          action: "compact",
-          sessionId,
-          keepNewest,
-          summary,
-          segmentsRemaining: data?.total ?? "unknown",
-          message: `Context compacted. Session "${sessionId}" summarized, ${data?.total ?? "?"} segments remaining.`,
-        };
-      }
-      return post(`${ENDPOINTS.ecm}/tools/ecm`, {
-        action: desc.action,
-        ...desc.params,
-      });
-    }
-
     // ── Calculator ────────────────────────────────────────────────────────
     case "calculator":
       return post(`${ENDPOINTS.calculator}/tools/calculate_engineering`, {
@@ -172,53 +121,6 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         action: desc.action,
         ...desc.params,
       });
-
-    // ── RAG ───────────────────────────────────────────────────────────────
-    case "rag": {
-      if (desc.action === "query") {
-        const query = String(desc.params?.query ?? "").trim();
-        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-          action: "query_knowledge",
-          payload: {
-            query,
-            ...(desc.params?.topK !== undefined ? { topK: desc.params.topK } : {}),
-          },
-        });
-      }
-
-      if (desc.action === "ingest") {
-        const content = String(desc.params?.content ?? "").trim();
-        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-          action: "ingest_documents",
-          payload: {
-            documents: [
-              {
-                text: content,
-                ...(desc.params?.source ? { sourceKey: String(desc.params.source) } : {}),
-              },
-            ],
-          },
-        });
-      }
-
-      if (desc.action === "list_sources") {
-        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-          action: "list_sources",
-          payload: {},
-        });
-      }
-
-      if (desc.action === "delete_source") {
-        return post(`${ENDPOINTS.rag}/tools/rag_knowledge`, {
-          action: "delete_source",
-          payload: {
-            sourceId: desc.params?.sourceId,
-          },
-        });
-      }
-
-      return { success: false, error: `Unsupported RAG action: ${String(desc.action)}` };
-    }
 
     // ── AskUser ───────────────────────────────────────────────────────────
     case "askuser": {
@@ -353,15 +255,12 @@ export async function route(desc: DispatchDescriptor): Promise<unknown> {
         error: `Unknown slash command: "${desc.raw}". Type /help to see all available commands.`,
         availableCommands: [
           "/help",
-          "/compact",
-          "/ecm store|retrieve|list|delete|summarize|clear",
           "/calc <expr>",
           "/browse <url>",
           "/clock",
           "/run <cmd>",
           "/python run|repl|idle",
           "/skills list|get|run|delete",
-          "/rag query|ingest|list|delete",
           "/ask <prompt>",
           "/tools list|health|schema",
           "/memory stats|history|patterns",

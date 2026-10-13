@@ -2,8 +2,8 @@
  * skills — manage and execute Skills playbooks
  */
 
-import fs from "fs";
 import type { Command } from "commander";
+import fs from "fs";
 import { TOOL_ENDPOINTS } from "../config";
 import { handleError, printResult, toolPost } from "../http";
 

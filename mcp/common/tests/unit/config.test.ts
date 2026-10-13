@@ -80,11 +80,6 @@ describe("MCP Config Generator", () => {
       expect(mcpServers.browserless).toBeDefined();
     });
 
-    it("should preserve 'rag' entry", () => {
-      expect(mcpServers.rag).toBeDefined();
-      expect(mcpServers.rag.command).toBe("node");
-    });
-
     it("should preserve 'python-shell' entry", () => {
       expect(mcpServers["python-shell"]).toBeDefined();
       expect(mcpServers["python-shell"].command).toBe("node");
@@ -93,11 +88,6 @@ describe("MCP Config Generator", () => {
     it("should preserve 'skills' entry", () => {
       expect(mcpServers.skills).toBeDefined();
       expect(mcpServers.skills.command).toBe("node");
-    });
-
-    it("should preserve 'slash-commands' entry", () => {
-      expect(mcpServers["slash-commands"]).toBeDefined();
-      expect(mcpServers["slash-commands"].command).toBe("node");
     });
 
     it("should preserve 'blender-bridge' entry", () => {

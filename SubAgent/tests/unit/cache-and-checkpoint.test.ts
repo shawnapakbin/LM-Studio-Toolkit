@@ -4,9 +4,9 @@
  * @version 2.3.1
  */
 
+import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
-import * as fs from "fs/promises";
 import { CheckpointStore } from "../../src/checkpoint-store";
 import { DedupCache } from "../../src/dedup-cache";
 

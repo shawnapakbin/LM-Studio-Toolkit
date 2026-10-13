@@ -261,11 +261,28 @@ pub fn download_with_retry(
 
 /// Compute the SHA-256 hash of a file, returning the lowercase hex-encoded digest.
 fn compute_sha256(path: &Path) -> Result<String, io::Error> {
+    use std::io::Read;
+
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
-    io::copy(&mut file, &mut hasher)?;
+    let mut buffer = [0u8; 8192];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
     let hash = hasher.finalize();
-    Ok(format!("{:x}", hash))
+    // Lowercase hex-encode the digest bytes. The `sha2` 0.11 `finalize()`
+    // output no longer implements `LowerHex`/`io::Write`, so we hex-encode the
+    // raw bytes explicitly to preserve the previous `format!("{:x}", ..)` output.
+    let mut hex = String::with_capacity(hash.len() * 2);
+    for byte in hash.iter() {
+        use std::fmt::Write as _;
+        let _ = write!(hex, "{:02x}", byte);
+    }
+    Ok(hex)
 }
 
 #[cfg(test)]

@@ -5,9 +5,9 @@
  */
 
 import * as fs from "fs";
-import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
+import { BlenderClient, createBlenderClient, ExecuteBlenderCodeFn } from "../src/blender-client";
 import { validateCreateObjectInput } from "../src/tools/create-object.tool";
-import { HttpClient, createExportToViewerTool } from "../src/tools/export-to-viewer.tool";
+import { createExportToViewerTool, HttpClient } from "../src/tools/export-to-viewer.tool";
 import { BlenderBridgeConfig } from "../src/types";
 
 // Mock fs module for existsSync

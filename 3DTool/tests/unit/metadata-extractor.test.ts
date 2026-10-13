@@ -1,9 +1,9 @@
+import { Document, NodeIO } from "@gltf-transform/core";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Document, NodeIO } from "@gltf-transform/core";
-import { GltfMetadata, ObjMetadata, extractMetadata } from "../../src/metadata-extractor";
+import { extractMetadata, GltfMetadata, ObjMetadata } from "../../src/metadata-extractor";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

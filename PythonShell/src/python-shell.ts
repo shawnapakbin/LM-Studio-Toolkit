@@ -1,8 +1,8 @@
+import { getConfig } from "@shared/config";
 import { type SpawnSyncReturns, spawn, spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { getConfig } from "@shared/config";
 import { detectPythonEnvironment, getPythonInstallInstructions } from "./python-env";
 
 const WORKSPACE_ROOT = path.resolve(getConfig().pythonshell.workspaceRoot || process.cwd());

@@ -7,9 +7,9 @@
  */
 
 import * as fs from "fs";
+import nock from "nock";
 import * as os from "os";
 import * as path from "path";
-import nock from "nock";
 
 import { EndpointRegistry } from "../../src/endpoint-registry";
 import { HealthChecker } from "../../src/health-checker";

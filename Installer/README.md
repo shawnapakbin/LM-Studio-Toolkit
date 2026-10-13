@@ -23,6 +23,10 @@ fail-fast (the second stage never runs if the first fails):
    `src-tauri/payload/<serverName>/`. If any tool's `dist/` is **absent or
    empty**, staging **aborts with a non-zero exit and prints every missing tool
    by name** — no payload is staged and `tauri build` never runs (Req 3.2, 3.3).
+   In addition, once the payload is staged, the step scans it for an embedded
+   secret (a non-empty, non-placeholder `BROWSERLESS_TOKEN`); if one is found it
+   **aborts with a non-zero exit and names the offending file**, so no build ever
+   ships a real token in a bundled config.
 2. **`tauri build`** — Tauri runs its configured `beforeBuildCommand`
    (`npm run build`, the Vite frontend build → `dist/`, consumed as
    `frontendDist`), embeds the staged `payload/` directory as a bundle resource,
@@ -37,7 +41,9 @@ Installer/src-tauri/target/release/bundle/nsis/*.exe
 ```
 
 This is the path the release workflow (`.github/workflows/installer-release.yml`)
-publishes. The installer is built `perMachine` and unsigned.
+publishes. The installer is built for a current-user (unelevated) install
+(`nsis.installMode: currentUser`) and is unsigned. It installs under the
+per-user location (`%LOCALAPPDATA%`) without requiring administrator elevation.
 
 ### Failure behavior
 
@@ -49,11 +55,25 @@ The build is fail-fast and produces no partial artifact (Req 1.8, 2.5):
 - If `tauri build` fails, it returns a non-zero exit status and does not write a
   `.exe` to the `nsis/` output directory.
 
+### Install-dir path anchoring
+
+At install time the installer derives each tool's environment config and
+**anchors relative or empty default paths under the per-user install directory**
+(`%LOCALAPPDATA%\LLM-Toolkit`). For example, the `common` tool's
+`ASK_USER_DB_PATH` and `DOC_SCRAPER_WORKSPACE_ROOT` defaults resolve under the
+install directory rather than the build machine's working directory, so a fresh
+install never references a developer's repo path. User-supplied absolute paths in
+`llm-toolkit.config.yaml` are left unchanged. Each tool's generated `args[0]`
+(its entry script) likewise resolves to `install_dir/<serverName>/<entry>`
+(`schema-proxy.js` for browserless, `mcp-server.js` otherwise), matching the
+staged `payload/<serverName>/` layout so plugins launch without
+`MODULE_NOT_FOUND`.
+
 ## Prerequisites
 
 `tauri build` requires the Rust toolchain (`cargo`) and the platform's native
 build dependencies. This is a Windows-only target (macOS/Linux are deferred).
-The frontend and staging tooling need Node.js (>= 20) and the installer's npm
+The frontend and staging tooling need Node.js (>= 24) and the installer's npm
 dependencies (`npm ci` in this directory).
 
 ## Useful sub-commands

@@ -18,17 +18,6 @@ Fixes:
 - ensure MCP_USE_PLAYWRIGHT=1 for modern JS-heavy sites
 - repair host CA trust
 - temporary workaround: MCP_INSECURE_TLS=1
-- if environment is sandboxed, start proxy gateway with npm run proxy
-
-### Proxy-specific errors
-
-Symptoms:
-- connection refused to 127.0.0.1:8765
-
-Fixes:
-- start proxy gateway: npm run proxy
-- verify: curl http://127.0.0.1:8765
-- restart LM Studio/client after proxy starts
 
 ## Terminal Tools
 
@@ -40,84 +29,22 @@ Symptom:
 Fix:
 - add command to ALLOWED_TERMINAL_COMMANDS or set ALLOWED_TERMINAL_COMMANDS=* if you want unrestricted mode
 
-### No output returned
+### Punchout & sudo/askpass
 
-Cause:
-- TERMINAL_PUNCHOUT=1 without capture enabled
+Full setup and configuration is documented in [QUICKSTART-SUDO.md](QUICKSTART-SUDO.md). Quick symptom → fix:
 
-Fix options:
-- capture-only: remove TERMINAL_PUNCHOUT
-- hybrid: set both TERMINAL_PUNCHOUT=1 and TERMINAL_CAPTURE_WITH_PUNCHOUT=1
-- interactive capture (for sudo): set all three — TERMINAL_PUNCHOUT=1, TERMINAL_CAPTURE_WITH_PUNCHOUT=1, TERMINAL_PUNCHOUT_WAIT_FOR_EXIT=1
+| Symptom | Fix |
+|---------|-----|
+| No output returned (`TERMINAL_PUNCHOUT=1` without capture) | Use hybrid mode: set `TERMINAL_CAPTURE_WITH_PUNCHOUT=1` (add `TERMINAL_PUNCHOUT_WAIT_FOR_EXIT=1` for interactive sudo) |
+| Punchout launcher not found | Install a launcher (gnome-terminal, konsole, xterm) or set `TERMINAL_PUNCHOUT_CMD` |
+| Punchout wait timed out | Increase `TERMINAL_PUNCHOUT_WAIT_TIMEOUT_MS` or set `TERMINAL_PUNCHOUT_WAIT_KEEP_OPEN=1` |
+| Sudo askpass helper not configured | Set `TERMINAL_SUDO_ASKPASS` (absolute path) or export `SUDO_ASKPASS` |
 
-### Punchout launcher not found
-
-Fix:
-- install a launcher (x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, xterm)
-- or set TERMINAL_PUNCHOUT_CMD to a valid launcher path
-
-### Punchout wait timed out
-
-Symptom:
-- timed out waiting for punchout completion
-
-Cause:
-- TERMINAL_PUNCHOUT_WAIT_FOR_EXIT=1 is enabled and the command did not finish before timeout
-
-Fix options:
-- increase TERMINAL_PUNCHOUT_WAIT_TIMEOUT_MS (default: 180000)
-- set TERMINAL_PUNCHOUT_WAIT_KEEP_OPEN=1 to keep the terminal open after completion
-- for captured output without interactive requirement, use hybrid mode (TERMINAL_CAPTURE_WITH_PUNCHOUT=1, no TERMINAL_PUNCHOUT_WAIT_FOR_EXIT)
-
-### Sudo askpass helper not configured
-
-Symptom:
-- sudo command requires askpass, but no helper was configured
-
-Cause:
-- TERMINAL_REQUIRE_ASKPASS_FOR_SUDO=1 is enabled without TERMINAL_SUDO_ASKPASS or SUDO_ASKPASS
-
-Fix:
-- set TERMINAL_SUDO_ASKPASS to an absolute helper path
-- or export SUDO_ASKPASS before starting the terminal MCP server
-
-## Filesystem Tools
-
-### Path outside allowed root
-
-Cause:
-- FS_ROOT sandbox restriction
-
-Fix:
-- set FS_ROOT to the intended workspace path in MCP server env
-
-## RAG Tools
-
-### Embeddings fail
-
-Cause:
-- LM Studio embeddings endpoint unavailable
-
-Fix:
-- ensure LM_STUDIO_URL is correct
-- verify endpoint availability
-
-```bash
-curl http://localhost:1234/v1/embeddings
-```
-
-### No search results
-
-Cause:
-- no documents ingested yet
-
-Fix:
-- use ingest_webpage or store_document first
-- confirm with list_documents
+See [QUICKSTART-SUDO.md](QUICKSTART-SUDO.md) for the complete walkthrough.
 
 ## Client Configuration
 
-The toolkit uses a plugin-only configuration model — the sole supported method. All 16 servers are provisioned automatically as LM Studio plugins; there is no config file to edit by hand.
+The toolkit uses a plugin-only configuration model — the sole supported method. All 9 servers are provisioned automatically as LM Studio plugins; there is no config file to edit by hand.
 
 ```bash
 npm run mcp:sync-lmstudio   # (re)provision all toolkit plugins

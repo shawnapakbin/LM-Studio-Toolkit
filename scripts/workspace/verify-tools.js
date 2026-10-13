@@ -23,7 +23,6 @@ const tools = [
   },
   { name: "Clock", dist: "Clock/dist/mcp-server.js", src: "Clock/src/mcp-server.ts" },
   { name: "AskUser", dist: "AskUser/dist/mcp-server.js", src: "AskUser/src/mcp-server.ts" },
-  { name: "RAG", dist: "RAG/dist/mcp-server.js", src: "RAG/src/mcp-server.ts" },
   {
     name: "PythonShell",
     dist: "PythonShell/dist/mcp-server.js",

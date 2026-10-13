@@ -11,8 +11,8 @@
 import fc from "fast-check";
 import {
   type DownloadAttemptResult,
-  MAX_ATTEMPTS,
   downloadWithRetry,
+  MAX_ATTEMPTS,
 } from "../helpers/download-retry";
 
 describe("Feature: v2-4-0-unified-config-installer, Property 14: Download Checksum Retry", () => {

@@ -1,5 +1,22 @@
 # Installer Roadmap — Multi-Platform Strategy
 
+> **Note:** This roadmap documents the historical **Electron** installer (LLM Toolkit v1). The current installer is a **Tauri v2 + Rust** application (`Installer/src-tauri/`) that stages the 9 tools' `dist/` payload via `Installer/scripts/stage-payload.ts` and produces an unsigned NSIS `setup.exe`. See the 'Current installer (Tauri)' summary below and `Installer/README.md`.
+
+## Current installer (Tauri) — summary
+
+- **Stack**: Tauri v2 + Rust (`Installer/src-tauri/`).
+- **Canonical tool list**: `Installer/scripts/payload-manifest.ts` (`CANONICAL_TOOL_PAYLOADS`) and `Installer/src-tauri/src/tool_payload.rs`.
+- **Build**: `npm run build:installer` → stage payload (fails fast on missing/empty `dist` **and** on an embedded `BROWSERLESS_TOKEN` secret) → `tauri build` → `bundle/nsis/*.exe`.
+- **Install scope**: `currentUser` under `%LOCALAPPDATA%\LLM-Toolkit` (unelevated), not `perMachine`.
+- **Paths**: default relative/empty env paths are anchored under the install dir.
+- **Plugin root**: `~/.lmstudio/extensions/plugins/mcp/<serverName>/` with `_owner: "llm-toolkit"`; entry scripts resolve to `install_dir/<serverName>/<entry>`.
+
+---
+
+_The historical Electron content below is retained for reference and does not describe the current installer._
+
+---
+
 Derived from the working `Installer/` (Windows portable `install-0019.exe`).
 
 ---
@@ -77,7 +94,7 @@ These are the failure patterns discovered across install-0001–0019. Catch them
 - [ ] `mcp-config.ts` `TOOL_DESCRIPTORS` `relativeScript` values match at least one candidate in `script-path.ts`
 
 ### 4. LM Studio Plugin Registration
-- [ ] Each of the 16 registered servers is provisioned into its own per-plugin directory (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`), never into the user-editable top-level LM Studio config
+- [ ] Each of the 9 registered servers is provisioned into its own per-plugin directory (`~/.lmstudio/extensions/plugins/mcp/{serverName}/`), never into the user-editable top-level LM Studio config
 - [ ] Each provisioned bridge config has: `command` (absolute Node path), `args` (absolute script path), `cwd`, `env`
 - [ ] `command` is the **absolute** path to node.exe — never the bare string `"node"` (clean VMs have no global Node in PATH)
 - [ ] Only toolkit-owned plugin directories (tagged `_owner: "llm-toolkit"`) are managed; plugins from other applications are left untouched
@@ -112,7 +129,7 @@ These are the failure patterns discovered across install-0001–0019. Catch them
 - Playwright `chromium` download path differs on macOS — test `WebBrowser` after install
 
 **Acceptance criteria**:
-- All 16 registered plugin entries appear and start in LM Studio on macOS
+- All 9 registered plugin entries appear and start in LM Studio on macOS
 - No `node is not recognized` — absolute node exe path used
 
 ---

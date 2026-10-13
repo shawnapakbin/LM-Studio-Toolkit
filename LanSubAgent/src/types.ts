@@ -16,7 +16,7 @@ import {
 } from "../../SubAgent/src/types";
 
 // Re-export SubAgent types used by other LanSubAgent modules
-export type { TaskManifest, TaskResult, CheckpointFile, TelemetryRecord, ProgressReport };
+export type { CheckpointFile, ProgressReport, TaskManifest, TaskResult, TelemetryRecord };
 
 // ─── Endpoint Models ─────────────────────────────────────────────────────────
 

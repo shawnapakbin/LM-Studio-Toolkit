@@ -1,10 +1,13 @@
 {
   "name": "lm-studio-toolkit",
-  "version": "5.1.2",
+  "version": "5.4.2",
   "description": "Enterprise-grade LLM agent toolkit with multi-tool orchestration",
   "private": true,
   "main": "dist/index.js",
   "type": "commonjs",
+  "engines": {
+    "node": ">=24.0.0 <25.0.0"
+  },
   "scripts": {
     "setup": "node scripts/setup/setup.js",
     "setup:repair": "node scripts/setup/setup.js --repair",
@@ -19,13 +22,15 @@
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --maxWorkers=2 && npm run -w CLI test:ci && npm run -w SlashCommands test:ci && npm run -w mcp/common test:ci && (npm run -w 3DTool test || echo 3DTool tests skipped due to ESM compatibility)",
     "test:all": "jest --coverage && npm run -w CLI test && npm run -w SlashCommands test && npm run -w AgentRunner test && npm run -w Memory test && npm run -w Skills test",
-    "test:mcp": "jest AskUser/tests/mcp.test.ts RAG/tests/mcp.test.ts Terminal/tests/mcp.test.ts PythonShell/tests/mcp.test.ts",
-    "test:mcp:live": "jest RAG/tests/mcp.live.test.ts",
+    "test:mcp": "jest AskUser/tests/mcp.test.ts Terminal/tests/mcp.test.ts PythonShell/tests/mcp.test.ts",
+    "test:mcp:live": "jest testing/evaluation/mcp.live-model-matrix.test.ts",
     "test:mcp:live:matrix": "jest testing/evaluation/mcp.live-model-matrix.test.ts",
     "verify-tools": "node scripts/workspace/verify-tools.js",
     "verify:mcp-sync": "node scripts/workspace/verify-mcp-sync.js",
     "verify:vnext-scope": "node scripts/workspace/verify-vnext-scope.js",
     "verify:secrets": "node scripts/workspace/precommit-secrets.js",
+    "version:check": "tsx scripts/workspace/version-sync/sync-repo-version.ts check",
+    "version:sync": "tsx scripts/workspace/version-sync/sync-repo-version.ts sync",
     "startup:check": "node scripts/workspace/startup-check.js",
     "startup:check:strict": "node scripts/workspace/startup-check.js --strict-env",
     "smoke-test:mcp": "node scripts/workspace/smoke-test-mcp.js",
@@ -39,7 +44,7 @@
     "build": "npm run build:shared && npm run build:observability && npm run build:tools && npm run build:common && npm run build:memory",
     "build:shared": "npm run -w shared build && npm run -w shared/config build",
     "build:observability": "npm run -w Observability build",
-    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w AskUser build && npm run -w RAG build && npm run -w PythonShell build && npm run -w Skills build && npm run -w SlashCommands build && npm run -w CSVExporter build && npm run -w Git build && npm run -w FileEditor build && npm run -w PackageManager build && npm run -w BlenderBridge build && npm run -w 3DTool build && npm run -w SubAgent build && npm run -w LanSubAgent build",
+    "build:tools": "npm run -w Terminal build && npm run -w WebBrowser build && npm run -w Calculator build && npm run -w DocumentScraper build && npm run -w Clock build && npm run -w AskUser build && npm run -w PythonShell build && npm run -w Skills build && npm run -w SlashCommands build && npm run -w Git build && npm run -w BlenderBridge build && npm run -w 3DTool build && npm run -w SubAgent build && npm run -w LanSubAgent build",
     "build:common": "npm run -w mcp/common build",
     "build:memory": "npm run -w Memory build",
     "build:cli": "npm run -w CLI build",
@@ -47,7 +52,7 @@
     "build:slash": "npm run -w SlashCommands build",
     "dev": "npm run dev -w Terminal",
     "clean": "rm -rf dist coverage .biome-cache && npm run clean:tools",
-    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w AskUser clean && npm run -w RAG clean && npm run -w PythonShell clean && npm run -w Skills clean && npm run -w SlashCommands clean && npm run -w CSVExporter clean && npm run -w Git clean && npm run -w FileEditor clean && npm run -w PackageManager clean"
+    "clean:tools": "npm run -w Terminal clean && npm run -w WebBrowser clean && npm run -w Calculator clean && npm run -w DocumentScraper clean && npm run -w Clock clean && npm run -w AskUser clean && npm run -w PythonShell clean && npm run -w Skills clean && npm run -w SlashCommands clean && npm run -w Git clean"
   },
   "keywords": [
     "llm",
@@ -61,30 +66,30 @@
   "author": "Shawna Pakbin",
   "license": "LicenseRef-Shawna-NonCommercial",
   "dependencies": {
-    "uuid": "^9.0.1"
+    "uuid": "^11.1.1"
+  },
+  "overrides": {
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.8.3",
-    "@types/better-sqlite3": "^7.6.12",
+    "@biomejs/biome": "^2.5.14",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.23",
-    "@types/jest": "^29.5.0",
-    "@types/node": "^22.13.1",
+    "@types/express": "^4.17.25",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.19.0",
     "@types/supertest": "^6.0.3",
-    "@types/uuid": "^9.0.7",
+    "@types/uuid": "^9.0.8",
     "fast-check": "^3.23.2",
     "husky": "^9.1.7",
-    "jest": "^29.5.0",
-    "lint-staged": "^16.4.0",
-    "nock": "^14.0.16",
-    "supertest": "^7.1.1",
-    "ts-jest": "^29.1.0",
+    "jest": "^30.5.2",
+    "lint-staged": "^17.6.0",
+    "nock": "^14.0.17",
+    "supertest": "^7.3.0",
+    "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.2"
-  },
-  "lint-staged": {
-    "*.{ts,js,json}": ["biome check --diagnostic-level=error --no-errors-on-unmatched"]
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   },
   "workspaces": [
     "shared",
@@ -96,16 +101,12 @@
     "Clock",
     "Browserless",
     "AskUser",
-    "RAG",
     "PythonShell",
     "Memory",
     "Skills",
     "CLI",
     "SlashCommands",
-    "CSVExporter",
-    "FileEditor",
     "Git",
-    "PackageManager",
     "Observability",
     "AgentRunner",
     "BlenderBridge",

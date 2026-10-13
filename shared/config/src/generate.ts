@@ -216,13 +216,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Retrieves a value at a given path from a nested object.
  */
-function getValueAtPath(obj: unknown, pathParts: (string | number)[]): unknown {
+function getValueAtPath(obj: unknown, pathParts: PropertyKey[]): unknown {
   let current: unknown = obj;
   for (const part of pathParts) {
     if (current === null || current === undefined || typeof current !== "object") {
       return undefined;
     }
-    current = (current as Record<string | number, unknown>)[part];
+    current = (current as Record<PropertyKey, unknown>)[part];
   }
   return current;
 }

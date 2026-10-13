@@ -1,6 +1,6 @@
+import type { Response } from "express";
 import fs from "fs";
 import path from "path";
-import type { Response } from "express";
 import type {
   CameraState,
   InteractionEvent,

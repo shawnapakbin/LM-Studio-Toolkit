@@ -1,4 +1,4 @@
-import { type MathJsStatic, all, create } from "mathjs";
+import { all, create, type MathJsStatic } from "mathjs";
 
 const math: MathJsStatic = create(all, {});
 

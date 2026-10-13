@@ -22,12 +22,12 @@ npm test
 
 #### 1. Before You Start
 - Create a branch: `git checkout -b feat/tool-name` or `fix/issue-description`
-- Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design
-- Read [docs/CODE-QUALITY.md](docs/CODE-QUALITY.md) for standards
+- Read [ARCHITECTURE.md](ARCHITECTURE.md) for system design
+- Read [CODE-QUALITY.md](CODE-QUALITY.md) for standards
 
 
 #### 2. Write Code
-- Follow the [Tool Contract Pattern](docs/ARCHITECTURE.md#1-tool-contract-pattern)
+- Follow the [Tool Contract Pattern](ARCHITECTURE.md#1-tool-contract-pattern)
 - **Enforce tool call normalization**: All new tool or workflow entry points must use the shared normalization utility (`shared/toolCallNormalizer.ts`) to ensure canonical tool call schema and compatibility across the system.
 - Use standardized response envelope (see `testing/responses.ts`)
 - Add error handling with proper error codes
@@ -53,10 +53,10 @@ git push origin your-branch-name
 - Title: `feat(ToolName): what changed`
 - Description: Explain **why** this change is needed
 - Link related issues
-- If the PR introduces next-version feature scope, update [docs/VNEXT_FEATURES.md](docs/VNEXT_FEATURES.md)
+- If the PR introduces next-version feature scope, update [VNEXT_FEATURES.md](VNEXT_FEATURES.md)
 
 #### 6. Mark vNext Scope
-- Use [docs/VNEXT_FEATURES.md](docs/VNEXT_FEATURES.md) as the source of truth for intentional upcoming-release features.
+- Use [VNEXT_FEATURES.md](VNEXT_FEATURES.md) as the source of truth for intentional upcoming-release features.
 - Feature-level additions not listed there may be treated as out-of-scope drift during release hardening.
 
 ---
@@ -78,59 +78,14 @@ chore(CI): update GitHub Actions workflow
 
 ## Code Review Checklist
 
-### Before Approving, Check:
+The canonical code-review checklist and the standardized error-code list live in [CODE-QUALITY.md](CODE-QUALITY.md). Use it when reviewing a PR — it covers Biome/type/test gates, JSDoc, error codes (`INVALID_INPUT`, `TIMEOUT`, `POLICY_BLOCKED`, etc.), performance SLAs, secrets, and security review.
 
-- [ ] **Biome check passes**
-  ```bash
-  npm run check:ci
-  ```
-  Must show "No issues found"
+Before approving, also confirm the PR updates documentation as needed:
 
-- [ ] **Tests pass with 80%+ coverage**
-  ```bash
-  npm run test:ci
-  ```
-  Coverage report shows threshold met
-
-- [ ] **Type safety enforced**
-  ```bash
-  npm run type-check
-  ```
-  No implicit `any` errors
-
-- [ ] **JSDoc on all exports**
-  - Function: `@param`, `@returns`, `@example`
-  - Class: Purpose + method docs
-  - Complex logic: Inline comments explaining why (not what)
-
-- [ ] **Error codes consistent**
-  - Check against [CODE-QUALITY.md#error-codes](docs/CODE-QUALITY.md)
-  - Uses `INVALID_INPUT`, `TIMEOUT`, `POLICY_BLOCKED`, etc.
-
-- [ ] **Memory integration** (if applicable)
-  - Tool operations logged to SQLite
-  - Decision rationale captured
-  - Failures recorded for learning
-
-- [ ] **Performance SLA met**
-  - Benchmark tests passed
-  - No regression in response time
-
-- [ ] **No hardcoded secrets**
-  - `.env.example` shows required vars
-  - No API keys in code
-  - Credentials loaded from environment
-
-- [ ] **Security reviewed** (if tool modifies system)
-  - Deny patterns tested
-  - Sandbox working (cwd, network, etc.)
-  - Error messages don't leak sensitive info
-
-- [ ] **Documentation updated**
-  - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) reflects changes
-  - Tool README updated if new tool
-  - AGENT_ROADMAP.md updated for Phase progress
-  - [docs/VNEXT_FEATURES.md](docs/VNEXT_FEATURES.md) updated if new release scope
+- [ARCHITECTURE.md](ARCHITECTURE.md) reflects changes
+- Tool README updated if new tool
+- AGENT_ROADMAP.md updated for Phase progress
+- [VNEXT_FEATURES.md](VNEXT_FEATURES.md) updated if new release scope
 
 ---
 
@@ -379,11 +334,11 @@ Fixes #123
 
 ## Questions?
 
-- **Architecture questions**: Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Code quality standards**: See [docs/CODE-QUALITY.md](docs/CODE-QUALITY.md)
-- **Memory patterns**: Read [docs/MEMORY-PATTERNS.md](docs/MEMORY-PATTERNS.md)
-- **Slash commands**: See [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md)
-- **CLI commands**: See [CLI/README.md](CLI/README.md)
+- **Architecture questions**: Check [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Code quality standards**: See [CODE-QUALITY.md](CODE-QUALITY.md)
+- **Memory patterns**: Read [MEMORY-PATTERNS.md](MEMORY-PATTERNS.md)
+- **Slash commands**: See [SLASH-COMMANDS.md](SLASH-COMMANDS.md)
+- **CLI commands**: See [CLI/README.md](../CLI/README.md)
 - **Stuck on tests**: See examples in existing tools (Terminal, Calculator, etc.)
 
 ---

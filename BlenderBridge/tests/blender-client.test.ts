@@ -1,8 +1,8 @@
 import {
-  ExecuteBlenderCodeFn,
-  TimeoutError,
   createBlenderClient,
+  ExecuteBlenderCodeFn,
   formatExecutionError,
+  TimeoutError,
   withTimeout,
 } from "../src/blender-client";
 import { BlenderBridgeConfig } from "../src/types";

@@ -9,11 +9,11 @@
  */
 
 import {
-  type ManifestVersions,
   checkVersionConsistency,
   extractCargoVersion,
   extractJsonVersion,
   isValidScheme,
+  type ManifestVersions,
 } from "../../scripts/version-consistency";
 
 describe("isValidScheme", () => {

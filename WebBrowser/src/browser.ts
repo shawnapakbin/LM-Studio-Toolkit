@@ -1,5 +1,5 @@
 import { getConfig } from "@shared/config";
-import { type Browser, type Page, chromium } from "playwright";
+import { type Browser, chromium, type Page } from "playwright";
 import { extractContent } from "./extract-content";
 import { isAllowedContentType, validateTargetUrl } from "./policy";
 

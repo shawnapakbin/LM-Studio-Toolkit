@@ -21,10 +21,10 @@
  * module so the test uses the same ownership marker the production sync uses.
  */
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 
 // Real ownership marker used by the production migration logic.
 const { OWNER_ID } = require("../plugin-ownership");

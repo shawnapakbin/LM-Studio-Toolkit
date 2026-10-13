@@ -1,6 +1,6 @@
+import { getConfig } from "@shared/config";
 import fsSync from "fs";
 import path from "path";
-import { getConfig } from "@shared/config";
 
 /**
  * Validate repository path exists and is a Git repo

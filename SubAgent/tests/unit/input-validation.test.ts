@@ -4,7 +4,7 @@
  * @version 2.3.1
  */
 
-import { TaskManifestSchema, loadConfig } from "../../src/mcp-server";
+import { loadConfig, TaskManifestSchema } from "../../src/mcp-server";
 
 describe("TaskManifestSchema validation", () => {
   const validTask = { taskId: "task-1", prompt: "Analyze this code" };

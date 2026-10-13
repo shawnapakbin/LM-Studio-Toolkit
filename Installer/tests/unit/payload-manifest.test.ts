@@ -13,8 +13,8 @@
 import {
   CANONICAL_TOOL_COUNT,
   CANONICAL_TOOL_PAYLOADS,
-  type DistPresence,
   canonicalPayloads,
+  type DistPresence,
   isComplete,
   planPayloadStaging,
 } from "../../scripts/payload-manifest";

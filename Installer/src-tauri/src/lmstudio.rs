@@ -2080,3 +2080,585 @@ mod shipped_config_parity_property_tests {
         }
     }
 }
+
+// ─── Property 14 — attempt-all-then-fail (Req 8.5, 8.6) ──────────────────────
+
+#[cfg(test)]
+mod attempt_all_then_fail_property_tests {
+    //! Feature: installer-runtime-provisioning, Property 14: LM Studio
+    //! provisioning attempts all servers, then fails if any failed.
+    //!
+    //! For a fixed, ordered set of distinct server names and an arbitrary subset
+    //! flagged to fail, after `provision_plugin_dirs`:
+    //!   - If the fail subset is EMPTY: the call returns `Ok`, and `provisioned`
+    //!     equals the full server set (every server was provisioned).
+    //!   - If the fail subset is NON-EMPTY: the call returns `Err`; the error
+    //!     message names every failed server; and — because provisioning attempts
+    //!     ALL servers rather than aborting on the first failure (Req 8.5) —
+    //!     every NON-failed server directory still exists on disk with its three
+    //!     artifacts and the successfully-provisioned dirs are left in place
+    //!     (Req 8.6).
+    //!
+    //! ## Injected failure mechanism (deterministic, cross-platform)
+    //!
+    //! To force a provisioning failure for an arbitrary subset without real
+    //! permission tricks, we exploit a filesystem invariant used by the sibling
+    //! attribution tests: a path cannot be both a directory and a regular file.
+    //! Pre-creating a *directory* named `manifest.json` at `plugin_root/<server>/`
+    //! makes `provision_one` succeed at `create_dir_all(plugin_dir)` (it already
+    //! exists) but fail when it tries to write the `manifest.json` *file* — a
+    //! genuine `io::Error`. The planted `manifest.json` directory carries no
+    //! ownership marker and its parent has a non-legacy name, so the cleanup pass
+    //! treats the seeded dir as foreign and leaves it in place for the
+    //! provisioning pass to hit. Failing servers therefore fail deterministically
+    //! on every platform the installer targets.
+    //!
+    //! Each case uses a fresh temp `plugin_root` (created inside the closure) and
+    //! passes that path directly to `provision_plugin_dirs` — it does NOT use the
+    //! process-global `LMSTUDIO_MCP_PLUGIN_ROOT` env override, which would race
+    //! under proptest's parallel execution. (The env override is only needed to
+    //! exercise `resolve_plugin_root`, which this property does not.)
+    //!
+    //! Validates: Requirements 8.5, 8.6
+
+    use super::*;
+    use proptest::prelude::*;
+    use std::collections::BTreeSet;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// A unique, self-cleaning temp plugin root per case. Kept local so this
+    /// module does not depend on the concurrently-edited sibling test modules.
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new() -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let pid = std::process::id();
+            let path = std::env::temp_dir()
+                .join(format!("llm_toolkit_lmstudio_prop14_{pid}_{n}"));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            TempRoot { path }
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn cfg(name: &str) -> ServerBridgeConfig {
+        ServerBridgeConfig::new(name, "node", vec![format!("/install/{name}/mcp-server.js")])
+    }
+
+    /// Plant a `manifest.json` *directory* at `plugin_root/<server>/` so that
+    /// `provision_one` fails deterministically when it tries to write the
+    /// `manifest.json` file for that server. See the module doc for why this is
+    /// a robust, cross-platform injected failure.
+    fn plant_manifest_conflict(plugin_root: &Path, server: &str) {
+        let manifest_as_dir = plugin_root.join(server).join(MANIFEST_FILE);
+        std::fs::create_dir_all(&manifest_as_dir).unwrap();
+        std::fs::write(manifest_as_dir.join("keep.txt"), b"x").unwrap();
+    }
+
+    /// A fixed, ordered set of distinct server names (3..=6). Keeping the set
+    /// small and ordered keeps each case's real filesystem IO modest.
+    fn server_names() -> impl Strategy<Value = Vec<String>> {
+        prop::sample::subsequence(
+            vec![
+                "alpha".to_string(),
+                "bravo".to_string(),
+                "charlie".to_string(),
+                "delta".to_string(),
+                "echo".to_string(),
+                "foxtrot".to_string(),
+            ],
+            3..=6,
+        )
+    }
+
+    proptest! {
+        // Modest case count: this property does real filesystem IO (create dirs,
+        // write three JSON files per server) so we keep it to 96 cases rather
+        // than the pure-function default.
+        #![proptest_config(ProptestConfig::with_cases(96))]
+
+        // Feature: installer-runtime-provisioning, Property 14: LM Studio
+        // provisioning attempts all servers, then fails if any failed.
+        //
+        // Validates: Requirements 8.5, 8.6
+        #[test]
+        fn prop_attempt_all_then_fail(
+            names in server_names(),
+            fail_flags in prop::collection::vec(any::<bool>(), 6),
+        ) {
+            let root = TempRoot::new();
+
+            // Determine the fail subset: a server fails iff its positional flag
+            // is set. Truncate/align the flags to the generated name list.
+            let fail_set: BTreeSet<String> = names
+                .iter()
+                .zip(fail_flags.iter())
+                .filter(|(_, &flag)| flag)
+                .map(|(name, _)| name.clone())
+                .collect();
+
+            // Inject a deterministic failure for each fail-flagged server by
+            // planting a colliding `manifest.json` directory before provisioning.
+            for server in &fail_set {
+                plant_manifest_conflict(&root.path, server);
+            }
+
+            let servers: Vec<ServerBridgeConfig> = names.iter().map(|n| cfg(n)).collect();
+            let ok_set: BTreeSet<String> = names
+                .iter()
+                .filter(|n| !fail_set.contains(*n))
+                .cloned()
+                .collect();
+
+            let outcome = provision_plugin_dirs(&root.path, &servers);
+
+            if fail_set.is_empty() {
+                // Empty fail subset -> Ok, and every server was provisioned.
+                let result = outcome
+                    .expect("provisioning must succeed when no server is flagged to fail");
+                let provisioned: BTreeSet<String> =
+                    result.provisioned.iter().cloned().collect();
+                let expected: BTreeSet<String> = names.iter().cloned().collect();
+                prop_assert_eq!(&provisioned, &expected);
+                prop_assert!(result.failed.is_empty());
+
+                // Every server dir exists with its three artifacts.
+                for name in &names {
+                    let dir = root.path.join(name);
+                    prop_assert!(dir.join(MANIFEST_FILE).is_file());
+                    prop_assert!(dir.join(INSTALL_STATE_FILE).is_file());
+                    prop_assert!(dir.join(BRIDGE_CONFIG_FILE).is_file());
+                }
+            } else {
+                // Non-empty fail subset -> Err naming every failed server.
+                let err = outcome
+                    .expect_err("provisioning must fail when any server is flagged to fail");
+                for server in &fail_set {
+                    prop_assert!(
+                        err.contains(server.as_str()),
+                        "error must name every failed server; missing '{}' in: {}",
+                        server,
+                        err
+                    );
+                }
+
+                // Attempt-all (Req 8.5): every NON-failed server was still
+                // attempted and provisioned — its dir exists with all three
+                // artifacts — even though an earlier/later server failed. And the
+                // successfully-provisioned dirs are left in place (Req 8.6): the
+                // step does not remove them on failure.
+                for name in &ok_set {
+                    let dir = root.path.join(name);
+                    prop_assert!(
+                        dir.join(MANIFEST_FILE).is_file(),
+                        "non-failed server '{}' must still be provisioned (manifest)", name
+                    );
+                    prop_assert!(
+                        dir.join(INSTALL_STATE_FILE).is_file(),
+                        "non-failed server '{}' must still be provisioned (install-state)", name
+                    );
+                    prop_assert!(
+                        dir.join(BRIDGE_CONFIG_FILE).is_file(),
+                        "non-failed server '{}' must still be provisioned (bridge-config)", name
+                    );
+                }
+
+                // The surviving owned dirs are exactly the non-failed servers:
+                // each failed server's partial dir was removed (Req 8.5), so no
+                // failed server remains as an owned/marker-bearing dir.
+                let owned: BTreeSet<String> = get_owned_plugin_dirs(&root.path)
+                    .iter()
+                    .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+                    .collect();
+                prop_assert_eq!(
+                    &owned,
+                    &ok_set,
+                    "owned dirs must be exactly the successfully-provisioned (non-failed) servers"
+                );
+            }
+        }
+    }
+}
+
+// ─── Property 15 — owned-set exactness + foreign preservation ────────────────
+
+#[cfg(test)]
+mod owned_set_exactness_property_tests {
+    //! Feature: installer-runtime-provisioning, Property 15: LM Studio
+    //! provisioning yields exactly the nine owned dirs and preserves foreign.
+    //!
+    //! *For any* pre-existing plugin-root population (an arbitrary mix of
+    //! toolkit-owned-by-marker, legacy-named, and foreign directories), after a
+    //! fully successful `provision_plugin_dirs` pass over an arbitrary distinct
+    //! server set:
+    //!   - the owned directories under the root (`get_owned_plugin_dirs`) are
+    //!     *exactly* the provided server-name set — orphaned / misnamed owned and
+    //!     legacy dirs that are not current servers are removed (Req 8.1, 8.3);
+    //!   - every provisioned directory carries the ownership marker on both
+    //!     `manifest.json` and `install-state.json` and its `mcp-bridge-config.json`
+    //!     (Req 8.2);
+    //!   - every pre-existing *foreign* directory (unmarked, non-legacy) is left
+    //!     byte-for-byte untouched (Req 8.4).
+    //!
+    //! The property name says "nine owned dirs"; the invariant is stated over an
+    //! arbitrary server set — "owned dirs == exactly the provided servers" — which
+    //! specializes to nine when the canonical set is used. To keep the real-FS IO
+    //! per case affordable we generate a small distinct server set (1..=6) and run
+    //! a modest 96 cases, and additionally pin one case to the canonical nine so
+    //! the literal "nine owned dirs" wording is exercised too.
+    //!
+    //! The root path is passed directly to `provision_plugin_dirs` (no
+    //! `LMSTUDIO_MCP_PLUGIN_ROOT` env override): the override is process-global and
+    //! racy under proptest's per-case reruns, whereas a fresh temp root per case is
+    //! hermetic.
+    //!
+    //! Validates: Requirements 8.1, 8.2, 8.3, 8.4
+
+    use super::*;
+    use proptest::prelude::*;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// A unique, self-cleaning temp plugin root per case. Kept local to this
+    /// module so it does not touch the shared `#[cfg(test)] mod tests` helpers
+    /// (a sibling task edits those).
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new() -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let pid = std::process::id();
+            let path = std::env::temp_dir()
+                .join(format!("llm_toolkit_lmstudio_prop15_{pid}_{n}"));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            TempRoot { path }
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    /// The kind of pre-existing directory seeded into the plugin root before the
+    /// provisioning pass — the "pre-existing population".
+    #[derive(Debug, Clone)]
+    enum SeedKind {
+        /// Toolkit-owned by the `_owner:"llm-toolkit"` marker in `manifest.json`.
+        OwnedByManifestMarker,
+        /// Toolkit-owned by the marker in `install-state.json` only.
+        OwnedByStateMarker,
+        /// Legacy-named dir (owned by name, no marker files).
+        Legacy(&'static str),
+        /// Foreign: carries a marker for a *different* owner.
+        ForeignOtherOwner,
+        /// Foreign: no marker file at all.
+        ForeignNoMarker,
+    }
+
+    fn is_foreign(kind: &SeedKind) -> bool {
+        matches!(kind, SeedKind::ForeignOtherOwner | SeedKind::ForeignNoMarker)
+    }
+
+    /// A seeded directory: a name pool tag, a kind, and a random sentinel tag so
+    /// foreign content can be checked byte-for-byte after provisioning.
+    #[derive(Debug, Clone)]
+    struct Seed {
+        /// Raw token drawn from the *seed* name pool. Prefixed on write so seed
+        /// names can never collide with server names (a disjoint pool by
+        /// construction). Legacy seeds override this with their legacy name.
+        token: String,
+        kind: SeedKind,
+        content_tag: String,
+    }
+
+    /// Directory-name-safe token: lowercase letters + digits, kept ASCII and free
+    /// of path separators / reserved characters so names are valid on every OS
+    /// the installer targets.
+    fn name_token() -> impl Strategy<Value = String> {
+        "[a-z][a-z0-9]{0,10}"
+    }
+
+    fn seed_kind() -> impl Strategy<Value = SeedKind> {
+        prop_oneof![
+            Just(SeedKind::OwnedByManifestMarker),
+            Just(SeedKind::OwnedByStateMarker),
+            prop::sample::select(LEGACY_PLUGIN_NAMES.to_vec()).prop_map(SeedKind::Legacy),
+            Just(SeedKind::ForeignOtherOwner),
+            Just(SeedKind::ForeignNoMarker),
+        ]
+    }
+
+    fn seed() -> impl Strategy<Value = Seed> {
+        (name_token(), seed_kind(), name_token()).prop_map(|(token, kind, tag)| Seed {
+            token,
+            kind,
+            content_tag: tag,
+        })
+    }
+
+    /// The on-disk directory name for a seed.
+    ///
+    /// - Legacy seeds MUST use their legacy name verbatim so they are owned-by-name.
+    /// - All other seeds are written under a `foreign-`/`owned-` disjoint prefix so
+    ///   their names can never collide with a generated server name (which is a
+    ///   bare token) or a legacy name. This keeps the seeded population and the
+    ///   server set name-disjoint — the interesting input space for this property.
+    fn seed_dir_name(s: &Seed) -> String {
+        match &s.kind {
+            SeedKind::Legacy(legacy) => (*legacy).to_string(),
+            SeedKind::ForeignOtherOwner | SeedKind::ForeignNoMarker => {
+                format!("foreign-{}", s.token)
+            }
+            SeedKind::OwnedByManifestMarker | SeedKind::OwnedByStateMarker => {
+                format!("owned-{}", s.token)
+            }
+        }
+    }
+
+    /// Write a seed to disk under `root`. Every seed gets a `sentinel.txt`
+    /// carrying its `content_tag` so foreign preservation is checked content-exact
+    /// (not merely by existence).
+    fn write_seed(root: &Path, name: &str, s: &Seed) {
+        let dir = root.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("sentinel.txt"), s.content_tag.as_bytes()).unwrap();
+        match &s.kind {
+            SeedKind::OwnedByManifestMarker => {
+                std::fs::write(
+                    dir.join("manifest.json"),
+                    r#"{ "type": "plugin", "_owner": "llm-toolkit" }"#,
+                )
+                .unwrap();
+            }
+            SeedKind::OwnedByStateMarker => {
+                std::fs::write(
+                    dir.join("install-state.json"),
+                    r#"{ "by": "mcp-bridge-v1", "_owner": "llm-toolkit" }"#,
+                )
+                .unwrap();
+            }
+            SeedKind::Legacy(_) => {
+                // Legacy dirs carry no marker files; ownership is by name only.
+            }
+            SeedKind::ForeignOtherOwner => {
+                std::fs::write(
+                    dir.join("manifest.json"),
+                    r#"{ "type": "plugin", "_owner": "another-app" }"#,
+                )
+                .unwrap();
+            }
+            SeedKind::ForeignNoMarker => {
+                std::fs::write(dir.join("manifest.json"), r#"{ "type": "plugin" }"#).unwrap();
+            }
+        }
+    }
+
+    fn cfg(name: &str) -> ServerBridgeConfig {
+        ServerBridgeConfig::new(name, "node", vec![format!("/install/{name}/mcp-server.js")])
+    }
+
+    /// The shared assertion body: seed `seeds` into a fresh root, provision the
+    /// `servers` set, and assert Property 15's three clauses. Server names are
+    /// bare tokens; seed names are legacy names or `foreign-`/`owned-` prefixed,
+    /// so the two pools are disjoint by construction.
+    fn check_property(seeds: &[Seed], servers: &BTreeSet<String>) -> Result<(), TestCaseError> {
+        let root = TempRoot::new();
+
+        // ── Seed the pre-existing plugin-root population ──
+        // Track the exact sentinel content of each foreign dir so we can verify
+        // it survives byte-for-byte. De-dup on the resolved dir name.
+        let mut foreign_expected: BTreeMap<String, String> = BTreeMap::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        for s in seeds {
+            let name = seed_dir_name(s);
+            // Disjoint-pool invariant: a seed name can never equal a server name.
+            if servers.contains(&name) || seen.contains(&name) {
+                continue;
+            }
+            seen.insert(name.clone());
+            write_seed(&root.path, &name, s);
+            if is_foreign(&s.kind) {
+                foreign_expected.insert(name, s.content_tag.clone());
+            }
+        }
+
+        // ── Provision exactly the current server set ──
+        let configs: Vec<ServerBridgeConfig> = servers.iter().map(|n| cfg(n)).collect();
+        let result = provision_plugin_dirs(&root.path, &configs)
+            .map_err(|e| TestCaseError::fail(format!("provisioning should succeed: {e}")))?;
+
+        prop_assert_eq!(
+            result.provisioned.iter().cloned().collect::<BTreeSet<_>>(),
+            servers.clone(),
+            "provisioned set must equal the current server set"
+        );
+        prop_assert!(result.failed.is_empty(), "no server should fail for valid inputs");
+
+        // ── (Req 8.1 / 8.3) owned dirs == exactly the current server set ──
+        let owned_names: BTreeSet<String> = get_owned_plugin_dirs(&root.path)
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        prop_assert_eq!(
+            &owned_names,
+            servers,
+            "owned dirs must equal exactly the provided server set (orphaned/legacy owned removed)"
+        );
+
+        // No owned/legacy dir on disk may be a non-server — the contrapositive of
+        // the exactness clause stated over the raw directory listing, so a stray
+        // owned dir with an unexpected name (an orphan, Req 8.3) is caught.
+        for entry in std::fs::read_dir(&root.path).unwrap().flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
+            if is_owned_dir(&path, &dir_name) {
+                prop_assert!(
+                    servers.contains(&dir_name),
+                    "owned dir '{}' is not a current server -> orphan/misnamed owned remains",
+                    dir_name
+                );
+            }
+        }
+
+        // ── (Req 8.2) every provisioned dir carries the marker + bridge config ──
+        for name in servers {
+            let dir = root.path.join(name);
+            prop_assert!(dir.is_dir(), "expected a provisioned directory for '{}'", name);
+
+            let manifest = read_json_safe(&dir.join("manifest.json"))
+                .ok_or_else(|| TestCaseError::fail(format!("{name}: manifest.json missing")))?;
+            let install_state = read_json_safe(&dir.join("install-state.json"))
+                .ok_or_else(|| TestCaseError::fail(format!("{name}: install-state.json missing")))?;
+            let bridge = read_json_safe(&dir.join("mcp-bridge-config.json"))
+                .ok_or_else(|| {
+                    TestCaseError::fail(format!("{name}: mcp-bridge-config.json missing"))
+                })?;
+
+            prop_assert_eq!(
+                manifest.get(OWNER_KEY).and_then(Value::as_str),
+                Some(OWNER_ID),
+                "manifest.json for '{}' must carry the ownership marker",
+                name
+            );
+            prop_assert_eq!(
+                install_state.get(OWNER_KEY).and_then(Value::as_str),
+                Some(OWNER_ID),
+                "install-state.json for '{}' must carry the ownership marker",
+                name
+            );
+            prop_assert!(
+                bridge.is_object(),
+                "mcp-bridge-config.json for '{}' must be present and well-formed",
+                name
+            );
+            // The provisioned dir is recognized as owned by its marker (Req 8.2).
+            prop_assert!(
+                is_owned_by_marker(&dir),
+                "provisioned dir '{}' must be marker-owned",
+                name
+            );
+        }
+
+        // ── (Req 8.4) every foreign dir left byte-for-byte untouched ──
+        for (name, tag) in &foreign_expected {
+            let dir = root.path.join(name);
+            prop_assert!(dir.exists(), "foreign dir '{}' must be preserved", name);
+            let sentinel = std::fs::read(dir.join("sentinel.txt")).unwrap();
+            prop_assert_eq!(
+                &sentinel,
+                tag.as_bytes(),
+                "foreign dir '{}' content must be left untouched",
+                name
+            );
+        }
+
+        Ok(())
+    }
+
+    /// A non-empty set of distinct server names (bare tokens), 1..=6 for FS-IO
+    /// affordability. Distinctness comes from collecting into a `BTreeSet`.
+    fn server_name_set() -> impl Strategy<Value = BTreeSet<String>> {
+        prop::collection::btree_set(name_token(), 1..=6)
+    }
+
+    proptest! {
+        // Real filesystem IO per case -> modest case count (96) rather than the
+        // usual 256; the invariant is exercised over the full seed × server space.
+        #![proptest_config(ProptestConfig::with_cases(96))]
+
+        // Feature: installer-runtime-provisioning, Property 15: LM Studio
+        // provisioning yields exactly the nine owned dirs and preserves foreign
+        //
+        // Validates: Requirements 8.1, 8.2, 8.3, 8.4
+        #[test]
+        fn prop_owned_set_exact_and_foreign_preserved(
+            seeds in prop::collection::vec(seed(), 0..12),
+            servers in server_name_set(),
+        ) {
+            check_property(&seeds, &servers)?;
+        }
+    }
+
+    /// The literal "nine owned dirs" case: provision the canonical nine over an
+    /// arbitrary pre-existing population and assert owned dirs == exactly those
+    /// nine, foreign preserved. Pinned (not generated) so the count-9 wording is
+    /// always exercised.
+    #[test]
+    fn nine_canonical_servers_yield_exactly_nine_owned_dirs() {
+        let servers: BTreeSet<String> = canonical_payloads()
+            .iter()
+            .map(|t| t.server_name.to_string())
+            .collect();
+        assert_eq!(servers.len(), 9, "canonical set must be nine servers");
+
+        // A representative pre-existing population: one owned orphan, one legacy,
+        // and two foreign dirs (one other-owner, one unmarked).
+        let seeds = vec![
+            Seed {
+                token: "orphan".to_string(),
+                kind: SeedKind::OwnedByManifestMarker,
+                content_tag: "o".to_string(),
+            },
+            Seed {
+                token: String::new(),
+                kind: SeedKind::Legacy("calculator"),
+                content_tag: "l".to_string(),
+            },
+            Seed {
+                token: "keepme".to_string(),
+                kind: SeedKind::ForeignOtherOwner,
+                content_tag: "foreign-content-1".to_string(),
+            },
+            Seed {
+                token: "alsokeep".to_string(),
+                kind: SeedKind::ForeignNoMarker,
+                content_tag: "foreign-content-2".to_string(),
+            },
+        ];
+
+        // `check_property` returns a proptest TestCaseError; unwrap it into a
+        // panic for this plain `#[test]`.
+        if let Err(e) = check_property(&seeds, &servers) {
+            panic!("canonical-nine case failed: {e:?}");
+        }
+    }
+}

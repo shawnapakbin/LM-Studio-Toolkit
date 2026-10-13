@@ -18,10 +18,10 @@
  * the test to assert confinement without touching the real ~/.lmstudio directory.
  */
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 
 // Real ownership marker used by the production sync provisioning logic.
 const { OWNER_ID } = require("../plugin-ownership");

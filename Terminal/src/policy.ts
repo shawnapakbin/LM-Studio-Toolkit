@@ -1,5 +1,5 @@
-import path from "path";
 import { getConfig } from "@shared/config";
+import path from "path";
 
 export const DEFAULT_MAX_OUTPUT_CHARS = getConfig().terminal.maxOutputChars;
 

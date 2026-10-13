@@ -36,6 +36,22 @@
 use crate::tool_payload::{canonical_payloads, ToolPayload};
 use std::collections::BTreeSet;
 
+/// The sanctioned flat production-manifest files staged at the payload ROOT
+/// (the level that maps to `install_dir`), copied alongside the nine tool
+/// trees so the install-time `npm install --omit=dev …` (cwd = install_dir)
+/// finds its manifest/lockfile (Option B2; closes H1).
+///
+/// This is the Rust mirror of `SANCTIONED_PAYLOAD_ROOT_FILES` in
+/// `Installer/scripts/payload-manifest.ts` — the single source of truth for the
+/// sanctioned set. See `Installer/src-tauri/payload/runtime-manifest/NATIVE_DEPS.md`
+/// and `scripts/stage-payload.ts` (`stageRuntimeManifest`). These are FILES, not
+/// trees, and never a `node_modules`; the Lean_Payload intent (Req 3.6) is
+/// preserved. Each is copied only when present in `resource_root` — a missing
+/// flat file is NOT a hard copy error (the design stages it as a best-effort,
+/// non-mandatory artifact; the npm step surfaces a clear error if the manifest
+/// is genuinely absent at install time).
+const SANCTIONED_PAYLOAD_ROOT_FILES: &[&str] = &["package.json", "package-lock.json"];
+
 /// The outcome of planning the bundle against a tool-presence state.
 ///
 /// A `BundlePlan` is a pure description: it names the required tools, which of
@@ -266,18 +282,26 @@ fn copy_tree(source: &Path, destination: &Path) -> io::Result<()> {
     Ok(())
 }
 
-/// Deletes the outputs listed in `written` from the install directory,
-/// best-effort. Used by [`copy_payload`] to immediately roll back partially
-/// copied outputs the moment a copy fails (Req 5.5 / Property 6) — the removal
-/// happens here, in the same failure-handling path, and is never deferred to
-/// uninstall.
-fn rollback_written(install_dir: &Path, written: &[String]) {
+/// Deletes the outputs listed in `written` (tool subtrees) and `written_files`
+/// (sanctioned flat root files) from the install directory, best-effort. Used
+/// by [`copy_payload`] to immediately roll back partially copied outputs the
+/// moment a copy fails (Req 5.5 / Property 6) — the removal happens here, in the
+/// same failure-handling path, and is never deferred to uninstall.
+///
+/// `written_files` carries the sanctioned flat manifest/lockfile names copied in
+/// this call (see [`SANCTIONED_PAYLOAD_ROOT_FILES`]) so a failed install leaves
+/// nothing behind at the install-dir root either.
+fn rollback_written(install_dir: &Path, written: &[String], written_files: &[String]) {
     for server_name in written {
         let dir = tool_install_dir(install_dir, server_name);
         // Best-effort: rollback must not itself panic or short-circuit. Any dir
         // that cannot be removed is left for uninstall as a last resort, but the
         // common case (a directory we just created) removes cleanly.
         let _ = std::fs::remove_dir_all(&dir);
+    }
+    for file_name in written_files {
+        // Best-effort removal of the copied flat root file.
+        let _ = std::fs::remove_file(install_dir.join(file_name));
     }
 }
 
@@ -332,6 +356,9 @@ pub fn copy_payload(resource_root: &Path, install_dir: &Path) -> Result<(), Copy
     // Track outputs written *in this call* so rollback removes exactly what this
     // copy produced (Req 5.5), in reverse order.
     let mut written: Vec<String> = Vec::new();
+    // Sanctioned flat root files copied in this call (Option B2); rolled back
+    // alongside the tool subtrees.
+    let mut written_files: Vec<String> = Vec::new();
 
     for tool in canonical_payloads() {
         let server_name = tool.server_name;
@@ -341,7 +368,7 @@ pub fn copy_payload(resource_root: &Path, install_dir: &Path) -> Result<(), Copy
         // The bundled payload must actually contain this tool's tree; a missing
         // source is attributed to the specific tool (Req 5.4) and rolls back.
         if !source.is_dir() {
-            rollback_written(install_dir, &written);
+            rollback_written(install_dir, &written, &written_files);
             return Err(CopyError::MissingSourceTool {
                 server_name: server_name.to_string(),
                 source,
@@ -354,7 +381,7 @@ pub fn copy_payload(resource_root: &Path, install_dir: &Path) -> Result<(), Copy
                 // Record this tool as (partially) written so rollback also
                 // removes whatever bytes landed before the error.
                 written.push(server_name.to_string());
-                rollback_written(install_dir, &written);
+                rollback_written(install_dir, &written, &written_files);
                 return Err(CopyError::Copy {
                     server_name: server_name.to_string(),
                     source,
@@ -365,12 +392,50 @@ pub fn copy_payload(resource_root: &Path, install_dir: &Path) -> Result<(), Copy
         }
     }
 
+    // Option B2 (Req 2.1): copy the sanctioned flat production-manifest files
+    // (`package.json`, `package-lock.json`) from the payload root into the
+    // install-dir root so the install-time `npm install --omit=dev …`
+    // (cwd = install_dir) resolves the flat production tree — this closes H1 at
+    // install time. These are mirrored from stage-payload's
+    // `SANCTIONED_PAYLOAD_ROOT_FILES`. They are NON-mandatory bundled artifacts:
+    // copy each only when present in `resource_root`; a missing flat file is not
+    // a hard copy error (the npm step surfaces a clear error if the manifest is
+    // genuinely absent). No `node_modules` is ever copied, so the Lean_Payload
+    // intent (Req 3.6) is preserved.
+    for file_name in SANCTIONED_PAYLOAD_ROOT_FILES {
+        let source = resource_root.join(file_name);
+        if !source.is_file() {
+            // Best-effort: absent sanctioned flat file is skipped, not fatal.
+            continue;
+        }
+        let destination = install_dir.join(file_name);
+        if let Err(error) = std::fs::copy(&source, &destination) {
+            // A present-but-uncopyable sanctioned file is a real filesystem
+            // error for an owned artifact; attribute it like a tool copy and
+            // roll back everything written in this call.
+            written_files.push((*file_name).to_string());
+            rollback_written(install_dir, &written, &written_files);
+            return Err(CopyError::Copy {
+                server_name: (*file_name).to_string(),
+                source,
+                destination,
+                error,
+            });
+        }
+        written_files.push((*file_name).to_string());
+    }
+
     // Post-copy verification (Req 5.2/5.3): reuse the pure planner over the
     // install directory's present-and-non-empty outputs. On a gap, roll back so
     // a failed install leaves nothing behind, then report the exact set.
+    //
+    // Verification is intentionally scoped to the nine tool trees only (the
+    // design stages the flat manifest as a best-effort, non-mandatory artifact;
+    // the install-time npm step surfaces a clear error if it is absent), so the
+    // sanctioned flat files are NOT asserted here.
     let plan = verify_install_dir(install_dir);
     if !plan.is_complete() {
-        rollback_written(install_dir, &written);
+        rollback_written(install_dir, &written, &written_files);
         return Err(CopyError::VerificationFailed {
             missing: plan.missing,
         });
@@ -410,6 +475,12 @@ pub fn rollback_payload(install_dir: &Path) {
     for tool in canonical_payloads() {
         let dir = tool_install_dir(install_dir, tool.server_name);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+    // Also remove the sanctioned flat production-manifest files (Option B2) so a
+    // registration-failure rollback leaves nothing toolkit-owned behind at the
+    // install-dir root either (best-effort, matching the tool-subtree removal).
+    for file_name in SANCTIONED_PAYLOAD_ROOT_FILES {
+        let _ = std::fs::remove_file(install_dir.join(file_name));
     }
 }
 
@@ -734,6 +805,97 @@ mod copy_tests {
             source: PathBuf::from("res/git"),
         };
         assert!(err.to_string().contains("git"));
+    }
+
+    /// Option B2 (Task 3.5 / Req 2.1): the sanctioned flat production-manifest
+    /// files (`package.json`, `package-lock.json`) staged at the payload root
+    /// are copied into the install-dir root so the install-time `npm install`
+    /// (cwd = install_dir) can resolve them. No `node_modules` is ever created.
+    #[test]
+    fn copy_payload_copies_sanctioned_flat_manifest_files() {
+        let res = TempDir::new("res_flat");
+        let install = TempDir::new("install_flat");
+        make_full_resource_root(res.path());
+        // Stage the sanctioned flat files at the payload root (= install_dir).
+        write_file(&res.path().join("package.json"), "{\"name\":\"llm-toolkit-runtime\"}\n");
+        write_file(
+            &res.path().join("package-lock.json"),
+            "{\"lockfileVersion\":3}\n",
+        );
+
+        let result = copy_payload(res.path(), install.path());
+        assert!(result.is_ok(), "expected success, got {:?}", result.err());
+
+        // Both sanctioned flat files landed at the install-dir root with their
+        // bytes intact.
+        let staged_pkg = install.path().join("package.json");
+        let staged_lock = install.path().join("package-lock.json");
+        assert!(staged_pkg.is_file(), "package.json must be copied to install_dir root");
+        assert!(staged_lock.is_file(), "package-lock.json must be copied to install_dir root");
+        assert_eq!(
+            std::fs::read_to_string(&staged_pkg).unwrap(),
+            "{\"name\":\"llm-toolkit-runtime\"}\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&staged_lock).unwrap(),
+            "{\"lockfileVersion\":3}\n"
+        );
+
+        // Lean_Payload: no `node_modules` is ever created by the copy step.
+        assert!(
+            !install.path().join("node_modules").exists(),
+            "copy must never create install_dir/node_modules"
+        );
+
+        // The nine tool trees still verify.
+        assert!(verify_install_dir(install.path()).is_complete());
+    }
+
+    /// A missing sanctioned flat file is NON-fatal: the design stages the
+    /// manifest as a best-effort artifact, so `copy_payload` still succeeds
+    /// (the install-time npm step surfaces a clear error if it is absent).
+    #[test]
+    fn copy_payload_succeeds_when_sanctioned_flat_files_absent() {
+        let res = TempDir::new("res_noflat");
+        let install = TempDir::new("install_noflat");
+        make_full_resource_root(res.path());
+        // Intentionally stage NO package.json / package-lock.json.
+
+        let result = copy_payload(res.path(), install.path());
+        assert!(result.is_ok(), "expected success, got {:?}", result.err());
+        assert!(!install.path().join("package.json").exists());
+        assert!(!install.path().join("package-lock.json").exists());
+        assert!(verify_install_dir(install.path()).is_complete());
+    }
+
+    /// Rollback removes the copied sanctioned flat files too, so a failed
+    /// install leaves nothing toolkit-owned behind at the install-dir root.
+    #[test]
+    fn rollback_payload_removes_sanctioned_flat_files() {
+        let res = TempDir::new("res_rb_flat");
+        let install = TempDir::new("install_rb_flat");
+        make_full_resource_root(res.path());
+        write_file(&res.path().join("package.json"), "{}\n");
+        write_file(&res.path().join("package-lock.json"), "{}\n");
+
+        copy_payload(res.path(), install.path()).expect("copy");
+        assert!(install.path().join("package.json").is_file());
+        assert!(install.path().join("package-lock.json").is_file());
+
+        rollback_payload(install.path());
+
+        assert!(
+            !install.path().join("package.json").exists(),
+            "rollback must remove the staged package.json"
+        );
+        assert!(
+            !install.path().join("package-lock.json").exists(),
+            "rollback must remove the staged package-lock.json"
+        );
+        // Tool subtrees are also gone (existing rollback semantics).
+        for tool in canonical_payloads() {
+            assert!(!install.path().join(tool.server_name).exists());
+        }
     }
 
 }
@@ -1089,7 +1251,10 @@ mod copy_idempotency_property_tests {
     }
 
     /// Strategy for one payload file: 1-3 path segments and arbitrary text
-    /// contents (possibly empty — a 0-byte file still counts as content).
+    /// contents, possibly empty (a 0-byte file is permitted in the input space).
+    /// Verification now requires each tool to hold at least one strictly
+    /// > 0-byte file, so `materialize_payload` guarantees one such file per tool
+    /// even when every generated file here is 0 bytes.
     fn payload_file() -> impl Strategy<Value = PayloadFile> {
         (
             prop::collection::vec(seg(), 1..=3),
@@ -1159,18 +1324,22 @@ mod copy_idempotency_property_tests {
                 }
             }
 
-            // Guarantee at least one real file even if every generated file was
-            // skipped by de-confliction, so the tree is non-empty and
-            // `copy_payload`'s verification passes.
-            if snapshot_dir_is_empty(&tool_dir) {
+            // Guarantee at least one > 0-byte file even if every generated file
+            // was skipped by de-confliction or was itself 0 bytes, so the tree
+            // satisfies the tightened verification (a tool counts as present
+            // only when it holds a strictly > 0-byte file) and `copy_payload`'s
+            // verification passes on the first copy.
+            if !dir_has_positive_size_file(&tool_dir) {
                 write_file(&tool_dir.join("index.js"), "// entry\n");
             }
         }
     }
 
-    /// True iff `dir` contains no regular files (recursively).
-    fn snapshot_dir_is_empty(dir: &Path) -> bool {
-        snapshot(dir).is_empty()
+    /// True iff `dir` contains — at any depth — at least one regular file whose
+    /// size is strictly `> 0` bytes, mirroring production `dir_has_content`'s
+    /// rule. A tree of only 0-byte files (or an empty tree) returns `false`.
+    fn dir_has_positive_size_file(dir: &Path) -> bool {
+        snapshot(dir).values().any(|contents| !contents.is_empty())
     }
 
     proptest! {

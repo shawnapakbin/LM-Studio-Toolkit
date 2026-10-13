@@ -15,58 +15,54 @@
  * @module @shared/config
  */
 
-// Schema and types
-export { configSchema, type Config } from "./schema";
-export {
-  globalSchema,
-  terminalSchema,
-  webbrowserSchema,
-  calculatorSchema,
-  documentscraperSchema,
-  clockSchema,
-  browserlessSchema,
-  askuserSchema,
-  pythonshellSchema,
-  memorySchema,
-  skillsSchema,
-  cliSchema,
-  slashcommandsSchema,
-  gitSchema,
-  observabilitySchema,
-  agentrunnerSchema,
-  blenderbridgeSchema,
-  threedtoolSchema,
-  subagentSchema,
-  lansubagentSchema,
-} from "./schema";
-export { schemaMeta, type SchemaMetaEntry } from "./schema-meta";
-export {
-  type ConfigValidationIssue,
-  type ConfigLoaderOptions,
-  type IConfigLoader,
-  ConfigParseError,
-  ConfigValidationError,
-  ConfigFileNotFoundError,
-} from "./types";
-
-// Loader
-export {
-  getConfig,
-  reloadConfig,
-  getRedactedConfig,
-  createConfigLoader,
-  resolveConfigFile,
-  _resetConfigCache,
-} from "./loader";
-
-// Redaction
-export { redactConfig, REDACTED_PLACEHOLDER } from "./redact";
-
-// Migration
-export { migrateConfig, type MigrateOptions } from "./migrate";
-
-// Generation
-export { generateConfigFile, type GenerateOptions } from "./generate";
-
 // .env Fallback
 export { readEnvFallback } from "./env-fallback";
+// Generation
+export { type GenerateOptions, generateConfigFile } from "./generate";
+// Loader
+export {
+  _resetConfigCache,
+  createConfigLoader,
+  getConfig,
+  getRedactedConfig,
+  reloadConfig,
+  resolveConfigFile,
+} from "./loader";
+// Migration
+export { type MigrateOptions, migrateConfig } from "./migrate";
+// Redaction
+export { REDACTED_PLACEHOLDER, redactConfig } from "./redact";
+// Schema and types
+export {
+  agentrunnerSchema,
+  askuserSchema,
+  blenderbridgeSchema,
+  browserlessSchema,
+  type Config,
+  calculatorSchema,
+  cliSchema,
+  clockSchema,
+  configSchema,
+  documentscraperSchema,
+  gitSchema,
+  globalSchema,
+  lansubagentSchema,
+  memorySchema,
+  observabilitySchema,
+  pythonshellSchema,
+  skillsSchema,
+  slashcommandsSchema,
+  subagentSchema,
+  terminalSchema,
+  threedtoolSchema,
+  webbrowserSchema,
+} from "./schema";
+export { type SchemaMetaEntry, schemaMeta } from "./schema-meta";
+export {
+  ConfigFileNotFoundError,
+  type ConfigLoaderOptions,
+  ConfigParseError,
+  ConfigValidationError,
+  type ConfigValidationIssue,
+  type IConfigLoader,
+} from "./types";

@@ -1,6 +1,6 @@
+import { NodeIO } from "@gltf-transform/core";
 import fs from "fs";
 import path from "path";
-import { NodeIO } from "@gltf-transform/core";
 import { detectFormat } from "./types";
 
 // --- Metadata Interfaces ---

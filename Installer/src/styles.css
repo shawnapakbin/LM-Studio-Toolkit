@@ -158,7 +158,9 @@ body {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, opacity 0.2s;
+  transition:
+    background 0.2s,
+    opacity 0.2s;
 }
 
 .primary-btn:hover:not(:disabled) {
@@ -178,7 +180,9 @@ body {
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
 }
 
 .secondary-btn:hover {

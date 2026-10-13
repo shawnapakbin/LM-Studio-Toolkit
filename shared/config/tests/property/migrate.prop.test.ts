@@ -1,6 +1,3 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 /**
  * Property tests for the Migration CLI.
  *
@@ -11,6 +8,9 @@ import * as path from "path";
  * Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.6
  */
 import fc from "fast-check";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 import { parse as yamlParse } from "yaml";
 

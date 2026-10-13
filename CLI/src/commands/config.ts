@@ -2,10 +2,10 @@
  * config — manage CLI configuration (tool endpoints, port overrides)
  */
 
+import type { Command } from "commander";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import type { Command } from "commander";
 import { TOOL_PORTS } from "../config";
 
 export const CONFIG_FILE_PATH = path.join(os.homedir(), ".llm-config.json");

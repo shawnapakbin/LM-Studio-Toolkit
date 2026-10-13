@@ -1,5 +1,5 @@
-import { exec } from "child_process";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { exec } from "child_process";
 import { setActiveModel } from "../http-server";
 import { detectFormat } from "../types";
 

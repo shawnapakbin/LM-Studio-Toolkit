@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-document-scraper",
-  "version": "5.3.0",
+  "version": "5.4.1",
   "private": true,
   "description": "Document scraping and reading tool for LM Studio Tools",
   "main": "dist/index.js",
@@ -15,13 +15,13 @@
     "test": "jest"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/sdk": "^1.30.1",
     "@shared/types": "file:../shared",
-    "cors": "^2.8.5",
-    "dotenv": "^16.6.1",
-    "express": "^4.21.2",
-    "mammoth": "^1.8.0",
-    "pdf-parse": "^1.1.1",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^4.22.3",
+    "mammoth": "^1.13.0",
+    "pdf-parse": "^1.1.4",
     "zod": "^3.25.76"
   }
 }

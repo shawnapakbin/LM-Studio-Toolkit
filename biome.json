@@ -1,16 +1,18 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
   "files": {
-    "ignore": [
-      "scripts/setup/setup.js",
-      "scripts/setup/setup-gui.html",
-      "Installer/src-tauri/target/**",
-      "Installer/src-tauri/gen/**"
+    "includes": [
+      "**",
+      "!**/scripts/setup/setup.js",
+      "!**/scripts/setup/setup-gui.html",
+      "!**/scripts/test.js",
+      "!**/Installer/src-tauri/target/**",
+      "!**/Installer/src-tauri/gen/**"
     ]
   },
   "formatter": {
@@ -19,12 +21,12 @@
     "indentWidth": 2,
     "lineWidth": 100,
     "bracketSpacing": true,
-    "ignore": ["testing/evaluation/results/**"]
+    "includes": ["**", "!**/testing/evaluation/results/**"]
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": false,
+      "preset": "none",
       "suspicious": {
         "noExplicitAny": "warn",
         "noImplicitAnyLet": "error"
@@ -45,9 +47,7 @@
       }
     }
   },
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "javascript": {
     "globals": [
       "describe",

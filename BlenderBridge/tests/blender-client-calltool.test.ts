@@ -1,4 +1,4 @@
-import { ExecuteBlenderCodeFn, createBlenderClient } from "../src/blender-client";
+import { createBlenderClient, ExecuteBlenderCodeFn } from "../src/blender-client";
 import { BlenderBridgeConfig, CallToolContent, CallToolFn } from "../src/types";
 
 const defaultConfig: BlenderBridgeConfig = {

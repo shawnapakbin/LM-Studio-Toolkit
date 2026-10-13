@@ -21,10 +21,10 @@ import {
   LanTelemetryTracker as TelemetryInterface,
 } from "../../src/lan-dispatcher";
 import {
+  isSelectionError,
   LoadBalancer,
   LoadBalancerConfig,
   LoadBalancerStrategy,
-  isSelectionError,
 } from "../../src/load-balancer";
 import { EndpointDefinition, LanCheckpointFile } from "../../src/types";
 

@@ -46,6 +46,30 @@ export interface ToolPayload {
 export const CANONICAL_TOOL_COUNT = 9;
 
 /**
+ * The sanctioned flat NON-TOOL file entries the Lean_Payload may carry at its
+ * top level, in addition to the nine canonical tool `<serverName>/` dirs.
+ *
+ * Bugfix: runtimes-npm-install-nonzero-exit — task 3.4 (Part B / B2).
+ * Requirements: 2.1, 3.6.
+ *
+ * These are the build-time-generated flat production `package.json` +
+ * `package-lock.json` (produced by `generate-production-manifest.ts`, task
+ * 3.3). They are staged at the payload ROOT — the level that maps to
+ * `install_dir` — because the Runtimes step runs `npm install --omit=dev …`
+ * with `cwd = install_dir`, and npm resolves its manifest in the current
+ * directory. A `runtime-manifest/` subdir would land at
+ * `install_dir/runtime-manifest/` where npm's `cwd` would never read it.
+ *
+ * This list is the ONLY relaxation of the Lean_Payload top-level contract: the
+ * "no `node_modules` at any depth" and size-budget intents are UNCHANGED — no
+ * directory tree (and never a `node_modules`) is added here.
+ */
+export const SANCTIONED_PAYLOAD_ROOT_FILES: readonly string[] = [
+  "package.json",
+  "package-lock.json",
+] as const;
+
+/**
  * The canonical nine MCP tools: server name -> relative `dist` root.
  *
  * Mirrors `CANONICAL_TOOL_PAYLOADS` in `tool_payload.rs` exactly. Each

@@ -16,7 +16,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { createAddonCallToolDelegate, createAddonExecuteCodeDelegate } from "./addon-transport";
-import { BlenderClient, ExecuteBlenderCodeFn, createBlenderClient } from "./blender-client";
+import { BlenderClient, createBlenderClient, ExecuteBlenderCodeFn } from "./blender-client";
 import { loadConfig } from "./config";
 import { createCreateObjectTool } from "./tools/create-object.tool";
 import { createExportToViewerTool } from "./tools/export-to-viewer.tool";

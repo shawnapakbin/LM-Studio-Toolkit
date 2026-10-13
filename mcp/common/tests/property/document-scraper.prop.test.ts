@@ -1,10 +1,10 @@
 // Feature: mcp-common-plugin-injection
 // **Validates: Requirements 6.4, 6.6**
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 import { readDocument } from "../../../../DocumentScraper/src/document-scraper";
 
 // Set up environment variables before any readDocument call

@@ -1,16 +1,16 @@
-import { execFile } from "child_process";
-import { platform } from "os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getConfig } from "@shared/config";
+import { execFile } from "child_process";
+import { platform } from "os";
 import { z } from "zod";
 import {
   DEFAULT_MAX_OUTPUT_CHARS,
-  WORKSPACE_ROOT,
   isCommandBlocked,
   resolveSafeCwd,
   truncateOutput,
+  WORKSPACE_ROOT,
 } from "./policy";
 import { runPunchout } from "./punchout";
 

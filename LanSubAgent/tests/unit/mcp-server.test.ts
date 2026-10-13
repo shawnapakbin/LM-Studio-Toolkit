@@ -7,7 +7,7 @@
  */
 
 import { jest } from "@jest/globals";
-import { DiscoveryService, createDiscoveryConfig } from "../../src/discovery-service";
+import { createDiscoveryConfig, DiscoveryService } from "../../src/discovery-service";
 import { EndpointRegistry } from "../../src/endpoint-registry";
 import { HealthChecker, HealthCheckerConfig } from "../../src/health-checker";
 import { LanDispatcher } from "../../src/lan-dispatcher";

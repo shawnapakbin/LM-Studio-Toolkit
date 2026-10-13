@@ -21,6 +21,7 @@ jest.mock("../src/http", () => ({
 }));
 
 import { handleError } from "../src/http";
+
 const mockHandleError = handleError as jest.MockedFunction<typeof handleError>;
 
 const SAMPLE_WORKFLOW = {
@@ -38,6 +39,10 @@ function makeProgram() {
 }
 
 beforeEach(() => jest.clearAllMocks());
+// Restore real implementations (esp. fs.readFileSync/existsSync spies) after each
+// test so a leaked mock cannot feed source content back into ts-node's stack
+// symbolication when a later test's thrown error is inspected.
+afterEach(() => jest.restoreAllMocks());
 
 describe("workflow command", () => {
   describe("workflow run", () => {

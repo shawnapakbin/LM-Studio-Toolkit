@@ -14,10 +14,10 @@
  * Validates: Requirements 1.1, 1.2
  */
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 
 // ─── Constants mirrored from setup.js ──────────────────────────────────────
 

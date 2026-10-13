@@ -55,6 +55,47 @@ function isLikelyBinary(content) {
   return content.includes("\u0000");
 }
 
+/**
+ * Rust keeps unit tests inside the source file (e.g. `#[cfg(test)] mod tests { ... }`),
+ * so the path-based test exclusions never apply to `.rs` files. Compute the set of
+ * line numbers that fall within a `#[cfg(test)]` module so fixture values (fake tokens,
+ * seed strings) inside them are skipped, matching the "test fixtures use fake
+ * credentials" intent of the path excludes. Returns a Set of 1-based line numbers.
+ */
+function rustTestLineNumbers(lines) {
+  const testLines = new Set();
+  let depth = 0; // brace depth inside the active #[cfg(test)] module
+  let armed = false; // saw #[cfg(test)] attribute, waiting for the module's opening brace
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (depth === 0 && /#\[\s*cfg\s*\(\s*test\s*\)\s*\]/.test(line)) {
+      armed = true;
+    }
+
+    const opens = (line.match(/\{/g) || []).length;
+    const closes = (line.match(/\}/g) || []).length;
+
+    if (depth === 0 && armed) {
+      if (opens > 0) {
+        depth += opens - closes;
+        armed = false;
+        testLines.add(i + 1);
+      }
+      continue;
+    }
+
+    if (depth > 0) {
+      testLines.add(i + 1);
+      depth += opens - closes;
+      if (depth <= 0) depth = 0;
+    }
+  }
+
+  return testLines;
+}
+
 function isPlaceholder(value) {
   const v = value.toLowerCase();
   return ["your_", "example", "sample", "changeme", "placeholder", "test", "dummy"].some((x) =>
@@ -156,8 +197,14 @@ function main() {
     }
 
     const lines = content.split(/\r?\n/);
+    // Rust inline `#[cfg(test)]` modules hold fixture values; skip those lines
+    // the same way path-based excludes skip dedicated test files.
+    const rustTestLines = /\.rs$/i.test(file) ? rustTestLineNumbers(lines) : null;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (rustTestLines && rustTestLines.has(i + 1)) {
+        continue;
+      }
       if (lineAllowList.some((re) => re.test(line))) {
         continue;
       }

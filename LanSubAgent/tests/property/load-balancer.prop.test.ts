@@ -15,10 +15,10 @@
 import * as fc from "fast-check";
 import { EndpointRegistry } from "../../src/endpoint-registry";
 import {
+  isSelectionError,
   LoadBalancer,
   LoadBalancerConfig,
   LoadBalancerStrategy,
-  isSelectionError,
 } from "../../src/load-balancer";
 import { EndpointDefinition } from "../../src/types";
 

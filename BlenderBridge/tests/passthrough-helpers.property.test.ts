@@ -133,9 +133,7 @@ describe("passthrough-helpers property tests — Property 2: Invalid inputs are 
         // Above max
         fc.integer({ min: MAX + 1, max: 10000 }),
         // Non-integer (floating point)
-        fc
-          .double({ min: MIN, max: MAX, noNaN: true })
-          .filter((n) => !Number.isInteger(n)),
+        fc.double({ min: MIN, max: MAX, noNaN: true }).filter((n) => !Number.isInteger(n)),
       );
 
       fc.assert(

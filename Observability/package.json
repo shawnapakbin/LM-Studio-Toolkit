@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-observability",
-  "version": "5.3.0",
+  "version": "5.4.1",
   "description": "Structured logging, metrics, and tracing for LLM Toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,12 @@
     "test": "jest",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
-  "keywords": ["observability", "logging", "metrics", "tracing"],
+  "keywords": [
+    "observability",
+    "logging",
+    "metrics",
+    "tracing"
+  ],
   "author": "Shawna Pakbin",
   "license": "LicenseRef-Shawna-NonCommercial",
   "dependencies": {

@@ -18,7 +18,7 @@ import { z } from "zod";
 
 import { LanSubAgentConfig } from "./config-schema";
 import { ConfigWatcher } from "./config-watcher";
-import { DiscoveryService, createDiscoveryConfig } from "./discovery-service";
+import { createDiscoveryConfig, DiscoveryService } from "./discovery-service";
 import { EndpointRegistry } from "./endpoint-registry";
 import { GuiServer } from "./gui/gui-server";
 import { HealthChecker, HealthCheckerConfig } from "./health-checker";

@@ -2,7 +2,7 @@
 // **Validates: Requirements 2.1, 2.4, 2.5**
 
 import * as fc from "fast-check";
-import { type SupportedFormat, detectFormat } from "../../src/types";
+import { detectFormat, type SupportedFormat } from "../../src/types";
 
 /**
  * Property 1: Format Detection Routing

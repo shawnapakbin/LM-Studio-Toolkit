@@ -1,9 +1,8 @@
-import path from "path";
 import { getConfig } from "@shared/config";
 import fs from "fs/promises";
 import mammoth from "mammoth";
+import path from "path";
 import {
-  MAX_REDIRECTS,
   clampDepth,
   clampMaxChars,
   clampMaxPages,
@@ -11,6 +10,7 @@ import {
   getWorkspaceRoot,
   isAllowedContentType,
   isBlockedPath,
+  MAX_REDIRECTS,
   validatePath,
   validateTargetUrl,
 } from "./policy";

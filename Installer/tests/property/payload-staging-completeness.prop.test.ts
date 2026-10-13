@@ -3,8 +3,8 @@ import fc from "fast-check";
 import {
   CANONICAL_TOOL_COUNT,
   CANONICAL_TOOL_PAYLOADS,
-  type DistPresence,
   canonicalPayloads,
+  type DistPresence,
   isStagingComplete,
   planPayloadStaging,
   stagingBlockers,

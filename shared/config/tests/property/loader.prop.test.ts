@@ -1,6 +1,3 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 /**
  * Property tests for the Config Loader.
  *
@@ -13,6 +10,9 @@ import * as path from "path";
  * Validates: Requirements 1.4, 1.5, 2.1, 2.7, 3.2, 3.3, 3.6
  */
 import fc from "fast-check";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 import { stringify as yamlStringify } from "yaml";
 
@@ -700,17 +700,15 @@ describe("Feature: v2-4-0-unified-config-installer, Property 4: Comprehensive Va
     fc.assert(
       fc.property(
         // Generate N (1-5) distinct indices from the invalid entry generators
-        fc
-          .integer({ min: 1, max: 5 })
-          .chain((n) =>
-            fc.tuple(
-              fc.constant(n),
-              fc.shuffledSubarray(
-                Array.from({ length: INVALID_ENTRY_GENERATORS.length }, (_, i) => i),
-                { minLength: n, maxLength: n },
-              ),
+        fc.integer({ min: 1, max: 5 }).chain((n) =>
+          fc.tuple(
+            fc.constant(n),
+            fc.shuffledSubarray(
+              Array.from({ length: INVALID_ENTRY_GENERATORS.length }, (_, i) => i),
+              { minLength: n, maxLength: n },
             ),
           ),
+        ),
         ([n, indices]) => {
           // Build config with N invalid entries
           const configData: Record<string, Record<string, unknown>> = {};

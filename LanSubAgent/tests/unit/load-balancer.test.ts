@@ -8,9 +8,9 @@ import { EndpointRegistry } from "../../src/endpoint-registry";
 import {
   EndpointSelection,
   EndpointSelectionError,
+  isSelectionError,
   LoadBalancer,
   LoadBalancerConfig,
-  isSelectionError,
 } from "../../src/load-balancer";
 import { EndpointDefinition } from "../../src/types";
 

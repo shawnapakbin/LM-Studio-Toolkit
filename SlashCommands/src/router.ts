@@ -2,10 +2,10 @@
  * Router — takes a DispatchDescriptor and executes the appropriate tool call
  */
 
-import fs from "fs";
-import path from "path";
 import { getConfig } from "@shared/config";
 import Database from "better-sqlite3";
+import fs from "fs";
+import path from "path";
 import { ENDPOINTS } from "./config";
 import { get, post } from "./dispatch";
 import type { DispatchDescriptor } from "./parser";

@@ -9,10 +9,10 @@
  * **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
  */
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 
 // ─── Constants mirroring setup.js ────────────────────────────────────────────
 

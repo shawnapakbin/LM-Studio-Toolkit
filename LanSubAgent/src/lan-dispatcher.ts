@@ -14,8 +14,8 @@ import * as path from "path";
 
 import { EndpointRegistry } from "./endpoint-registry";
 import { HealthChecker } from "./health-checker";
-import { LoadBalancer, isSelectionError } from "./load-balancer";
-import { Logger, logger as defaultLogger } from "./logger";
+import { isSelectionError, LoadBalancer } from "./load-balancer";
+import { logger as defaultLogger, Logger } from "./logger";
 import {
   InternalTask,
   LanCheckpointFile,

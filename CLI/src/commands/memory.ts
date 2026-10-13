@@ -2,9 +2,9 @@
  * memory — inspect AgentRunner workflow history stored in SQLite
  */
 
-import path from "path";
 import Database from "better-sqlite3";
 import type { Command } from "commander";
+import path from "path";
 
 function openDb(dbPath?: string): Database.Database {
   const resolved = dbPath || path.join(process.cwd(), "data", "agent-memory.db");

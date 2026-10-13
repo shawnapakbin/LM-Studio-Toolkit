@@ -17,11 +17,11 @@
  */
 import fc from "fast-check";
 import {
+  checkVersionConsistency,
+  isValidScheme,
   MANIFEST_IDS,
   type ManifestId,
   type ManifestVersions,
-  checkVersionConsistency,
-  isValidScheme,
 } from "../../scripts/version-consistency";
 
 // ─── Arbitraries ─────────────────────────────────────────────────────────────
@@ -46,22 +46,16 @@ const invalidSchemeVersionArb = fc.oneof(
     )
     .map(([r, b, v]) => `${r}.${b}.${v}`),
   // Too few segments.
-  fc
-    .tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 }))
-    .map(([a, b]) => `5.${a}`),
+  fc.tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 })).map(([a, b]) => `5.${a}`),
   fc.nat({ max: 50 }).map((a) => `5`),
   // Too many segments.
   fc
     .tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 }), fc.nat({ max: 50 }))
     .map(([a, b, c]) => `5.${a}.${b}.${c}`),
   // v-prefix.
-  fc
-    .tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 }))
-    .map(([b, v]) => `v5.${b}.${v}`),
+  fc.tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 })).map(([b, v]) => `v5.${b}.${v}`),
   // Pre-release / build metadata suffix.
-  fc
-    .tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 }))
-    .map(([b, v]) => `5.${b}.${v}-beta`),
+  fc.tuple(fc.nat({ max: 50 }), fc.nat({ max: 50 })).map(([b, v]) => `5.${b}.${v}-beta`),
   // Non-numeric junk.
   fc.constantFrom("", "abc", "5.x.0", "5..0", " 5.0.0 x"),
 );

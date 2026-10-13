@@ -6,12 +6,12 @@
 
 import {
   COMMON_TIMEZONES,
-  MAX_LOCALE_LENGTH,
-  MAX_TIMEZONE_LENGTH,
   isLocaleTooLong,
   isTimeZoneTooLong,
   isValidTimeZone,
   looksLikeIANATimezone,
+  MAX_LOCALE_LENGTH,
+  MAX_TIMEZONE_LENGTH,
   normalizeLocale,
 } from "../src/policy";
 

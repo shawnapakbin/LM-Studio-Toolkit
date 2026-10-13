@@ -17,11 +17,13 @@ mod lmstudio;
 mod logger;
 mod manifest;
 mod path_validation;
-// The Runtimes provisioning decision core + `ElevatedShell` seam. Task 7.1
-// lands the data types and the trait; the pure functions (`classify_dependency`,
-// `plan_provisioning`, `aggregate_verification`) and the production seam impl +
-// `step_runtimes` wiring arrive in follow-up tasks (7.2/7.4/7.7/8.1), so the API
-// has no in-crate caller yet and is allowed to be dead code until then.
+// The Runtimes provisioning decision core + `ElevatedShell` seam. The data
+// types, pure functions (`classify_dependency`, `plan_provisioning`,
+// `aggregate_verification`), the `run_runtimes_step` orchestrator, and the
+// production `PowerShellElevatedShell` are wired into `installer::step_runtimes`
+// (task 8.1). Some seam surface (log levels, timeout constants) is exercised
+// only through tests / the real elevated run, so dead-code is still allowed for
+// the pieces without an in-crate caller in every build configuration.
 #[allow(dead_code)]
 mod provision;
 mod registry;

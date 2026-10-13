@@ -19,7 +19,10 @@ const skillsInputShape = {
   paramSchema: z
     .object({
       type: z.literal("object"),
-      properties: z.record(z.object({ type: z.string(), description: z.string().optional() })),
+      properties: z.record(
+        z.string(),
+        z.object({ type: z.string(), description: z.string().optional() }),
+      ),
       required: z.array(z.string()).optional(),
     })
     .optional()
@@ -30,14 +33,14 @@ const skillsInputShape = {
         type: z.enum(["prompt", "tool_call"]),
         template: z.string().optional(),
         tool: z.string().optional(),
-        args: z.record(z.string()).optional(),
+        args: z.record(z.string(), z.string()).optional(),
       }),
     )
     .optional()
     .describe("(define_skill) Ordered step sequence."),
   // execute_skill fields
   params: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .optional()
     .describe("(execute_skill) Parameter values for interpolation."),
   // get_skill / delete_skill fields

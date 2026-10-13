@@ -7,11 +7,10 @@ import { HistoryManager } from "../history-manager";
  *
  * Validates: Requirements 7.1, 7.5
  */
-export function listHistory(args: {
-  filePath: string;
-  workspaceRoot: string;
-  limit?: number;
-}): { content: Array<{ type: string; text: string }>; isError?: boolean } {
+export function listHistory(args: { filePath: string; workspaceRoot: string; limit?: number }): {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+} {
   const { filePath, workspaceRoot, limit } = args;
 
   const historyManager = new HistoryManager(workspaceRoot);

@@ -8,9 +8,9 @@
  * - Successful patterns for retrieval
  */
 
+import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import Database from "better-sqlite3";
 import type { StepResult, Workflow, WorkflowResult, WorkflowStep } from "./runner";
 
 /**

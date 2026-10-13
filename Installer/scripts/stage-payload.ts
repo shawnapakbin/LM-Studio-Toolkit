@@ -34,24 +34,34 @@
  */
 
 import { execSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 
+import { generateProductionManifest } from "./generate-production-manifest.ts";
 import {
   CANONICAL_TOOL_PAYLOADS,
-  type DistPresence,
   canonicalPayloads,
+  type DistPresence,
   isStagingComplete,
   planPayloadStaging,
+  SANCTIONED_PAYLOAD_ROOT_FILES,
   scanPayloadForSecrets,
   stagingBlockers,
   stagingDestDirName,
 } from "./payload-manifest.ts";
 
+export type { SecretFinding } from "./payload-manifest.ts";
 // Re-export the pure staging secret guard (Concern 2, task 3.5) so callers and
 // tests can resolve it directly from `scripts/stage-payload`.
 export { scanPayloadForSecrets } from "./payload-manifest.ts";
-export type { SecretFinding } from "./payload-manifest.ts";
 
 /**
  * Resolve the path to the invoked entry script.
@@ -201,6 +211,54 @@ export function stagePayload(repoRootDir: string, stagingRoot: string): void {
   }
 }
 
+/**
+ * Stage the build-time-generated flat production `package.json` +
+ * `package-lock.json` into the payload ROOT (Option B2, task 3.4).
+ *
+ * Bugfix: runtimes-npm-install-nonzero-exit — Requirements 2.1, 3.6.
+ *
+ * WHY THE PAYLOAD ROOT (not a subdir):
+ *   The Runtimes step runs `npm install --omit=dev --ignore-scripts …` with
+ *   `cwd = install_dir`, and npm resolves its manifest in the current
+ *   directory. The payload root is the level that maps to `install_dir`
+ *   (`tauri.conf.json` `bundle.resources` bundles `payload/` beside the exe,
+ *   and the copy step lands each tool's tree under `install_dir/<serverName>/`
+ *   — so the payload root corresponds to `install_dir` itself). Staging the
+ *   manifest at the payload root therefore places it at `install_dir/package.json`
+ *   where npm's `cwd = install_dir` reads it. A `runtime-manifest/` subdir would
+ *   land at `install_dir/runtime-manifest/` where npm would never read it.
+ *
+ * The generator (`generate-production-manifest.ts`, task 3.3) is the single
+ * source of truth. Its default output dir is `payload/runtime-manifest/`, which
+ * `stagePayload` clears with the rest of the payload; so we (re)generate into a
+ * location OUTSIDE the freshly-cleared staging root, then copy the two flat
+ * files to the payload root. This NEVER generates or copies a `node_modules`.
+ */
+export function stageRuntimeManifest(installerRootDir: string, stagingRoot: string): void {
+  // Generate into `<installerRoot>/src-tauri/runtime-manifest/` — a sibling of
+  // the payload staging root, so `stagePayload`'s `rmSync(stagingRoot)` never
+  // wipes the generator output we are about to copy from.
+  const generateOutDir = resolve(installerRootDir, "src-tauri", "runtime-manifest");
+  const { packageJsonPath, packageLockPath } = generateProductionManifest({
+    outDir: generateOutDir,
+    writeLockfile: true,
+  });
+
+  for (const [srcPath, fileName] of [
+    [packageJsonPath, "package.json"],
+    [packageLockPath, "package-lock.json"],
+  ] as const) {
+    if (!existsSync(srcPath)) {
+      throw new Error(
+        `[stage-payload] expected generated ${fileName} at ${srcPath}, but it was not produced`,
+      );
+    }
+    const dest = resolve(stagingRoot, fileName);
+    copyFileSync(srcPath, dest);
+    console.log(`[stage-payload]   staged runtime ${fileName}  (-> payload/${fileName})`);
+  }
+}
+
 /** A single lean-payload violation, named for the abort report. */
 export interface LeanPayloadViolation {
   /** The class of violation: an unexpected top-level entry, a `node_modules`
@@ -254,8 +312,13 @@ function walkTree(dir: string, violations: LeanPayloadViolation[]): number {
  * test can drive it directly:
  *
  *   - Req 2.1/2.7: the set of top-level entries equals EXACTLY the nine
- *     canonical server names; any other entry (e.g. a stray `node_modules`) is
- *     a violation naming it.
+ *     canonical server names PLUS the sanctioned flat runtime-manifest files
+ *     (`package.json`, `package-lock.json` — task 3.4). Any other entry (e.g. a
+ *     stray `node_modules`) is a violation naming it. The sanctioned files are
+ *     accepted ONLY as regular files — a `package.json` DIRECTORY, or any other
+ *     directory tree at the top level, is still an unexpected-top-level
+ *     violation, so no tree (and never a `node_modules`) can slip in under a
+ *     sanctioned name.
  *   - Req 2.2/2.3: no path segment equals `node_modules` anywhere in the tree.
  *   - Req 2.6: the combined size of all staged files is ≤ 500 MB.
  *
@@ -264,7 +327,11 @@ function walkTree(dir: string, violations: LeanPayloadViolation[]): number {
 export function assertLeanPayload(stagingRootDir: string): LeanPayloadViolation[] {
   const violations: LeanPayloadViolation[] = [];
 
-  const expected = new Set(CANONICAL_TOOL_PAYLOADS.map((t) => stagingDestDirName(t)));
+  // The nine canonical tool dirs plus the sanctioned flat runtime-manifest
+  // files are the only permitted top-level entries (Req 3.6 intent unchanged:
+  // the sanctioned entries are FILES, not trees, and never a `node_modules`).
+  const expectedDirs = new Set(CANONICAL_TOOL_PAYLOADS.map((t) => stagingDestDirName(t)));
+  const sanctionedFiles = new Set<string>(SANCTIONED_PAYLOAD_ROOT_FILES);
 
   let topLevel: string[] = [];
   try {
@@ -273,7 +340,22 @@ export function assertLeanPayload(stagingRootDir: string): LeanPayloadViolation[
     topLevel = [];
   }
   for (const entry of topLevel) {
-    if (!expected.has(entry)) {
+    // A sanctioned flat file is permitted ONLY when it is a regular file. If a
+    // directory shares a sanctioned name (e.g. a `package.json/` tree), it is
+    // NOT sanctioned and falls through to the unexpected-top-level check — so a
+    // tree can never masquerade as an allowed flat file.
+    if (sanctionedFiles.has(entry)) {
+      let isRegularFile = false;
+      try {
+        isRegularFile = statSync(resolve(stagingRootDir, entry)).isFile();
+      } catch {
+        isRegularFile = false;
+      }
+      if (isRegularFile) {
+        continue;
+      }
+    }
+    if (!expectedDirs.has(entry)) {
       violations.push({
         kind: "unexpected-top-level",
         detail: resolve(stagingRootDir, entry),
@@ -337,6 +419,13 @@ function main(): void {
   }
 
   stagePayload(repoRoot, stagingRootDir);
+
+  // Stage the flat production manifest + lockfile into the payload ROOT so they
+  // land at `install_dir` where the Runtimes step's `npm install --omit=dev`
+  // runs (Option B2, task 3.4). NEVER a `node_modules` — only the two
+  // sanctioned flat files. The `assertLeanPayload` guard below still rejects any
+  // `node_modules` at any depth and any other unexpected top-level entry.
+  stageRuntimeManifest(installerRootOf(), stagingRootDir);
 
   // Lean_Payload guard (installer-runtime-provisioning Req 2.1, 2.2, 2.3, 2.6,
   // 2.7): the staged tree must be exactly the nine canonical server dirs, carry

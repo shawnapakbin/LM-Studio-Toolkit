@@ -20,7 +20,14 @@ pub fn get_default_install_path() -> String {
     crate::path_validation::default_install_path()
 }
 
-/// Start the installation process at the given path
+/// Start the installation process at the given path.
+///
+/// Returns the full [`InstallationResult`] to the frontend. When the elevation
+/// gate declines (declined UAC / 120s no-response), the returned result has
+/// `success == false`, `step == ELEVATION_STEP`, and `message ==
+/// ADMIN_REQUIRED_MESSAGE`, so the UI can recognize the elevation-declined
+/// outcome specifically and surface the admin-required message — the GUI
+/// analogue of the silent path's non-zero exit code (Req 1.4, task 6.3).
 #[tauri::command]
 pub fn start_installation(install_path: String) -> InstallationResult {
     crate::installer::run_installation(&install_path)

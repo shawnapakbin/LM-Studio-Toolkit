@@ -2,7 +2,7 @@
  * Tool Registry Tests
  */
 
-import { ToolCapability, ToolRegistry, ToolStatus, registerDefaultTools } from "../src/registry";
+import { registerDefaultTools, ToolCapability, ToolRegistry, ToolStatus } from "../src/registry";
 
 describe("ToolRegistry", () => {
   let registry: ToolRegistry;

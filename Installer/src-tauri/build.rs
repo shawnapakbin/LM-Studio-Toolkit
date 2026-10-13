@@ -9,8 +9,9 @@ fn main() {
     // sibling file and is pulled in with include_str! so it can be asserted by
     // the package-manifest test.
     //
-    // The Common-Controls v6 dependency is retained because a custom manifest
-    // replaces tauri's default one, and Tauri's dialog APIs require it.
+    // The manifest declares Microsoft.Windows.Common-Controls v6 so the exe
+    // binds to comctl32 v6, which exports TaskDialogIndirect required by Tauri's
+    // dialog APIs.
     let windows = tauri_build::WindowsAttributes::new()
         .app_manifest(include_str!("llm-toolkit-installer.exe.manifest"));
     let attrs = tauri_build::Attributes::new().windows_attributes(windows);

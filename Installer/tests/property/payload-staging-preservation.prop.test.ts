@@ -7,8 +7,8 @@ import fc from "fast-check";
 import {
   CANONICAL_TOOL_COUNT,
   CANONICAL_TOOL_PAYLOADS,
-  type DistPresence,
   canonicalPayloads,
+  type DistPresence,
   isComplete,
   planPayloadStaging,
 } from "../../scripts/payload-manifest";
@@ -68,17 +68,15 @@ describe("Property 4: Preservation — staging completeness check (Req 3.4)", ()
     fc.assert(
       fc.property(
         // A non-empty subset of server names to break.
-        fc
-          .subarray(serverNames, { minLength: 1 })
-          .chain((broken) =>
-            // For each broken tool, pick whether it is ABSENT or EMPTY.
-            fc
-              .array(fc.constantFrom("absent", "empty"), {
-                minLength: broken.length,
-                maxLength: broken.length,
-              })
-              .map((kinds) => ({ broken, kinds })),
-          ),
+        fc.subarray(serverNames, { minLength: 1 }).chain((broken) =>
+          // For each broken tool, pick whether it is ABSENT or EMPTY.
+          fc
+            .array(fc.constantFrom("absent", "empty"), {
+              minLength: broken.length,
+              maxLength: broken.length,
+            })
+            .map((kinds) => ({ broken, kinds })),
+        ),
         ({ broken, kinds }) => {
           const brokenSet = new Set(broken);
           const presence: DistPresence[] = CANONICAL_TOOL_PAYLOADS.map((t) => {

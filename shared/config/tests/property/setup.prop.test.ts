@@ -1,6 +1,3 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 /**
  * Property tests for the Setup Script / Config Generator.
  *
@@ -10,6 +7,9 @@ import * as path from "path";
  * Validates: Requirements 5.3, 5.6
  */
 import fc from "fast-check";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { parse as yamlParse } from "yaml";
 
 import { generateConfigFile } from "../../src/generate";

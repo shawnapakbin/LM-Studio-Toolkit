@@ -1,5 +1,5 @@
-import crypto from "crypto";
 import Database from "better-sqlite3";
+import crypto from "crypto";
 import { v4 as uuid } from "uuid";
 import { initSchema } from "./schema";
 import type { Rule, SolutionPattern } from "./types";

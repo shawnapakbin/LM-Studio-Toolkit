@@ -1,6 +1,3 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 /**
  * Property 16: Installation Path Validation
  *
@@ -31,6 +28,9 @@ import * as path from "path";
  * Validates: Requirements 7.9
  */
 import fc from "fast-check";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { CLEANUP_SUBDIRS, cleanupInstallation } from "../../src/utils/cleanup";
 import { InstallLogger, KNOWN_PHASES, type LogEntry } from "../../src/utils/logger";
 import {

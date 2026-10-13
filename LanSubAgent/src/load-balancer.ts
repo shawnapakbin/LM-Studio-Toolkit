@@ -9,7 +9,7 @@
  */
 
 import { EndpointRegistry } from "./endpoint-registry";
-import { Logger, logger as defaultLogger } from "./logger";
+import { logger as defaultLogger, Logger } from "./logger";
 import { EndpointState } from "./types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────

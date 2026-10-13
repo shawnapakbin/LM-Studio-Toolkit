@@ -43,9 +43,7 @@ function createMockClient(
  */
 const validCodeArbitrary = fc.stringOf(
   fc.oneof(
-    fc
-      .char()
-      .filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126), // printable ASCII
+    fc.char().filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126), // printable ASCII
     fc.constant("\n"), // newline characters (properly in-string, not raw JSON)
     fc.constant("\t"), // tabs
   ),
@@ -87,9 +85,7 @@ const validCodeVariousLengths = fc.oneof(
 const unicodeCodeArbitrary = fc.stringOf(
   fc.oneof(
     fc.char().filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126),
-    fc
-      .unicode()
-      .filter((c) => c.charCodeAt(0) >= 128), // non-ASCII unicode
+    fc.unicode().filter((c) => c.charCodeAt(0) >= 128), // non-ASCII unicode
   ),
   { minLength: 1, maxLength: 500 },
 );

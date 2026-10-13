@@ -12,6 +12,7 @@ import {
 
 // Mock fs so no real files are touched
 jest.mock("fs");
+
 import fs from "fs";
 
 const mockReadFileSync = fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>;

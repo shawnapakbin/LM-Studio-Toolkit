@@ -1,9 +1,9 @@
+import type { Application } from "express";
 import fs from "fs";
 import http from "http";
 import path from "path";
-import { fileURLToPath } from "url";
-import type { Application } from "express";
 import request from "supertest";
+import { fileURLToPath } from "url";
 
 // http-server.ts uses __dirname (CJS global) for static asset path.
 // In Jest CJS mode, __dirname is available natively.

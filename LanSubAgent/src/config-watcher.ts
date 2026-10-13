@@ -10,7 +10,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { DEFAULT_CONFIG, LanSubAgentConfig, LanSubAgentConfigSchema } from "./config-schema";
-import { Logger, logger as defaultLogger } from "./logger";
+import { logger as defaultLogger, Logger } from "./logger";
 
 export class ConfigWatcher {
   private filePath: string;

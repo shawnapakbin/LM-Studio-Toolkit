@@ -1,10 +1,10 @@
 // Feature: 3dtool-viewer-improvements, Property 14: Rollback Content Restoration
 // **Validates: Requirements 7.2, 7.3**
 
+import * as fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as fc from "fast-check";
 import { HistoryManager } from "../../src/history-manager";
 
 /**

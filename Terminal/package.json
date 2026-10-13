@@ -1,6 +1,6 @@
 {
   "name": "llm-toolkit-terminal",
-  "version": "5.3.0",
+  "version": "5.4.1",
   "private": true,
   "description": "Terminal tool for LM Studio Tools",
   "main": "dist/index.js",
@@ -15,11 +15,11 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/sdk": "^1.30.1",
     "@shared/types": "file:../shared",
-    "cors": "^2.8.5",
-    "dotenv": "^16.6.1",
-    "express": "^4.21.2",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^4.22.3",
     "llm-toolkit-observability": "*",
     "zod": "^3.25.76"
   }

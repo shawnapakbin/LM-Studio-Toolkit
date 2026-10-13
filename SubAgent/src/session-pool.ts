@@ -15,13 +15,13 @@ import { getLogger } from "llm-toolkit-observability";
 import { type ChatMessage, type LMStudioRequest, sendChatCompletion } from "./http-client";
 import { RecursionGuard } from "./recursion-guard";
 import {
-  type DispatchState,
-  type InternalTask,
-  type PartialResult,
   buildCancelledResult,
   buildProgressReport,
   buildToolDefinitions,
+  type DispatchState,
+  type InternalTask,
   normalizeToolCalls,
+  type PartialResult,
 } from "./session-pool-helpers";
 import { SessionRegistry } from "./session-registry";
 import { TelemetryTracker } from "./telemetry";

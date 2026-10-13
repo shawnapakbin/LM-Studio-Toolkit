@@ -326,9 +326,7 @@ const p13EmptyTasksArb: fc.Arbitrary<unknown> = fc.constant({ tasks: [] });
  */
 const p13InvalidTaskItemArb: fc.Arbitrary<unknown> = fc.oneof(
   // Missing taskId entirely
-  fc
-    .record({ prompt: fc.string({ minLength: 1 }) })
-    .map((t) => ({ tasks: [t] })),
+  fc.record({ prompt: fc.string({ minLength: 1 }) }).map((t) => ({ tasks: [t] })),
   // Empty taskId
   fc
     .record({ taskId: fc.constant(""), prompt: fc.string({ minLength: 1 }) })

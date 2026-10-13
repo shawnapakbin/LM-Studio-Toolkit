@@ -44,3 +44,17 @@ pub fn cancel_installation() -> bool {
 pub fn get_install_log() -> Vec<String> {
     crate::logger::get_entries()
 }
+
+/// Close the installer window / exit the application.
+///
+/// The GUI's "Close Installer" button on the completion screen invokes this
+/// instead of the browser `window.close()`, which is a no-op in a Tauri webview
+/// unless the frontend holds the `core:window:allow-close` capability (this
+/// installer ships no capabilities, so the JS close silently did nothing and
+/// the window stayed open after a successful install). Exiting through the
+/// `AppHandle` tears the whole single-window app down cleanly and reliably,
+/// requiring no frontend capability — only the already-permitted `invoke`.
+#[tauri::command]
+pub fn exit_installer(app: tauri::AppHandle) {
+    app.exit(0);
+}

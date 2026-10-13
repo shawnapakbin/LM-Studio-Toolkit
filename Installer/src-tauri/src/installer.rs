@@ -205,9 +205,18 @@ impl Step {
 
 /// Ordered list of all provisioning steps. The orchestrator iterates this in
 /// order and stops at the first failure (Req 9.3).
+///
+/// `CopyTools` MUST run before `Runtimes`: the Runtimes step runs
+/// `npm install --omit=dev` with `cwd = install_dir` and then verifies every
+/// canonical plugin resolves the SDK from its copied tree. Both require the
+/// bundled payload — the nine tool `dist` trees AND the flat
+/// `package.json`/`package-lock.json` — to already be present in `install_dir`.
+/// If Runtimes ran first, npm would find no manifest (installing nothing) and
+/// plugin verification would fail because no tree exists, which is exactly the
+/// empty-install-dir failure this ordering prevents.
 pub const STEPS: &[Step] = &[
-    Step::Runtimes,
     Step::CopyTools,
+    Step::Runtimes,
     Step::LmStudioPluginDirs,
     Step::EnvConfig,
     Step::UninstallRegistration,
@@ -262,7 +271,7 @@ where
 /// Run the full installation pipeline at the given path.
 ///
 /// Orchestrates the five provisioning steps sequentially with fail-fast
-/// semantics: runtimes → copy tools → LM Studio plugin dirs → env config →
+/// semantics: copy tools → runtimes → LM Studio plugin dirs → env config →
 /// uninstall registration. Each step supports retry on failure, checks the
 /// cancellation flag at its boundaries, and reports its name on success or
 /// failure (Req 9.1, 9.3, 9.4).
@@ -1090,10 +1099,12 @@ mod tests {
 
     #[test]
     fn test_steps_order() {
-        // Exactly five steps, in the Req 9.1 order.
+        // Exactly five steps. CopyTools MUST precede Runtimes so the bundled
+        // payload + flat npm manifest are in install_dir before `npm install`
+        // runs there and before plugin verification spawns the copied trees.
         assert_eq!(STEPS.len(), 5);
-        assert_eq!(STEPS[0], Step::Runtimes);
-        assert_eq!(STEPS[1], Step::CopyTools);
+        assert_eq!(STEPS[0], Step::CopyTools);
+        assert_eq!(STEPS[1], Step::Runtimes);
         assert_eq!(STEPS[2], Step::LmStudioPluginDirs);
         assert_eq!(STEPS[3], Step::EnvConfig);
         assert_eq!(STEPS[4], Step::UninstallRegistration);
@@ -1107,8 +1118,8 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "runtimes",
                 "copy-tools",
+                "runtimes",
                 "lm-studio-plugin-dirs",
                 "env-config",
                 "uninstall-registration",
@@ -2284,8 +2295,8 @@ mod tests {
     // injectable status seam on the unfixed code, the preserved paths are
     // captured at the observable contract level:
     //   - test case 1 (all-satisfied parity): the pipeline order places
-    //     Runtimes immediately before Copy Tools, and the pure orchestration
-    //     core proceeds Runtimes -> Copy Tools -> ... when every step is Ok;
+    //     Copy Tools immediately before Runtimes, and the pure orchestration
+    //     core proceeds Copy Tools -> Runtimes -> ... when every step is Ok;
     //     the "collect needs_download; empty => Ok(())" decision is modeled by
     //     the pure `runtimes_all_satisfied` mirror below.
     //   - test case 2 (manifest-error preservation): the two manifest error
@@ -2299,7 +2310,7 @@ mod tests {
     //     existing `dependency::tests::test_detect_all_loads_manifest` /
     //     `prop_provision_iff_absent_or_below_minimum` are reused unchanged.
     //   - test case 5 (other-steps preservation): the ordered, fail-fast,
-    //     five-step pipeline is pinned (Runtimes, Copy Tools, LM Studio Plugin
+    //     five-step pipeline is pinned (Copy Tools, Runtimes, LM Studio Plugin
     //     Dirs, Env Config, Uninstall Registration) — reusing the existing
     //     `prop_fail_fast_pipeline` contract.
     //
@@ -2370,14 +2381,15 @@ mod tests {
         }
 
         #[test]
-        fn all_satisfied_pipeline_proceeds_runtimes_then_copy_tools() {
-            // All-satisfied parity at the pipeline level: Runtimes is Step 1 and
-            // Copy Tools is Step 2, and when every step is Ok the pure
+        fn all_satisfied_pipeline_proceeds_copy_tools_then_runtimes() {
+            // All-satisfied parity at the pipeline level: Copy Tools is Step 1
+            // and Runtimes is Step 2, and when every step is Ok the pure
             // orchestration core runs them in order and completes — so a
-            // successful Runtimes step is followed by Copy Tools next, exactly
-            // as before the fix.
-            assert_eq!(STEPS[0], Step::Runtimes);
-            assert_eq!(STEPS[1], Step::CopyTools);
+            // successful Copy Tools step (which stages the payload + flat npm
+            // manifest into install_dir) is followed by Runtimes next, which is
+            // what lets `npm install` find its manifest and the plugins resolve.
+            assert_eq!(STEPS[0], Step::CopyTools);
+            assert_eq!(STEPS[1], Step::Runtimes);
 
             let mut executed: Vec<&'static str> = Vec::new();
             let outcome = orchestrate_steps(STEPS, |step| {
@@ -2546,15 +2558,16 @@ mod tests {
 
         #[test]
         fn pipeline_order_and_membership_preserved() {
-            // The ordered five-step pipeline is unchanged by the fix (Req 6.5):
-            // Runtimes, Copy Tools, LM Studio Plugin Dirs, Env Config,
-            // Uninstall Registration — in that order.
+            // The ordered five-step pipeline (Req 6.5): Copy Tools must precede
+            // Runtimes so the payload + flat npm manifest are in install_dir
+            // before `npm install` and plugin verification run. Then LM Studio
+            // Plugin Dirs, Env Config, Uninstall Registration — in that order.
             let names: Vec<&str> = STEPS.iter().map(|s| s.name()).collect();
             assert_eq!(
                 names,
                 vec![
-                    "runtimes",
                     "copy-tools",
+                    "runtimes",
                     "lm-studio-plugin-dirs",
                     "env-config",
                     "uninstall-registration",

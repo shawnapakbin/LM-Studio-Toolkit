@@ -1,6 +1,6 @@
 {
   "productName": "LLM Toolkit Installer",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "identifier": "com.llmtoolkit.installer",
   "build": {
     "frontendDist": "../dist",

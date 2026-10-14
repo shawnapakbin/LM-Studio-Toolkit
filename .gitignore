@@ -151,3 +151,9 @@ stage-payload.log
 .Manifesto/
 .instructions/
 .blender-mcp/
+
+# Release 1 (installer-v5.4.4): stray dev/build artifacts kept out of git
+Installer/*.log
+Installer/src-tauri/matcher_check.rs
+Installer/src-tauri/shared-tarballs/
+/repro-install.ps1

@@ -40,20 +40,29 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 
-import { generateProductionManifest } from "./generate-production-manifest.ts";
+import {
+  generateProductionManifest,
+  locateOrPackSharedTarballs,
+} from "./generate-production-manifest.ts";
+import { normalizeSharedTarball } from "./normalize-shared-tarball.ts";
 import {
   CANONICAL_TOOL_PAYLOADS,
+  CLOSURE_PACKAGE_NAMES,
   canonicalPayloads,
   type DistPresence,
   isStagingComplete,
   planPayloadStaging,
   SANCTIONED_PAYLOAD_ROOT_FILES,
+  SHARED_TARBALL_SPECS,
   scanPayloadForSecrets,
+  sharedTarballFileName,
   stagingBlockers,
   stagingDestDirName,
 } from "./payload-manifest.ts";
@@ -160,6 +169,227 @@ export function observeAllPresence(repoRootDir: string): DistPresence[] {
   return canonicalPayloads().map((t) => observeDistPresence(repoRootDir, t.serverName, t.distRoot));
 }
 
+/**
+ * The two workspace-internal `@shared/*` packages the Option B fix provisions
+ * via local `file:` tarballs (bugfix: mcp-shared-module-resolution-fix, design
+ * → Fix → Changes Required step 1; Req 2.1, 2.2).
+ *
+ * Each descriptor names the package, its repo-root-relative package directory
+ * (the `npm pack` target in task 3.2), and its compiled `dist` root which MUST
+ * exist and be non-empty before the pack step runs. The `dist` roots are
+ * produced by the root `build:shared` script
+ * (`npm run -w shared build && npm run -w shared/config build`), which
+ * `stage-payload`'s `npm run build` invokes unless `--no-build`.
+ *
+ *   - `@shared/types`  → `shared/`        main `dist/types.js`
+ *   - `@shared/config` → `shared/config/` main `dist/index.js`
+ */
+export interface SharedPackagePayload {
+  /** The published-style package name, e.g. `@shared/types`. */
+  packageName: string;
+  /** Repo-root-relative package directory (the `npm pack` target), e.g. `shared`. */
+  packageDir: string;
+  /** Repo-root-relative compiled `dist` root that must exist before packing. */
+  distRoot: string;
+}
+
+/**
+ * The canonical two `@shared/*` packages, in a stable order. Mirrors the
+ * `build:shared` graph (`shared` then `shared/config`).
+ */
+export const SHARED_PACKAGE_PAYLOADS: readonly SharedPackagePayload[] = [
+  { packageName: "@shared/types", packageDir: "shared", distRoot: "shared/dist" },
+  { packageName: "@shared/config", packageDir: "shared/config", distRoot: "shared/config/dist" },
+] as const;
+
+/**
+ * The five workspace-internal `llm-toolkit-*` packages the generalized Option B
+ * fix provisions via local `file:` tarballs (bugfix:
+ * mcp-shared-module-resolution-fix, follow-up 5.4.4; design → Follow-up Design →
+ * Fix → Changes Required step 1; Req 5.1, 5.2).
+ *
+ * These are the same class of unpublished, workspace-internal packages as the
+ * two `@shared/*` entries above — the shipped servers require them by bare name
+ * (incl. deep `/dist/*` subpaths) but they are dropped by the generator and
+ * never materialized in the installed layout. Each descriptor reuses the
+ * {@link SharedPackagePayload} shape: the published-style package name, its
+ * repo-root-relative package directory (the `npm pack` target in task 8.2), and
+ * its compiled `dist` root which MUST exist and be non-empty before the pack
+ * step runs. Every package's `main` is `dist/index.js`, so each `dist` root is
+ * `<packageDir>/dist`.
+ *
+ * The `dist` roots are produced by the workspace build graph the root
+ * `npm run build` drives, which `stage-payload` invokes unless `--no-build`.
+ *
+ *   - `llm-toolkit-ask-user`        → `AskUser/`          main `dist/index.js`
+ *   - `llm-toolkit-calculator`      → `Calculator/`       main `dist/index.js`
+ *   - `llm-toolkit-clock`           → `Clock/`            main `dist/index.js`
+ *   - `llm-toolkit-document-scraper`→ `DocumentScraper/`  main `dist/index.js`
+ *   - `llm-toolkit-observability`   → `Observability/`    main `dist/index.js`
+ */
+export const LLM_TOOLKIT_PACKAGE_PAYLOADS: readonly SharedPackagePayload[] = [
+  { packageName: "llm-toolkit-ask-user", packageDir: "AskUser", distRoot: "AskUser/dist" },
+  { packageName: "llm-toolkit-calculator", packageDir: "Calculator", distRoot: "Calculator/dist" },
+  { packageName: "llm-toolkit-clock", packageDir: "Clock", distRoot: "Clock/dist" },
+  {
+    packageName: "llm-toolkit-document-scraper",
+    packageDir: "DocumentScraper",
+    distRoot: "DocumentScraper/dist",
+  },
+  {
+    packageName: "llm-toolkit-observability",
+    packageDir: "Observability",
+    distRoot: "Observability/dist",
+  },
+] as const;
+
+/**
+ * A single missing-shared-dist blocker, named for the pre-pack abort report.
+ */
+export interface SharedDistBlocker {
+  /** The `@shared/*` package whose compiled `dist` root is absent or empty. */
+  packageName: string;
+  /** Repo-root-relative `dist` root that was expected but not found/non-empty. */
+  distRoot: string;
+}
+
+/**
+ * Observe which `@shared/*` packages lack a built, non-empty `dist` tree.
+ *
+ * Pure w.r.t. its argument (reads the filesystem under `repoRootDir`, returns
+ * blockers rather than exiting) so a test can drive it directly, mirroring the
+ * nine-tool completeness planner (`planPayloadStaging`). Each `@shared/*`
+ * `dist` root is checked with the SAME `observeDistPresence` rule the tool dist
+ * trees use: it must exist as a directory and contain at least one entry.
+ *
+ * The pack step (task 3.2) depends on these dists existing — if either is
+ * absent/empty this returns a non-empty list and the caller MUST abort loudly,
+ * naming each missing package, before any `npm pack` runs.
+ *
+ * @returns the (possibly empty) list of blockers; empty == both dists ready.
+ */
+export function observeSharedDistBlockers(repoRootDir: string): SharedDistBlocker[] {
+  return observePackageDistBlockers(repoRootDir, SHARED_PACKAGE_PAYLOADS);
+}
+
+/**
+ * Observe which `llm-toolkit-*` packages lack a built, non-empty `dist` tree
+ * (follow-up 5.4.4; Req 5.1, 5.2). The generalized twin of
+ * {@link observeSharedDistBlockers}: same pure, filesystem-reading, blocker-
+ * returning contract, driven by {@link LLM_TOOLKIT_PACKAGE_PAYLOADS}.
+ *
+ * The pack step (task 8.2) depends on all five `dist` trees existing — if any
+ * is absent/empty this returns a non-empty list and the caller MUST abort
+ * loudly, naming each missing package, before any `npm pack` runs.
+ *
+ * @returns the (possibly empty) list of blockers; empty == all five dists ready.
+ */
+export function observeLlmToolkitDistBlockers(repoRootDir: string): SharedDistBlocker[] {
+  return observePackageDistBlockers(repoRootDir, LLM_TOOLKIT_PACKAGE_PAYLOADS);
+}
+
+/**
+ * Shared pure core for the workspace-internal pre-pack dist guards: for each
+ * package descriptor, apply the SAME `observeDistPresence` rule the nine tool
+ * dist trees use (must exist as a directory and contain at least one entry) and
+ * collect a blocker — in input order — for every package whose compiled `dist`
+ * root is absent or empty.
+ */
+function observePackageDistBlockers(
+  repoRootDir: string,
+  packages: readonly SharedPackagePayload[],
+): SharedDistBlocker[] {
+  const blockers: SharedDistBlocker[] = [];
+  for (const pkg of packages) {
+    const presence = observeDistPresence(repoRootDir, pkg.packageName, pkg.distRoot);
+    if (!presence.exists || !presence.nonEmpty) {
+      blockers.push({ packageName: pkg.packageName, distRoot: pkg.distRoot });
+    }
+  }
+  return blockers;
+}
+
+/**
+ * Guard the pack step on both `@shared/*` `dist` trees existing (design → Fix →
+ * Changes Required step 1; Req 2.1, 2.2). ABORTS (non-zero exit) and NAMES each
+ * `@shared/*` package whose compiled `dist` root is absent or empty, mirroring
+ * the nine-tool dist-completeness abort in `main`. Produces no tarball and
+ * stages nothing when a dist is missing.
+ *
+ * Call this AFTER the (optional) build and BEFORE packing `@shared/*` into
+ * tarballs (task 3.2). On success it is silent except for a one-line OK log.
+ */
+export function assertSharedDistsPresentOrExit(repoRootDir: string): void {
+  const blockers = observeSharedDistBlockers(repoRootDir);
+  if (blockers.length === 0) {
+    console.log(
+      `[stage-payload] Both @shared/* dist trees present and non-empty (${SHARED_PACKAGE_PAYLOADS.map((p) => p.packageName).join(", ")}).`,
+    );
+    return;
+  }
+  console.error(
+    `[stage-payload] ABORT — ${blockers.length} @shared/* package(s) have no built dist tree to pack:`,
+  );
+  for (const b of blockers) {
+    console.error(`[stage-payload]   - ${b.packageName}  (${b.distRoot})`);
+  }
+  console.error(
+    "[stage-payload] Build the shared packages first (root `build:shared`: `npm run -w shared build && npm run -w shared/config build`) so each dist/ exists and is non-empty before packing. No tarball was produced.",
+  );
+  process.exit(1);
+}
+
+/**
+ * Guard the pack step on all five `llm-toolkit-*` `dist` trees existing
+ * (follow-up 5.4.4; design → Follow-up Design → Fix → Changes Required step 1;
+ * Req 5.1, 5.2). The generalized twin of {@link assertSharedDistsPresentOrExit}:
+ * ABORTS (non-zero exit) and NAMES each `llm-toolkit-*` package whose compiled
+ * `dist` root is absent or empty, mirroring the nine-tool dist-completeness
+ * abort in `main` and the 5.4.3 `@shared/*` build gate. Produces no tarball and
+ * stages nothing when a dist is missing.
+ *
+ * Call this AFTER the (optional) build and BEFORE packing the five
+ * `llm-toolkit-*` packages into tarballs (task 8.2). On success it is silent
+ * except for a one-line OK log.
+ */
+export function assertLlmToolkitDistsPresentOrExit(repoRootDir: string): void {
+  const blockers = observeLlmToolkitDistBlockers(repoRootDir);
+  if (blockers.length === 0) {
+    console.log(
+      `[stage-payload] All ${LLM_TOOLKIT_PACKAGE_PAYLOADS.length} llm-toolkit-* dist trees present and non-empty (${LLM_TOOLKIT_PACKAGE_PAYLOADS.map((p) => p.packageName).join(", ")}).`,
+    );
+    return;
+  }
+  console.error(
+    `[stage-payload] ABORT — ${blockers.length} llm-toolkit-* package(s) have no built dist tree to pack:`,
+  );
+  for (const b of blockers) {
+    console.error(`[stage-payload]   - ${b.packageName}  (${b.distRoot})`);
+  }
+  console.error(
+    "[stage-payload] Build the workspace packages first (root `npm run build`) so each llm-toolkit-* dist/ exists and is non-empty before packing. No tarball was produced.",
+  );
+  process.exit(1);
+}
+
+/**
+ * Read the repo root `package.json` `version` — the single source of truth the
+ * `@shared/*` tarball filenames are DERIVED from (never hardcoded), so the
+ * staged names follow the repo-wide version bump (5.4.2 → 5.4.3) with no drift.
+ * The pack step (`stageSharedTarballs`) and the sanctioned-file set in
+ * `payload-manifest.ts` read the SAME root version, so they cannot disagree.
+ */
+export function resolveRootVersion(repoRootDir: string): string {
+  const rootPkg = resolve(repoRootDir, "package.json");
+  const parsed = JSON.parse(readFileSync(rootPkg, "utf8")) as { version?: string };
+  if (typeof parsed.version !== "string" || parsed.version.length === 0) {
+    throw new Error(
+      `[stage-payload] root package.json at ${rootPkg} has no usable "version" to derive the @shared/* tarball names from`,
+    );
+  }
+  return parsed.version;
+}
+
 interface CliOptions {
   build: boolean;
   dryRun: boolean;
@@ -239,7 +469,18 @@ export function stageRuntimeManifest(installerRootDir: string, stagingRoot: stri
   // the payload staging root, so `stagePayload`'s `rmSync(stagingRoot)` never
   // wipes the generator output we are about to copy from.
   const generateOutDir = resolve(installerRootDir, "src-tauri", "runtime-manifest");
+
+  // Anchor the generator on an EXPLICIT repo root (the parent of `Installer/`)
+  // rather than letting `generateProductionManifest` fall back to its
+  // `process.argv[1]`-derived `repoRootOf()`. The argv[1] fallback is only
+  // correct when this module is the invoked CLI; under a jest run (where
+  // `argv[1]` is the test runner inside `node_modules`) it resolves to the
+  // wrong tree and `locateOrPackSharedTarballs` would `npm pack` a nonexistent
+  // `node_modules/shared` (ENOENT). Passing an explicit `repoRoot` is strictly
+  // more correct than the fallback for every caller, CLI or test.
+  const repoRootDir = resolve(installerRootDir, "..");
   const { packageJsonPath, packageLockPath } = generateProductionManifest({
+    repoRoot: repoRootDir,
     outDir: generateOutDir,
     writeLockfile: true,
   });
@@ -257,6 +498,144 @@ export function stageRuntimeManifest(installerRootDir: string, stagingRoot: stri
     copyFileSync(srcPath, dest);
     console.log(`[stage-payload]   staged runtime ${fileName}  (-> payload/${fileName})`);
   }
+
+  // Stage the closure `file:` tarballs beside the flat manifest at the payload
+  // ROOT so the Runtimes step's `npm install --omit=dev` (cwd = install_dir)
+  // can resolve the `file:./<stem>-<version>.tgz` specifiers the generated
+  // manifest/lockfile declare (bugfix: mcp-shared-module-resolution-fix). The
+  // tarballs are already staged beside the just-generated artifacts when a full
+  // `stageSharedTarballs` run has placed them; otherwise `locateOrPackSharedTarballs`
+  // packs them on demand. In BOTH cases the tarball is NORMALIZED — its nested
+  // workspace-internal specifiers (`@shared/types: file:../shared`,
+  // `llm-toolkit-observability: *`) rewritten to `*` so npm binds them to the
+  // sibling top-level `file:` entries (task 8.3, option b). Without the tarballs
+  // present at the payload root, the install resolves no `file:` target; without
+  // the normalization, npm produces a damaged lockfile from the nested
+  // relative-path specifiers. NEVER a `node_modules` — only sanctioned flat
+  // tarball files, which `assertLeanPayload` accepts and the secret guard scans.
+  const repoRootForTarballs = resolve(installerRootDir, "..");
+  const version = resolveRootVersion(repoRootForTarballs);
+  const { paths: tarballPaths, cleanup } = locateOrPackSharedTarballs(
+    repoRootForTarballs,
+    version,
+    stagingRoot,
+  );
+  try {
+    for (const src of tarballPaths) {
+      const dest = resolve(stagingRoot, basename(src));
+      if (resolve(src) !== dest) {
+        copyFileSync(src, dest);
+      }
+      console.log(
+        `[stage-payload]   staged runtime tarball ${basename(src)}  (-> payload/${basename(src)})`,
+      );
+    }
+  } finally {
+    cleanup();
+  }
+}
+
+/**
+ * Pack both `@shared/*` packages into versioned tarballs and stage them as
+ * sanctioned flat files at the payload ROOT (Option B, task 3.2;
+ * bugfix: mcp-shared-module-resolution-fix; Req 2.1, 2.2, 3.2, 3.4).
+ *
+ * WHY THE PAYLOAD ROOT (not a subdir):
+ *   The payload root maps to `install_dir`, and the generator (task 3.3) emits
+ *   `"@shared/types": "file:./shared-types-<v>.tgz"` /
+ *   `"@shared/config": "file:./shared-config-<v>.tgz"` relative to that root. The
+ *   Runtimes step runs `npm install --omit=dev …` with `cwd = install_dir`, so
+ *   the tarballs must sit beside the flat `package.json` for npm to resolve the
+ *   `file:` specifiers and materialize `install_dir/node_modules/@shared/*`.
+ *
+ * WHY A SIBLING TEMP DIR (mirrors `stageRuntimeManifest`):
+ *   `npm pack --pack-destination` writes each `.tgz` into
+ *   `<installerRoot>/src-tauri/shared-tarballs/` — a SIBLING of the payload
+ *   staging root — so `stagePayload`'s `rmSync(stagingRoot)` never wipes a
+ *   tarball we are about to copy from. We then copy the two tarballs to the
+ *   payload root with VERSION-DERIVED names (`sharedTarballFileName`), so the
+ *   staged names track the root version with no hardcoded drift.
+ *
+ * `npm pack` names its output from the package's own `name`+`version`
+ * (e.g. `shared-types-5.4.3.tgz` for the `shared-types` package); we locate the
+ * freshly-produced tarball in the pack-destination dir rather than guessing the
+ * exact npm filename, then copy it to the canonical sanctioned name. This NEVER
+ * stages a `node_modules` — only the two sanctioned flat tarball files.
+ *
+ * Call AFTER `assertSharedDistsPresentOrExit` (the loud pre-pack dist guard) so
+ * both `@shared/*` `dist` trees are known to exist before packing.
+ *
+ * @returns the staged tarball filenames (version-derived), in spec order.
+ */
+export function stageSharedTarballs(
+  installerRootDir: string,
+  repoRootDir: string,
+  stagingRoot: string,
+): string[] {
+  const version = resolveRootVersion(repoRootDir);
+
+  // A sibling of the payload staging root, so `rmSync(stagingRoot)` can never
+  // wipe the tarballs we are about to copy from (mirrors stageRuntimeManifest's
+  // sibling `runtime-manifest/` dir).
+  const packDestDir = resolve(installerRootDir, "src-tauri", "shared-tarballs");
+  rmSync(packDestDir, { recursive: true, force: true });
+  mkdirSync(packDestDir, { recursive: true });
+
+  const stagedNames: string[] = [];
+
+  for (const spec of SHARED_TARBALL_SPECS) {
+    const packageDir = resolve(repoRootDir, spec.packageDir);
+
+    // Record the dir contents before packing so we can identify the new .tgz
+    // regardless of the exact name npm derives from the package name+version.
+    const before = new Set(existsSync(packDestDir) ? readdirSync(packDestDir) : []);
+
+    // `npm pack <packageDir> --pack-destination <dir>` builds the tarball from
+    // the package's own manifest (its prebuilt `dist/` is already present) and
+    // writes it into the sibling temp dir. `--ignore-scripts` keeps packing
+    // side-effect-free (no prepack/postpack hooks run).
+    execSync(
+      `npm pack "${packageDir}" --pack-destination "${packDestDir}" --ignore-scripts --silent`,
+      { cwd: repoRootDir, stdio: ["ignore", "pipe", "inherit"] },
+    );
+
+    const produced = readdirSync(packDestDir).filter(
+      (name) => name.endsWith(".tgz") && !before.has(name),
+    );
+    if (produced.length !== 1) {
+      throw new Error(
+        `[stage-payload] expected exactly one new tarball from \`npm pack ${spec.packageDir}\`, found ${produced.length}: [${produced.join(", ")}]`,
+      );
+    }
+
+    // Copy to the canonical, VERSION-DERIVED sanctioned name at the payload root.
+    const stagedName = sharedTarballFileName(spec.stem, version);
+    const src = resolve(packDestDir, produced[0]);
+    const dest = resolve(stagingRoot, stagedName);
+    copyFileSync(src, dest);
+
+    // Normalize the staged tarball's `package.json` so its NESTED
+    // workspace-internal specifiers (`@shared/types: file:../shared`,
+    // `llm-toolkit-observability: *`) bind to the sibling TOP-LEVEL `file:`
+    // tarballs at install time (bugfix: mcp-shared-module-resolution-fix,
+    // task 8.3, option b). Without this, `npm install` in `install_dir` tries
+    // to resolve `file:../shared` as a relative path that does not exist in the
+    // install layout, producing a damaged lockfile. The `dist/` and every other
+    // shipped file stay byte-identical; only the manifest's specifiers change.
+    normalizeSharedTarball(
+      (p) => readFileSync(p),
+      (p, data) => writeFileSync(p, data),
+      dest,
+      CLOSURE_PACKAGE_NAMES,
+    );
+
+    stagedNames.push(stagedName);
+    console.log(
+      `[stage-payload]   staged shared tarball ${produced[0]}  (-> payload/${stagedName}, nested specifiers normalized)`,
+    );
+  }
+
+  return stagedNames;
 }
 
 /** A single lean-payload violation, named for the abort report. */
@@ -389,6 +768,22 @@ function main(): void {
   const repoRoot = repoRootOf();
   const stagingRootDir = stagingRoot();
 
+  // Pre-pack guard (bugfix: mcp-shared-module-resolution-fix, design → Fix →
+  // Changes Required step 1; Req 2.1, 2.2): the Option B tarball pack step
+  // (task 3.2) depends on both `@shared/*` `dist` trees existing. Fail loudly —
+  // naming each missing package — before anything is staged, mirroring the
+  // nine-tool dist-completeness abort below. The root `npm run build`
+  // (`build:shared`) above produces these unless `--no-build`/`--dry-run`.
+  assertSharedDistsPresentOrExit(repoRoot);
+
+  // Pre-pack guard (follow-up 5.4.4): the generalized Option B tarball pack step
+  // (task 8.2) additionally depends on all five `llm-toolkit-*` `dist` trees
+  // existing. Fail loudly — naming each missing package — before anything is
+  // staged, mirroring the `@shared/*` gate above and the nine-tool
+  // dist-completeness abort below. The root `npm run build` above produces these
+  // unless `--no-build`/`--dry-run`.
+  assertLlmToolkitDistsPresentOrExit(repoRoot);
+
   const presence = observeAllPresence(repoRoot);
   const plan = planPayloadStaging(presence);
 
@@ -426,6 +821,17 @@ function main(): void {
   // sanctioned flat files. The `assertLeanPayload` guard below still rejects any
   // `node_modules` at any depth and any other unexpected top-level entry.
   stageRuntimeManifest(installerRootOf(), stagingRootDir);
+
+  // Pack both `@shared/*` packages into versioned tarballs and stage them as
+  // sanctioned flat files at the payload root (bugfix:
+  // mcp-shared-module-resolution-fix, Option B, task 3.2; Req 2.1, 2.2). The
+  // tarball names are VERSION-DERIVED from the root package.json so they follow
+  // the repo-wide version bump with no drift, and the generator's `file:`
+  // specifiers (task 3.3) reference these exact staged names. NEVER a
+  // `node_modules` — only the two sanctioned flat tarball files; the
+  // `assertLeanPayload` guard below still rejects any `node_modules` at any
+  // depth and any unexpected top-level entry.
+  stageSharedTarballs(installerRootOf(), repoRoot, stagingRootDir);
 
   // Lean_Payload guard (installer-runtime-provisioning Req 2.1, 2.2, 2.3, 2.6,
   // 2.7): the staged tree must be exactly the nine canonical server dirs, carry

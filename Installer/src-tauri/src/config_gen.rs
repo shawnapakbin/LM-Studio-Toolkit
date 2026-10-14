@@ -76,6 +76,40 @@ pub fn is_secret_key(key: &str) -> bool {
     SECRET_ENV_KEYS.contains(&key)
 }
 
+/// Benign STRUCTURAL package-lock / package-metadata keys whose values are
+/// EXPECTED to be long, URL-safe/base64-ish strings and are NEVER secrets.
+/// Mirrors TS `BENIGN_METADATA_KEYS` in `scripts/payload-manifest.ts`.
+///
+/// Bugfix: mcp-shared-module-resolution-fix — the Option B fix adds the two
+/// `@shared/*` `file:` entries to the flat `package-lock.json`, and those
+/// entries carry `"license": "LicenseRef-Shawna-NonCommercial"` (the real
+/// license declared in `shared/package.json` / `shared/config/package.json`).
+/// That value is >=24 chars and all URL-safe token characters, so the
+/// token-SHAPE heuristic (`looks_like_browserless_token`) would flag it as a
+/// FALSE POSITIVE. The same is true of standard lockfile fields `integrity`
+/// (base64 SRI hashes) and `resolved` (long registry/tarball URLs). These are
+/// structural npm metadata, not credentials.
+///
+/// This set ONLY gates the token-SHAPE path: a value under one of these keys is
+/// never flagged by the shape heuristic. A real secret key (`BROWSERLESS_TOKEN`,
+/// via [`is_secret_key`]) is STILL always flagged regardless of value shape —
+/// none of these keys is a `SECRET_ENV_KEYS` key, so real-secret detection is
+/// unaffected (Req 3.4).
+pub const BENIGN_METADATA_KEYS: [&str; 7] = [
+    "license",
+    "integrity",
+    "resolved",
+    "version",
+    "name",
+    "dev",
+    "funding",
+];
+
+/// True iff `key` is a benign structural metadata key (shape heuristic exempt).
+fn is_benign_metadata_key(key: &str) -> bool {
+    BENIGN_METADATA_KEYS.contains(&key)
+}
+
 /// The known placeholder values that stand in for a Browserless token/API key
 /// but carry no real secret material. Kept in lock-step with the pipeline's
 /// placeholder handling: `is_placeholder_env_value` in `lmstudio.rs` treats
@@ -120,10 +154,16 @@ fn looks_like_browserless_token(value: &str) -> bool {
 /// **non-empty and not a known placeholder** AND either:
 /// - `key` is one of [`SECRET_ENV_KEYS`] (i.e. `BROWSERLESS_TOKEN`), or
 /// - `value` is a Browserless-token-shaped credential (see
-///   [`looks_like_browserless_token`]).
+///   [`looks_like_browserless_token`]) whose `key` is NOT a benign structural
+///   metadata key (see [`BENIGN_METADATA_KEYS`]).
 ///
 /// Empty, whitespace-only, and the known placeholder values never count as a
 /// secret, matching the rest of the pipeline's placeholder-as-empty handling.
+/// The benign-metadata-key carve-out ONLY narrows the token-SHAPE path so
+/// standard npm lockfile fields (`license`, `integrity`, `resolved`, …) whose
+/// values are long url-safe strings are not false-positives (Req 3.4). A real
+/// secret key is still ALWAYS caught via [`is_secret_key`], independent of
+/// value shape — detection of `BROWSERLESS_TOKEN` is unchanged.
 /// This is a pure function (no I/O); the staging guard in `stage-payload.ts`
 /// mirrors its logic to abort the build when a real secret is found in the
 /// staged payload (task 3.5).
@@ -131,7 +171,10 @@ pub fn scan_value_for_secret(key: &str, value: &str) -> bool {
     if is_placeholder_or_empty_secret(value) {
         return false;
     }
-    is_secret_key(key) || looks_like_browserless_token(value)
+    if is_secret_key(key) {
+        return true;
+    }
+    looks_like_browserless_token(value) && !is_benign_metadata_key(key)
 }
 
 // ─── Concern 3: install-dir path anchoring (task 3.8) ─────────────────────────
@@ -1833,6 +1876,39 @@ mod secret_scan_predicate_tests {
     fn flags_token_shaped_value_under_nonsecret_key() {
         let live = "2TNn0yOdSpEFIT49a897dc67e03352d172e69c1b07bf3d930";
         assert!(scan_value_for_secret("SOME_OTHER_KEY", live));
+    }
+
+    /// Regression (mcp-shared-module-resolution-fix, Req 3.4): a token-shaped
+    /// value under a benign structural metadata key (`license`, `integrity`,
+    /// `resolved`, …) is NOT flagged. The Option B fix adds `@shared/*` `file:`
+    /// entries to the flat `package-lock.json` carrying a long url-safe
+    /// `"license"` value; the token-SHAPE heuristic must NOT false-positive on
+    /// these standard lockfile fields.
+    #[test]
+    fn ignores_token_shaped_value_under_benign_metadata_key() {
+        assert!(!scan_value_for_secret(
+            "license",
+            "LicenseRef-Shawna-NonCommercial"
+        ));
+        assert!(!scan_value_for_secret(
+            "integrity",
+            "sha512-Qd9j3u2m9Yd1pQpXz3F7bK0wVq1l5c2x8a7y6z4m3n2b1v0c9x8z7q6w5e4r3t2"
+        ));
+        assert!(!scan_value_for_secret(
+            "resolved",
+            "https://registry.npmjs.org/zod/-/zod-3.23.8.tgz"
+        ));
+        assert!(!scan_value_for_secret("version", "1.0.0-alpha.20240101120000"));
+    }
+
+    /// The benign-metadata carve-out does NOT weaken real-secret detection: a
+    /// `BROWSERLESS_TOKEN` is still flagged regardless of value shape, since it
+    /// is caught by `is_secret_key` before the shape path.
+    #[test]
+    fn benign_carveout_does_not_weaken_secret_key_detection() {
+        let live = "2TNn0yOdSpEFIT49a897dc67e03352d172e69c1b07bf3d930";
+        assert!(scan_value_for_secret("BROWSERLESS_TOKEN", live));
+        assert!(scan_value_for_secret("BROWSERLESS_TOKEN", "abc123"));
     }
 
     /// A short, ordinary non-path value under a non-secret key is NOT flagged

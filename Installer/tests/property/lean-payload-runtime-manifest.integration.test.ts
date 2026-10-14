@@ -37,18 +37,39 @@ import {
   CANONICAL_TOOL_PAYLOADS,
   installedEntryFilename,
   SANCTIONED_PAYLOAD_ROOT_FILES,
+  sharedTarballFileNames,
   stagingDestDirName,
 } from "../../scripts/payload-manifest";
-import { assertLeanPayload, stagePayload, stageRuntimeManifest } from "../../scripts/stage-payload";
+import {
+  assertLeanPayload,
+  resolveRootVersion,
+  stagePayload,
+  stageRuntimeManifest,
+  stageSharedTarballs,
+} from "../../scripts/stage-payload";
 
 /** `Installer/` root, from this test file's location (`Installer/tests/property`). */
 const installerRoot = path.resolve(__dirname, "..", "..");
+/** Repository root: one level up from `Installer/`. */
+const repoRootDir = path.resolve(installerRoot, "..");
 /** The real committed runtime-manifest artifacts the installer ships. */
 const committedRuntimeManifestDir = path.resolve(
   installerRoot,
   "src-tauri",
   "payload",
   "runtime-manifest",
+);
+
+/** The version-derived `@shared/*` tarball filenames (produced by `npm pack`). */
+const sharedTarballNames = sharedTarballFileNames(resolveRootVersion(repoRootDir));
+/**
+ * The sanctioned flat files that live as committed artifacts under
+ * `runtime-manifest/` (the flat `package.json` + `package-lock.json`). The two
+ * `@shared/*` tarballs are NOT committed — they are produced by `npm pack` at
+ * stage time — so they are excluded here and seeded separately below.
+ */
+const committedSanctionedFiles = SANCTIONED_PAYLOAD_ROOT_FILES.filter(
+  (name) => !sharedTarballNames.includes(name),
 );
 
 /** The canonical nine server dir names, from the single source of truth. */
@@ -119,13 +140,19 @@ describe("Lean_Payload integration — nine dist trees + sanctioned runtime mani
       // (2) Stage the nine tool dist trees.
       stagePayload(repoRoot, stagingRoot);
 
-      // (3) Place the sanctioned flat files at the payload root exactly as
-      // `stageRuntimeManifest` does — sourced from the REAL committed artifacts
-      // so the integration is deterministic and network-free.
-      for (const fileName of SANCTIONED_PAYLOAD_ROOT_FILES) {
+      // (3) Place the sanctioned flat files at the payload root exactly as the
+      // staging path does. The flat manifest/lockfile are sourced from the REAL
+      // committed artifacts (deterministic, network-free); the two `@shared/*`
+      // tarballs are produced by `npm pack` in the real build, so here they are
+      // seeded as regular placeholder files — enough to assert the lean guard
+      // accepts them as sanctioned top-level FILES.
+      for (const fileName of committedSanctionedFiles) {
         const srcPath = path.join(committedRuntimeManifestDir, fileName);
         expect(fs.existsSync(srcPath)).toBe(true); // committed artifact present
         fs.copyFileSync(srcPath, path.join(stagingRoot, fileName));
+      }
+      for (const fileName of sharedTarballNames) {
+        fs.writeFileSync(path.join(stagingRoot, fileName), "fake-tgz-bytes");
       }
 
       // (4a) The lean guard reports zero violations.
@@ -179,6 +206,12 @@ describe("Lean_Payload integration — nine dist trees + sanctioned runtime mani
         // copies the two flat files to the payload root. Uses the REAL
         // installer root so the generator reads the real tool manifests.
         stageRuntimeManifest(installerRoot, stagingRoot);
+
+        // Also pack + stage the two `@shared/*` tarballs exactly as the real
+        // build does (bugfix: mcp-shared-module-resolution-fix, task 3.2), so
+        // the end-to-end staged top-level matches the sanctioned set. This
+        // packs from the REAL `shared`/`shared/config` dist trees in the repo.
+        stageSharedTarballs(installerRoot, repoRootDir, stagingRoot);
 
         expect(assertLeanPayload(stagingRoot)).toEqual([]);
         expect(hasNodeModulesAnywhere(stagingRoot)).toBe(false);

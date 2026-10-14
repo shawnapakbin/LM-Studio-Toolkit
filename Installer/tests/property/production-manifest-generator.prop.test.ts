@@ -32,18 +32,31 @@ import fc from "fast-check";
 import {
   CANONICAL_TOOL_PACKAGE_DIRS,
   computeFlatManifest,
+  isSanctionedSharedTarballSpecifier,
   isWorkspaceInternalName,
   isWorkspaceInternalSpecifier,
   type ManifestReader,
   pickCompatibleRange,
   productionSafetyProblems,
   type RawManifest,
+  SHARED_FILE_TARBALL_PACKAGES,
   serializeManifest,
   WORKSPACE_INTERNAL_PACKAGE_DIRS,
 } from "../../scripts/generate-production-manifest";
 
 const FEATURE_TAG =
   "Bugfix: runtimes-npm-install-nonzero-exit, Property: flat production manifest generator pure-core invariants";
+
+/**
+ * The full closure of workspace-internal names the (generalized) Option B fix
+ * ALWAYS injects as sanctioned `file:` tarball deps — the two `@shared/*`
+ * (bugfix: mcp-shared-module-resolution-fix, task 3.3) PLUS the five
+ * `llm-toolkit-*` (task 8.3). DERIVED from the generator's single source of
+ * truth ({@link SHARED_FILE_TARBALL_PACKAGES}) so the test can never drift from
+ * the provisioned set. These are the sole permitted exception to the
+ * "no workspace-internal name / no `file:` specifier" invariants below.
+ */
+const SANCTIONED_SHARED_NAMES: readonly string[] = SHARED_FILE_TARBALL_PACKAGES.map((p) => p.name);
 
 // ─── Generators ──────────────────────────────────────────────────────────────
 
@@ -161,10 +174,32 @@ describe(FEATURE_TAG, () => {
           expect(gen.manifest.private).toBe(true);
           expect(gen.manifest.name).toBe("llm-toolkit-runtime");
 
-          // (3) + (4): no unresolvable specifier, no internal name survives.
+          // (3) + (4): no unresolvable specifier, no internal name survives —
+          // EXCEPT the sanctioned closure `file:` tarball entries the Option B
+          // fix always injects (bugfix: mcp-shared-module-resolution-fix, tasks
+          // 3.3 + 8.3: the two `@shared/*` plus the five `llm-toolkit-*`), which
+          // are intentional and resolvable at install time.
           for (const [name, spec] of Object.entries(gen.manifest.dependencies)) {
+            if (
+              SANCTIONED_SHARED_NAMES.includes(name) &&
+              isSanctionedSharedTarballSpecifier(name, spec, "1.2.3")
+            ) {
+              continue;
+            }
             expect(isWorkspaceInternalSpecifier(spec)).toBe(false);
             expect(isWorkspaceInternalName(name)).toBe(false);
+          }
+
+          // Every closure name is ALWAYS present as a sanctioned `file:`
+          // tarball dep (version-derived), regardless of the tool inputs.
+          for (const shared of SANCTIONED_SHARED_NAMES) {
+            expect(
+              isSanctionedSharedTarballSpecifier(
+                shared,
+                gen.manifest.dependencies[shared],
+                "1.2.3",
+              ),
+            ).toBe(true);
           }
 
           // (6): the generator's own abort gate is clean.
@@ -247,8 +282,16 @@ describe(FEATURE_TAG, () => {
         );
         const gen = computeFlatManifest(reader, {});
 
-        expect(Object.hasOwn(gen.manifest.dependencies, "@shared/types")).toBe(false);
+        // `@shared/types` is NO LONGER dropped — the Option B fix injects it as
+        // a sanctioned `file:` tarball dep (version "0.0.0" here, the default).
+        expect(gen.manifest.dependencies["@shared/types"]).toBe("file:./shared-types-0.0.0.tgz");
         for (const name of Object.keys(gen.manifest.dependencies)) {
+          // Every name except the sanctioned closure entries (the two
+          // `@shared/*` + five `llm-toolkit-*`) must be a registry-published
+          // (non-workspace-internal) name.
+          if (SANCTIONED_SHARED_NAMES.includes(name)) {
+            continue;
+          }
           expect(isWorkspaceInternalName(name)).toBe(false);
         }
         // The hoisted published deps surfaced.

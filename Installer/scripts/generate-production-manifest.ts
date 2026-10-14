@@ -46,9 +46,20 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
+import { normalizeSharedTarball } from "./normalize-shared-tarball.ts";
+import { CLOSURE_PACKAGE_NAMES, sharedTarballFileName } from "./payload-manifest.ts";
 
 // ─── Path anchoring (jest-CommonJS-safe, mirrors stage-payload.ts) ───────────
 //
@@ -179,13 +190,116 @@ export function isWorkspaceInternalSpecifier(spec: string): boolean {
 }
 
 /**
+ * The workspace-internal packages the (generalized) Option B fix provisions as
+ * local `file:` tarballs (bugfix: mcp-shared-module-resolution-fix). Unlike the
+ * dropped-and-hoisted internal packages of old, these are NOT dropped: the
+ * generator injects a direct `file:` dependency for each so the install-time
+ * `npm install` resolves `install_dir/node_modules/<name>` from the sanctioned
+ * staged tarballs.
+ *
+ * The 5.4.3 fix (task 3.3) started with the two `@shared/*` packages; the 5.4.4
+ * follow-up (task 8.3) generalizes the SAME seam to the FULL transitive closure
+ * of workspace-internal packages the generator would otherwise drop — the five
+ * `llm-toolkit-*` packages. This includes `llm-toolkit-observability` even
+ * though no tool declares it directly: it is pulled in only TRANSITIVELY by
+ * `llm-toolkit-calculator` / `llm-toolkit-clock` (each declares
+ * `"llm-toolkit-observability": "*"`). Provisioning the whole closure — not just
+ * directly-declared names — is what lets npm resolve those nested
+ * workspace-internal specifiers to the sibling TOP-LEVEL `file:` tarballs at
+ * install time (see {@link computeFlatManifest} and {@link resolveLockfile}).
+ *
+ * Mirrors `SHARED_TARBALL_SPECS` in `payload-manifest.ts` (the single source of
+ * truth pairing each package dir with its tarball stem that `stage-payload.ts`
+ * packs + stages), so the emitted `file:` names can never drift from the staged
+ * tarball filenames. For the `@shared/*` pair the stem is a readable slug
+ * (`shared/config` → `shared-config`); for the `llm-toolkit-*` packages the stem
+ * IS the package name (so `npm pack`'s own output name matches).
+ */
+export const SHARED_FILE_TARBALL_PACKAGES: readonly {
+  name: string;
+  packageDir: string;
+  stem: string;
+}[] = [
+  { name: "@shared/types", packageDir: "shared", stem: "shared-types" },
+  { name: "@shared/config", packageDir: "shared/config", stem: "shared-config" },
+  { name: "llm-toolkit-ask-user", packageDir: "AskUser", stem: "llm-toolkit-ask-user" },
+  { name: "llm-toolkit-calculator", packageDir: "Calculator", stem: "llm-toolkit-calculator" },
+  { name: "llm-toolkit-clock", packageDir: "Clock", stem: "llm-toolkit-clock" },
+  {
+    name: "llm-toolkit-document-scraper",
+    packageDir: "DocumentScraper",
+    stem: "llm-toolkit-document-scraper",
+  },
+  {
+    name: "llm-toolkit-observability",
+    packageDir: "Observability",
+    stem: "llm-toolkit-observability",
+  },
+] as const;
+
+/**
+ * The workspace-internal package names provisioned via `file:` tarballs — the
+ * full closure (`@shared/types`, `@shared/config`, and the five `llm-toolkit-*`).
+ * Derived from {@link SHARED_FILE_TARBALL_PACKAGES} so generalizing the spec
+ * list automatically generalizes the set {@link productionSafetyProblems}
+ * consults via {@link isSanctionedSharedTarballSpecifier}.
+ */
+const SHARED_FILE_TARBALL_NAMES: ReadonlySet<string> = new Set(
+  SHARED_FILE_TARBALL_PACKAGES.map((p) => p.name),
+);
+
+/**
+ * The `file:` specifier the flat manifest emits for a closure package,
+ * relative to the payload / `install_dir` root where the tarball is staged,
+ * e.g. `("shared-types", "5.4.3") -> "file:./shared-types-5.4.3.tgz"` or
+ * `("llm-toolkit-ask-user", "5.4.4") -> "file:./llm-toolkit-ask-user-5.4.4.tgz"`.
+ * The tarball filename is VERSION-DERIVED via `sharedTarballFileName` (never
+ * hardcoded) so it tracks the repo-wide version bump with no drift.
+ */
+export function sharedTarballFileSpecifier(stem: string, version: string): string {
+  return `file:./${sharedTarballFileName(stem, version)}`;
+}
+
+/**
+ * True iff `spec` is the sanctioned `file:` tarball specifier for the given
+ * closure package `name` at `version` — exactly `file:./<stem>-<version>.tgz`
+ * for that package's stem. Used by {@link productionSafetyProblems} to ALLOW
+ * the intentional closure `file:` entries (the two `@shared/*` plus the five
+ * `llm-toolkit-*`) while still rejecting every other `file:`/`*`/workspace
+ * specifier.
+ */
+export function isSanctionedSharedTarballSpecifier(
+  name: string,
+  spec: string,
+  version: string,
+): boolean {
+  const pkg = SHARED_FILE_TARBALL_PACKAGES.find((p) => p.name === name);
+  if (pkg === undefined) {
+    return false;
+  }
+  return spec === sharedTarballFileSpecifier(pkg.stem, version);
+}
+
+/**
  * True iff a dependency NAME is one of the repo's known unpublished
  * workspace-internal packages. Used as a defensive second gate so an internal
  * package pinned by an accidental concrete version is still dropped/hoisted
  * rather than leaking an unresolvable name to the end user.
+ *
+ * NOTE (bugfix: mcp-shared-module-resolution-fix, tasks 3.3 + 8.3): the closure
+ * packages (`@shared/types`, `@shared/config`, and the five `llm-toolkit-*`)
+ * remain workspace-internal by name — this predicate still matches them so
+ * their registry transitive deps are HOISTED (e.g. `@shared/config` →
+ * `yaml`, `zod`; `llm-toolkit-calculator` → `mathjs`). The Option B fix does
+ * NOT drop them, though: after the union, `computeFlatManifest` OVERWRITES every
+ * closure name with its sanctioned `file:` tarball specifier (see
+ * {@link SHARED_FILE_TARBALL_PACKAGES}), so they are provisioned at install time
+ * rather than vanishing. Any workspace-internal name OUTSIDE the closure would
+ * still be dropped-and-hoisted — but after task 8.3 the closure covers every
+ * `llm-toolkit-*` the generator sees.
  */
 export function isWorkspaceInternalName(name: string): boolean {
-  return name === "@shared/types" || name.startsWith("llm-toolkit-");
+  return name === "@shared/types" || name === "@shared/config" || name.startsWith("llm-toolkit-");
 }
 
 // ─── Semver-lite range selection ─────────────────────────────────────────────
@@ -348,26 +462,66 @@ export function computeFlatManifest(
     }
   }
 
+  // 2b (bugfix: mcp-shared-module-resolution-fix, tasks 3.3 + 8.3): every
+  // closure package is provisioned via a `file:` tarball. SEED each so its
+  // registry transitive deps are hoisted even when no tool declares it —
+  // crucially `@shared/config` (prong 2 of the 5.4.3 bug), whose own deps
+  // `yaml`/`zod` must surface, and `llm-toolkit-observability` (pulled in only
+  // transitively by calculator/clock), whose registry deps must likewise
+  // surface. `resolveInternalByName` reads each package's manifest via
+  // `workspaceDirForName` and hoists its registry deps while RECURSING into
+  // nested workspace-internal names (so a seeded `llm-toolkit-calculator`'s
+  // nested `llm-toolkit-observability` / `@shared/types` are themselves resolved
+  // and their registry deps hoisted). The direct `file:` entries themselves are
+  // injected below (3b), AFTER the registry union is built, so they overwrite
+  // any drop-and-hoist placeholder and are what npm actually installs; the
+  // nested workspace-internal specifiers inside each tarball's own
+  // `package.json` (`"llm-toolkit-observability": "*"`,
+  // `"@shared/types": "file:../shared"`) bind to those sibling TOP-LEVEL `file:`
+  // entries at install time via npm's top-level `file:` precedence.
+  for (const pkg of SHARED_FILE_TARBALL_PACKAGES) {
+    resolveInternalByName(pkg.name, "*");
+  }
+
   const dependencies: Record<string, string> = {};
   const sortedKeys = [...included.keys()].toSorted((a, b) => a.localeCompare(b));
   for (const key of sortedKeys) {
     dependencies[key] = included.get(key) as string;
   }
 
+  // 3b: inject the sanctioned closure `file:` tarball direct deps (the two
+  // `@shared/*` plus the five `llm-toolkit-*`). The specifier is version-derived
+  // (`file:./<stem>-<version>.tgz`) so it always references the exact filename
+  // `stage-payload.ts` stages at the payload root for the SAME root version — no
+  // hardcoded drift. These are the entries npm resolves at install time to
+  // materialize `install_dir/node_modules/{@shared/*,llm-toolkit-*}`; a nested
+  // workspace-internal specifier inside any tarball resolves to its sibling
+  // top-level `file:` entry here (never a second copy).
+  const sharedVersion = opts.version ?? "0.0.0";
+  for (const pkg of SHARED_FILE_TARBALL_PACKAGES) {
+    dependencies[pkg.name] = sharedTarballFileSpecifier(pkg.stem, sharedVersion);
+  }
+  // Keep the dependencies object key-sorted (deterministic serialization) now
+  // that the closure names have been inserted.
+  const sortedDependencies: Record<string, string> = {};
+  for (const key of Object.keys(dependencies).toSorted((a, b) => a.localeCompare(b))) {
+    sortedDependencies[key] = dependencies[key];
+  }
+
   const manifest: GeneratedManifest["manifest"] = {
     name: opts.name ?? "llm-toolkit-runtime",
     version: opts.version ?? "0.0.0",
     private: true,
-    dependencies,
+    dependencies: sortedDependencies,
   };
-  const overrides = normalizeOverrides(opts.overrides ?? {}, dependencies);
+  const overrides = normalizeOverrides(opts.overrides ?? {}, sortedDependencies);
   if (Object.keys(overrides).length > 0) {
     manifest.overrides = overrides;
   }
 
   return {
     manifest,
-    includedDependencies: Object.keys(dependencies),
+    includedDependencies: Object.keys(sortedDependencies),
     workspaceResolutions: [...workspaceResolutions.values()].sort((a, b) =>
       a.name.localeCompare(b.name),
     ),
@@ -418,13 +572,22 @@ export function normalizeOverrides(
 
 /**
  * Map a workspace-internal package NAME to its repo-root-relative dir so its
- * manifest can be read for hoisting. Returns undefined for `@shared/types`
- * (its only dep is itself → nothing to hoist) handled via the table, and for
- * unknown names (nothing to hoist).
+ * manifest can be read for hoisting. `@shared/types` has no registry deps to
+ * hoist (its manifest declares none); `@shared/config` lives at `shared/config`
+ * and its registry deps (`yaml`, `zod`) MUST be hoisted — the 5.4.3 Option B
+ * fix added it so `@shared/config`'s transitive registry deps surface even
+ * though no tool declares `@shared/config` (prong 2). The five `llm-toolkit-*`
+ * dirs are mapped so the generalized fix (task 8.3) can hoist each closure
+ * package's registry deps (e.g. `llm-toolkit-calculator` → `mathjs`,
+ * `@babel/runtime`; `llm-toolkit-document-scraper` → `mammoth`, `pdf-parse`;
+ * `llm-toolkit-ask-user` → `better-sqlite3`, `uuid`) when it is seeded as part
+ * of the provisioned closure. Returns undefined for unknown names (nothing to
+ * hoist).
  */
 function workspaceDirForName(name: string): string | undefined {
   const table: Record<string, string> = {
     "@shared/types": "shared",
+    "@shared/config": "shared/config",
     "llm-toolkit-observability": "Observability",
     "llm-toolkit-calculator": "Calculator",
     "llm-toolkit-clock": "Clock",
@@ -453,13 +616,32 @@ export function serializeManifest(gen: GeneratedManifest): string {
  * `--no-audit`, and `--no-fund` mirror the eventual install-time invocation
  * (task 3.5) so the lockfile is resolved under the same constraints.
  *
+ * `tarballPaths` (bugfix: mcp-shared-module-resolution-fix, tasks 3.3 + 8.3):
+ * absolute paths to ALL staged closure tarballs (the two `@shared/*` plus the
+ * five `llm-toolkit-*`). Each is copied into the temp resolve dir under its
+ * sanctioned filename (the basename, matching the `file:./<name>.tgz` specifier
+ * the flat manifest emits) BEFORE the resolve, so npm can resolve EVERY `file:`
+ * entry — including the nested workspace-internal specifiers inside each tarball
+ * (`"llm-toolkit-observability": "*"`, `"@shared/types": "file:../shared"`),
+ * which bind to the sibling top-level tarballs — and pin them deterministically
+ * in `package-lock.json`. When empty (e.g. a manifest with no closure entries)
+ * this is a no-op and behaves exactly as before.
+ *
  * Impure by necessity (spawns npm, touches a temp dir); kept out of
  * {@link computeFlatManifest} so the planner stays unit-testable.
  */
-export function resolveLockfile(manifestText: string): string {
+export function resolveLockfile(
+  manifestText: string,
+  tarballPaths: readonly string[] = [],
+): string {
   const workDir = mkdtempSync(resolve(tmpdir(), "llm-toolkit-runtime-manifest-"));
   try {
     writeFileSync(resolve(workDir, "package.json"), manifestText, "utf8");
+    // Stage the `@shared/*` tarballs beside the temp package.json under their
+    // sanctioned basenames so the `file:./<name>.tgz` specifiers resolve.
+    for (const src of tarballPaths) {
+      copyFileSync(src, resolve(workDir, basename(src)));
+    }
     execFileSync(
       "npm",
       [
@@ -482,6 +664,110 @@ export function resolveLockfile(manifestText: string): string {
   }
 }
 
+/**
+ * Locate (or produce) ALL closure tarballs the lockfile resolve needs (the two
+ * `@shared/*` plus the five `llm-toolkit-*`), returning their absolute paths
+ * under the sanctioned, version-derived filenames (`<stem>-<version>.tgz`).
+ * Running the resolve with the WHOLE closure present is what lets npm pin every
+ * `file:` entry — and bind each tarball's nested workspace-internal specifiers
+ * to its sibling top-level tarball — deterministically. Bugfix:
+ * mcp-shared-module-resolution-fix, tasks 3.3 + 8.3.
+ *
+ * Resolution order per package:
+ *   1. If a tarball with the sanctioned name already exists in `stagedDir`
+ *      (the payload root, where `stage-payload.ts` stages them), use it — so a
+ *      generation run during staging reuses the just-packed tarball.
+ *   2. Otherwise `npm pack` the package from the repo into a sibling temp dir
+ *      and copy it to the sanctioned name — so a standalone generation (CLI,
+ *      verify check) still produces a resolvable `file:` target. This mirrors
+ *      the pack logic in `stage-payload.ts` but is self-contained so the
+ *      generator never depends on staging having run first.
+ *
+ * `--ignore-scripts` keeps packing side-effect-free. The caller is responsible
+ * for cleaning up the returned paths' temp dir via `cleanup`.
+ */
+export function locateOrPackSharedTarballs(
+  repoRoot: string,
+  version: string,
+  stagedDir?: string,
+): { paths: string[]; cleanup: () => void } {
+  const paths: string[] = [];
+  let packDir: string | undefined;
+
+  for (const pkg of SHARED_FILE_TARBALL_PACKAGES) {
+    const sanctionedName = sharedTarballFileName(pkg.stem, version);
+
+    // 1. Prefer an already-staged tarball (payload root).
+    if (stagedDir !== undefined) {
+      const staged = resolve(stagedDir, sanctionedName);
+      if (existsSync(staged)) {
+        paths.push(staged);
+        continue;
+      }
+    }
+
+    // 2. Pack it ourselves into a temp dir shared across both packages.
+    packDir ??= mkdtempSync(resolve(tmpdir(), "llm-toolkit-shared-pack-"));
+    const packageDir = resolve(repoRoot, pkg.packageDir);
+    const before = new Set(existsSync(packDir) ? readdirSyncSafe(packDir) : []);
+    execFileSync(
+      "npm",
+      ["pack", packageDir, "--pack-destination", packDir, "--ignore-scripts", "--silent"],
+      { cwd: repoRoot, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" },
+    );
+    const produced = readdirSyncSafe(packDir).filter(
+      (name) => name.endsWith(".tgz") && !before.has(name),
+    );
+    if (produced.length !== 1) {
+      throw new Error(
+        `[generate-runtime-manifest] expected exactly one new tarball from \`npm pack ${pkg.packageDir}\`, found ${produced.length}: [${produced.join(", ")}]`,
+      );
+    }
+    const dest = resolve(packDir, sanctionedName);
+    if (produced[0] !== sanctionedName) {
+      copyFileSync(resolve(packDir, produced[0]), dest);
+    }
+
+    // Normalize the freshly-packed tarball's `package.json` so its NESTED
+    // workspace-internal specifiers (`@shared/types: file:../shared`,
+    // `llm-toolkit-observability: *`) bind to the sibling TOP-LEVEL `file:`
+    // tarballs during the lockfile resolve (bugfix:
+    // mcp-shared-module-resolution-fix, task 8.3, option b). This mirrors the
+    // identical normalization `stage-payload.ts` applies to the staged tarballs,
+    // so BOTH the install-time payload AND the lockfile resolve see consistent,
+    // resolvable manifests. (An already-staged tarball found via `stagedDir`
+    // above was normalized by `stageSharedTarballs` when it was staged, so it is
+    // reused as-is.) The `dist/` and every other shipped file stay
+    // byte-identical; only the manifest's nested specifiers change.
+    normalizeSharedTarball(
+      (p) => readFileSync(p),
+      (p, data) => writeFileSync(p, data),
+      dest,
+      CLOSURE_PACKAGE_NAMES,
+    );
+
+    paths.push(dest);
+  }
+
+  return {
+    paths,
+    cleanup: () => {
+      if (packDir !== undefined) {
+        rmSync(packDir, { recursive: true, force: true });
+      }
+    },
+  };
+}
+
+/** Thin `readdirSync` wrapper that tolerates a missing dir (returns []). */
+function readdirSyncSafe(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
 // ─── Orchestration ───────────────────────────────────────────────────────────
 
 /** Options for {@link generateProductionManifest}. */
@@ -494,6 +780,13 @@ export interface GenerateOptions {
   writeLockfile?: boolean;
   /** When true, compute + report but write nothing to disk. */
   dryRun?: boolean;
+  /**
+   * Directory where the `@shared/*` tarballs are already staged (the payload
+   * root). When provided and the sanctioned tarballs exist there, the lockfile
+   * resolve reuses them; otherwise the generator packs them on demand. Bugfix:
+   * mcp-shared-module-resolution-fix, task 3.3.
+   */
+  sharedTarballDir?: string;
 }
 
 /** The result of a full generation run, for CLI reporting + programmatic use. */
@@ -536,7 +829,24 @@ export function generateProductionManifest(opts: GenerateOptions = {}): Generate
 
   let lockfileText: string | undefined;
   if (writeLockfile && !opts.dryRun) {
-    lockfileText = resolveLockfile(manifestText);
+    // The flat manifest now carries the full closure of `file:` tarball deps
+    // (tasks 3.3 + 8.3): the two `@shared/*` plus the five `llm-toolkit-*`.
+    // Locate the already-staged tarballs (reused when staging has run) or pack
+    // them on demand, then feed ALL their paths to the resolve so npm can pin
+    // every `file:` entry deterministically — including the nested
+    // workspace-internal specifiers that bind to the sibling top-level tarballs.
+    // Clean up any packed temp dir afterward (bugfix:
+    // mcp-shared-module-resolution-fix).
+    const { paths: tarballPaths, cleanup } = locateOrPackSharedTarballs(
+      repoRoot,
+      rootVersion,
+      opts.sharedTarballDir,
+    );
+    try {
+      lockfileText = resolveLockfile(manifestText, tarballPaths);
+    } finally {
+      cleanup();
+    }
   }
 
   if (!opts.dryRun) {
@@ -644,6 +954,18 @@ function main(): void {
  * block, no `engines` field, no unresolvable `file:`/`*` specifier, and no
  * workspace-internal dependency name. Returns a (possibly empty) list of
  * problems; empty == safe. Exposed so the task-3.7 verify check can reuse it.
+ *
+ * SANCTIONED EXCEPTION (bugfix: mcp-shared-module-resolution-fix, tasks 3.3 +
+ * 8.3): every CLOSURE tarball package (the two `@shared/*` plus the five
+ * `llm-toolkit-*`, i.e. {@link SHARED_FILE_TARBALL_NAMES}) is ALLOWED to carry a
+ * `file:` specifier AND a workspace-internal name — but ONLY when the specifier
+ * is EXACTLY the sanctioned, version-derived staged-tarball reference
+ * (`file:./<stem>-<version>.tgz`) for that package. Any other specifier for
+ * those names (a different `file:`, `*`, or `workspace:`), and every
+ * `file:`/`*`/workspace specifier or workspace-internal name for any OTHER
+ * dependency, is still rejected. The version is read from the emitted manifest
+ * so the check and the generator derive the sanctioned name from the same
+ * source — they cannot disagree.
  */
 export function productionSafetyProblems(gen: GeneratedManifest): string[] {
   const emitted = gen.manifest as Record<string, unknown>;
@@ -654,7 +976,19 @@ export function productionSafetyProblems(gen: GeneratedManifest): string[] {
   if ("engines" in emitted) {
     problems.push("manifest carries an `engines` field");
   }
+  const version = gen.manifest.version;
   for (const [name, spec] of Object.entries(gen.manifest.dependencies)) {
+    // The closure names (the two `@shared/*` + five `llm-toolkit-*`) are
+    // provisioned via a sanctioned `file:` tarball. When the specifier is
+    // EXACTLY the version-derived staged-tarball reference, both the `file:`
+    // specifier and the workspace-internal name are intentional and resolvable
+    // at install time — skip both guards for it.
+    if (
+      SHARED_FILE_TARBALL_NAMES.has(name) &&
+      isSanctionedSharedTarballSpecifier(name, spec, version)
+    ) {
+      continue;
+    }
     if (isWorkspaceInternalSpecifier(spec)) {
       problems.push(`dependency ${name} has an unresolvable specifier ${spec}`);
     }

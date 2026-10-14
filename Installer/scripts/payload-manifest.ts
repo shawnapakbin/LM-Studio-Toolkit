@@ -46,19 +46,176 @@ export interface ToolPayload {
 export const CANONICAL_TOOL_COUNT = 9;
 
 /**
+ * The workspace-internal packages the (generalized) Option B fix provisions via
+ * local `file:` tarballs (bugfix: mcp-shared-module-resolution-fix). Each entry
+ * pairs the `npm pack` SOURCE directory (repo-root-relative) with the stable
+ * stem used in the staged tarball filename.
+ *
+ * The 5.4.3 fix started with the two `@shared/*` packages; the 5.4.4 follow-up
+ * generalizes the SAME seam to the five `llm-toolkit-*` workspace-internal
+ * packages the generator still drops (`AskUser`, `Calculator`, `Clock`,
+ * `DocumentScraper`, `Observability`). Every downstream derivation
+ * ({@link sharedTarballFileNames}, {@link SANCTIONED_PAYLOAD_ROOT_FILES}, and
+ * `stageSharedTarballs` in `stage-payload.ts`) iterates THIS list, so adding a
+ * spec entry automatically extends the version-derived staged filename, the
+ * sanctioned flat-file set, and the pack/stage step with zero other edits.
+ *
+ * For the `@shared/*` pair the stem is deliberately NOT a 1:1 slug of the
+ * directory (`shared/config` → `shared-config`, `shared` → `shared-types`) so
+ * the tarballs read clearly at the payload root and match the `file:`
+ * specifiers the generator emits. For the `llm-toolkit-*` packages the stem is
+ * the package's own name (e.g. `AskUser` → `llm-toolkit-ask-user`), which is
+ * also how `npm pack` names the produced tarball, so the staged name matches
+ * the package name directly.
+ */
+export const SHARED_TARBALL_SPECS: readonly { packageDir: string; stem: string }[] = [
+  { packageDir: "shared", stem: "shared-types" },
+  { packageDir: "shared/config", stem: "shared-config" },
+  { packageDir: "AskUser", stem: "llm-toolkit-ask-user" },
+  { packageDir: "Calculator", stem: "llm-toolkit-calculator" },
+  { packageDir: "Clock", stem: "llm-toolkit-clock" },
+  { packageDir: "DocumentScraper", stem: "llm-toolkit-document-scraper" },
+  { packageDir: "Observability", stem: "llm-toolkit-observability" },
+] as const;
+
+/**
+ * The published-style package NAMES of every workspace-internal package the
+ * (generalized) Option B fix provisions via local `file:` tarballs — the full
+ * closure (`@shared/types`, `@shared/config`, and the five `llm-toolkit-*`).
+ *
+ * Bugfix: mcp-shared-module-resolution-fix — task 8.3 (option b). This set
+ * drives the NESTED-specifier normalization the pack step applies
+ * ({@link normalizeSharedTarball}): any dependency inside a packed tarball whose
+ * NAME is in this set (or whose specifier is otherwise workspace-internal) is
+ * rewritten to `"*"` so npm binds it to the sibling TOP-LEVEL `file:` tarball at
+ * install time. Kept in lockstep with {@link SHARED_TARBALL_SPECS} (same seven
+ * packages, same order) and mirrored by `SHARED_FILE_TARBALL_PACKAGES` in
+ * `generate-production-manifest.ts`, so the closure can never drift.
+ */
+export const CLOSURE_PACKAGE_NAMES: ReadonlySet<string> = new Set<string>([
+  "@shared/types",
+  "@shared/config",
+  "llm-toolkit-ask-user",
+  "llm-toolkit-calculator",
+  "llm-toolkit-clock",
+  "llm-toolkit-document-scraper",
+  "llm-toolkit-observability",
+]);
+
+/**
+ * Derive a `@shared/*` tarball filename from its stem and the resolved root
+ * version — e.g. `("shared-types", "5.4.3") -> "shared-types-5.4.3.tgz"`.
+ *
+ * Pure (no I/O): the version is ALWAYS supplied by the caller (read from the
+ * root `package.json`), never hardcoded, so the staged filename follows the
+ * repo-wide version bump (5.4.2 → 5.4.3) with zero drift.
+ */
+export function sharedTarballFileName(stem: string, version: string): string {
+  return `${stem}-${version}.tgz`;
+}
+
+/**
+ * The version-derived tarball filenames for EVERY workspace-internal package in
+ * `SHARED_TARBALL_SPECS`, in that stable order (`shared-types-*.tgz`,
+ * `shared-config-*.tgz`, then the five `llm-toolkit-*-*.tgz`). Derived from the
+ * supplied root version — never hardcoded — so the set tracks both the
+ * repo-wide version bump and any future spec addition automatically.
+ */
+export function sharedTarballFileNames(version: string): string[] {
+  return SHARED_TARBALL_SPECS.map((s) => sharedTarballFileName(s.stem, version));
+}
+
+/**
+ * Lazily read the repo root `package.json` `version` so the sanctioned tarball
+ * filenames below are version-derived at module load (never hardcoded). Walks
+ * UP from a set of mode-robust anchors — the ts-jest CommonJS transform exposes
+ * `__dirname`; the `tsx`/Node-ESM CLI does not, so `process.cwd()` is the
+ * fallback — until it finds the monorepo root `package.json` (identified by its
+ * `workspaces` array). `node:fs`/`node:path` are loaded via `createRequire`
+ * (not a top-level import) to keep this otherwise-pure module's filesystem
+ * dependency out of the graph until first use, mirroring the secret-guard seam.
+ *
+ * Falls back to `"0.0.0"` only if no root manifest is discoverable, which keeps
+ * the module importable in degenerate environments; in every real build/test
+ * the root `package.json` is found and its concrete version is used.
+ */
+function readRepoRootVersion(): string {
+  const req = createRequire(process.cwd() + "/");
+  const fs = req("node:fs") as typeof import("node:fs");
+  const nodePath = req("node:path") as typeof import("node:path");
+
+  /** The monorepo root `version` iff this manifest declares `workspaces`. */
+  const rootVersionAt = (manifestPath: string): string | undefined => {
+    try {
+      if (!fs.existsSync(manifestPath)) {
+        return undefined;
+      }
+      const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+        version?: string;
+        workspaces?: unknown;
+      };
+      return parsed.workspaces !== undefined && typeof parsed.version === "string"
+        ? parsed.version
+        : undefined;
+    } catch {
+      // Ignore unreadable/un-parseable manifests; the caller keeps walking up.
+      return undefined;
+    }
+  };
+
+  const starts: string[] = [];
+  // Under the ts-jest CommonJS transform `__dirname` is the real module dir;
+  // the `tsx`/Node-ESM CLI leaves it undefined, so `process.cwd()` is the
+  // fallback anchor.
+  if (typeof __dirname === "string" && __dirname.length > 0) {
+    starts.push(__dirname);
+  }
+  starts.push(process.cwd());
+
+  for (const start of starts) {
+    let dir = nodePath.resolve(start);
+    for (;;) {
+      const version = rootVersionAt(nodePath.join(dir, "package.json"));
+      if (version !== undefined) {
+        return version;
+      }
+      const parent = nodePath.dirname(dir);
+      if (parent === dir) {
+        break;
+      }
+      dir = parent;
+    }
+  }
+  return "0.0.0";
+}
+
+/**
  * The sanctioned flat NON-TOOL file entries the Lean_Payload may carry at its
  * top level, in addition to the nine canonical tool `<serverName>/` dirs.
  *
  * Bugfix: runtimes-npm-install-nonzero-exit — task 3.4 (Part B / B2).
  * Requirements: 2.1, 3.6.
  *
- * These are the build-time-generated flat production `package.json` +
- * `package-lock.json` (produced by `generate-production-manifest.ts`, task
- * 3.3). They are staged at the payload ROOT — the level that maps to
- * `install_dir` — because the Runtimes step runs `npm install --omit=dev …`
- * with `cwd = install_dir`, and npm resolves its manifest in the current
- * directory. A `runtime-manifest/` subdir would land at
- * `install_dir/runtime-manifest/` where npm's `cwd` would never read it.
+ * The first two are the build-time-generated flat production `package.json` +
+ * `package-lock.json` (produced by `generate-production-manifest.ts`). They are
+ * staged at the payload ROOT — the level that maps to `install_dir` — because
+ * the Runtimes step runs `npm install --omit=dev …` with `cwd = install_dir`,
+ * and npm resolves its manifest in the current directory. A `runtime-manifest/`
+ * subdir would land at `install_dir/runtime-manifest/` where npm's `cwd` would
+ * never read it.
+ *
+ * Bugfix: mcp-shared-module-resolution-fix (Option B, task 3.2) adds the two
+ * `@shared/*` tarballs (`shared-types-<version>.tgz`,
+ * `shared-config-<version>.tgz`) as sanctioned flat files so `assertLeanPayload`
+ * accepts them as top-level REGULAR FILES; the 5.4.4 follow-up (task 8.2)
+ * generalizes the SAME seam to the five `llm-toolkit-*` tarballs
+ * (`llm-toolkit-ask-user-<version>.tgz`, …). Every one of these names is
+ * VERSION-DERIVED from the root `package.json` via `sharedTarballFileNames`
+ * (never hardcoded), so the sanctioned set tracks both the repo-wide version
+ * bump and any `SHARED_TARBALL_SPECS` addition automatically —
+ * `stage-payload`'s pack step derives the identical names from the SAME root
+ * version and the SAME spec list, so the staged files and this sanction can
+ * never drift.
  *
  * This list is the ONLY relaxation of the Lean_Payload top-level contract: the
  * "no `node_modules` at any depth" and size-budget intents are UNCHANGED — no
@@ -67,6 +224,7 @@ export const CANONICAL_TOOL_COUNT = 9;
 export const SANCTIONED_PAYLOAD_ROOT_FILES: readonly string[] = [
   "package.json",
   "package-lock.json",
+  ...sharedTarballFileNames(readRepoRootVersion()),
 ] as const;
 
 /**
@@ -290,6 +448,42 @@ export function isSecretKey(key: string): boolean {
 }
 
 /**
+ * Benign STRUCTURAL package-lock / package-metadata keys whose values are
+ * EXPECTED to be long, URL-safe/base64-ish strings and are NEVER secrets.
+ * Mirrors Rust `BENIGN_METADATA_KEYS`.
+ *
+ * Bugfix: mcp-shared-module-resolution-fix — the Option B fix adds the two
+ * `@shared/*` `file:` entries to the flat `package-lock.json`, and those
+ * entries carry `"license": "LicenseRef-Shawna-NonCommercial"` (the real
+ * license declared in `shared/package.json` / `shared/config/package.json`).
+ * That value is ≥24 chars and matches `^[A-Za-z0-9_-]+$`, so the token-SHAPE
+ * heuristic (`looksLikeBrowserlessToken`) would flag it as a FALSE POSITIVE.
+ * The same is true of standard lockfile fields `integrity` (base64 SRI hashes)
+ * and `resolved` (long registry/tarball URLs → url-safe runs). These are
+ * structural npm metadata, not credentials.
+ *
+ * This set ONLY gates the token-SHAPE path: a value under one of these keys is
+ * never flagged by the shape heuristic. A real secret key
+ * (`BROWSERLESS_TOKEN`, via {@link isSecretKey}) is STILL always flagged
+ * regardless of value shape — none of these keys is a `SECRET_ENV_KEYS` key, so
+ * real-secret detection is unaffected (Req 3.4).
+ */
+export const BENIGN_METADATA_KEYS: readonly string[] = [
+  "license",
+  "integrity",
+  "resolved",
+  "version",
+  "name",
+  "dev",
+  "funding",
+];
+
+/** True iff `key` is a benign structural metadata key (shape heuristic exempt). */
+export function isBenignMetadataKey(key: string): boolean {
+  return BENIGN_METADATA_KEYS.includes(key);
+}
+
+/**
  * True iff `value` is empty/whitespace or a known placeholder (no real secret).
  * Mirrors Rust `is_placeholder_or_empty_secret`.
  */
@@ -315,14 +509,24 @@ function looksLikeBrowserlessToken(value: string): boolean {
  * Mirrors Rust `scan_value_for_secret`: flags `(key, value)` as an embedded
  * secret when the value is non-empty and not a known placeholder, AND either
  * `key` is a `SECRET_ENV_KEYS` key (`BROWSERLESS_TOKEN`) or `value` is a
- * Browserless-token-shaped credential. Empty, whitespace-only, and the known
- * placeholders never count as a secret.
+ * Browserless-token-shaped credential whose `key` is NOT a benign structural
+ * metadata key (see {@link BENIGN_METADATA_KEYS}). Empty, whitespace-only, and
+ * the known placeholders never count as a secret.
+ *
+ * The benign-metadata-key carve-out ONLY narrows the token-SHAPE path so
+ * standard npm lockfile fields (`license`, `integrity`, `resolved`, …) whose
+ * values are long url-safe strings are not false-positives (Req 3.4). A real
+ * secret key is still ALWAYS caught via {@link isSecretKey}, independent of
+ * value shape — detection of `BROWSERLESS_TOKEN` is unchanged.
  */
 export function scanValueForSecret(key: string, value: string): boolean {
   if (isPlaceholderOrEmptySecret(value)) {
     return false;
   }
-  return isSecretKey(key) || looksLikeBrowserlessToken(value);
+  if (isSecretKey(key)) {
+    return true;
+  }
+  return looksLikeBrowserlessToken(value) && !isBenignMetadataKey(key);
 }
 
 /** A single secret finding: the offending file plus the key/value that tripped the guard. */

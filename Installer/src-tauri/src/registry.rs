@@ -2634,10 +2634,10 @@ mod registry_values_property_tests {
     //!     `InstallLocation`, `Publisher`, `DisplayVersion`, in order;
     //!   - every value is non-empty (Req 10.2);
     //!   - `DisplayName == "LLM Toolkit"`, `Publisher == "LLM Toolkit Team"`,
-    //!     `DisplayVersion == "5.4.1"`, `InstallLocation == install_path`;
+    //!     `DisplayVersion == "5.4.4"`, `InstallLocation == install_path`;
     //!   - `UninstallString` contains the exe path, the install path, and the
     //!     `--uninstall` flag;
-    //!   - `env!("CARGO_PKG_VERSION") == "5.4.1"` — a fixed assertion pinning the
+    //!   - `env!("CARGO_PKG_VERSION") == "5.4.4"` — a fixed assertion pinning the
     //!     manifest version the entry reports (Req 13.2).
 
     use super::*;
@@ -2656,7 +2656,7 @@ mod registry_values_property_tests {
     /// The installer manifest version this feature pins the uninstall entry to
     /// (Req 13.2 / Req 13.1). `env!("CARGO_PKG_VERSION")` is the crate's version
     /// declared in `Installer/src-tauri/Cargo.toml`.
-    const MANIFEST_VERSION: &str = "5.4.1";
+    const MANIFEST_VERSION: &str = "5.4.4";
 
     /// Generate a Windows-ish absolute install path: a drive letter root plus one
     /// or more non-empty path segments (e.g. `C:\Program Files\LLM-Toolkit`). The
@@ -2682,15 +2682,15 @@ mod registry_values_property_tests {
     }
 
     /// Fixed assertion (not randomized): the crate version the uninstall entry
-    /// reports is exactly the `5.4.1` manifest version (Req 13.1/13.2). Pinning
+    /// reports is exactly the `5.4.4` manifest version (Req 13.1/13.2). Pinning
     /// this here means the property below can feed `MANIFEST_VERSION` as the
     /// version and know it equals what production passes.
     #[test]
-    fn cargo_pkg_version_is_manifest_5_4_1() {
+    fn cargo_pkg_version_is_manifest_5_4_4() {
         assert_eq!(
             env!("CARGO_PKG_VERSION"),
             MANIFEST_VERSION,
-            "the installer crate version must be the 5.4.1 manifest version (Req 13.2)"
+            "the installer crate version must be the 5.4.4 manifest version (Req 13.2)"
         );
     }
 
@@ -2708,7 +2708,7 @@ mod registry_values_property_tests {
         //
         // Validates: Requirements 10.2, 13.2
         #[test]
-        fn prop_uninstall_entry_five_nonempty_values_at_5_4_1(
+        fn prop_uninstall_entry_five_nonempty_values_at_5_4_4(
             install_path in valid_install_path(),
             exe_path in nonempty_exe_path(),
         ) {
@@ -2741,7 +2741,7 @@ mod registry_values_property_tests {
             prop_assert_eq!(get("DisplayName"), "LLM Toolkit");
             prop_assert_eq!(get("Publisher"), "LLM Toolkit Team");
             prop_assert_eq!(get("DisplayVersion"), MANIFEST_VERSION,
-                "DisplayVersion must equal the 5.4.1 manifest version (Req 13.2)");
+                "DisplayVersion must equal the 5.4.4 manifest version (Req 13.2)");
             prop_assert_eq!(get("InstallLocation"), install_path.as_str(),
                 "InstallLocation must equal the install path");
 

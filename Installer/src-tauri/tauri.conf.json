@@ -1,6 +1,6 @@
 {
   "productName": "LLM Toolkit Installer",
-  "version": "5.4.2",
+  "version": "5.4.4",
   "identifier": "com.llmtoolkit.installer",
   "build": {
     "frontendDist": "../dist",
@@ -26,7 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "resources": ["payload/", "payload/package.json", "payload/package-lock.json"],
+    "resources": ["payload/", "payload/package.json", "payload/package-lock.json", "payload/*.tgz"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

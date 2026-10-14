@@ -52,6 +52,87 @@ use std::collections::BTreeSet;
 /// is genuinely absent at install time).
 const SANCTIONED_PAYLOAD_ROOT_FILES: &[&str] = &["package.json", "package-lock.json"];
 
+/// The sanctioned flat workspace-internal tarball files staged at the payload
+/// ROOT, matched by `(prefix, suffix)` rather than exact name
+/// (bugfix: mcp-shared-module-resolution-fix, Option B, tasks 3.4 and 8.4).
+///
+/// The TS staging side (`Installer/scripts/payload-manifest.ts`
+/// `sharedTarballFileNames`, derived from `SHARED_TARBALL_SPECS`) names these
+/// tarballs from the resolved root `package.json` version. The 5.4.3 fix
+/// shipped the two `@shared/*` tarballs — `shared-types-<version>.tgz` and
+/// `shared-config-<version>.tgz` (e.g. `shared-types-5.4.3.tgz`). The 5.4.4
+/// follow-up (task 8.4) generalizes the SAME seam to the five `llm-toolkit-*`
+/// packages — `llm-toolkit-ask-user-<version>.tgz`,
+/// `llm-toolkit-calculator-<version>.tgz`, `llm-toolkit-clock-<version>.tgz`,
+/// `llm-toolkit-document-scraper-<version>.tgz`, and
+/// `llm-toolkit-observability-<version>.tgz`. A Rust `const &[&str]` cannot
+/// read the repo version at compile time, so instead of mirroring exact names
+/// (which would drift every version bump) we match the stable prefix/suffix of
+/// each tarball and copy any payload-root file that fits. This is drift-proof:
+/// the version bump (task 3.5 / 8.5) changes only the middle of the filename,
+/// which these patterns ignore. This mirrors the TS stem list in
+/// `SHARED_TARBALL_SPECS` (same seven stems), so the staged files and this
+/// sanction can never drift.
+///
+/// Each matched file is copied best-effort from `resource_root` into
+/// `install_dir` alongside the exact-name sanctioned files above, so the
+/// install-time `npm install --omit=dev …` (cwd = install_dir) resolves the
+/// `file:./<stem>-<version>.tgz` specifiers the flat production manifest emits
+/// for `@shared/types` / `@shared/config` and the five `llm-toolkit-*` names
+/// (plus the transitively-pulled closure). These are FILES, never a
+/// `node_modules`; the Lean_Payload intent (Req 3.6 / 6.4) is preserved. A
+/// missing tarball is NOT a hard copy error (best-effort, exactly like the
+/// manifest files). Copied tarballs are tracked for rollback so a failed or
+/// rolled-back install leaves nothing behind.
+const SANCTIONED_PAYLOAD_ROOT_FILE_PATTERNS: &[(&str, &str)] = &[
+    ("shared-types-", ".tgz"),
+    ("shared-config-", ".tgz"),
+    ("llm-toolkit-ask-user-", ".tgz"),
+    ("llm-toolkit-calculator-", ".tgz"),
+    ("llm-toolkit-clock-", ".tgz"),
+    ("llm-toolkit-document-scraper-", ".tgz"),
+    ("llm-toolkit-observability-", ".tgz"),
+];
+
+/// True iff `file_name` matches one of the sanctioned `@shared/*` tarball
+/// patterns (a known `prefix…suffix`, e.g. `shared-types-5.4.3.tgz`). Used to
+/// select which payload-root files to copy into `install_dir` and — mirrored in
+/// rollback — which copied tarballs to remove. The guard
+/// `len > prefix+suffix` requires at least one character between the prefix and
+/// suffix, so a short name like `shared-types-.tgz` with an empty version
+/// segment never matches.
+fn is_sanctioned_shared_tarball(file_name: &str) -> bool {
+    SANCTIONED_PAYLOAD_ROOT_FILE_PATTERNS
+        .iter()
+        .any(|(prefix, suffix)| {
+            file_name.len() > prefix.len() + suffix.len()
+                && file_name.starts_with(prefix)
+                && file_name.ends_with(suffix)
+        })
+}
+
+/// Collects the names of every file in `dir` whose name matches a sanctioned
+/// `@shared/*` tarball pattern, sorted for deterministic copy/rollback order.
+/// Non-files (directories) and non-matching names are ignored. A `dir` that
+/// cannot be read yields an empty list (best-effort).
+fn sanctioned_shared_tarballs_in(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return names;
+    };
+    for entry in entries.flatten() {
+        if !entry.path().is_file() {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        if is_sanctioned_shared_tarball(&file_name) {
+            names.push(file_name);
+        }
+    }
+    names.sort();
+    names
+}
+
 /// The outcome of planning the bundle against a tool-presence state.
 ///
 /// A `BundlePlan` is a pure description: it names the required tools, which of
@@ -425,6 +506,37 @@ pub fn copy_payload(resource_root: &Path, install_dir: &Path) -> Result<(), Copy
         written_files.push((*file_name).to_string());
     }
 
+    // Option B (bugfix: mcp-shared-module-resolution-fix, task 3.4): copy the
+    // sanctioned `@shared/*` tarballs (`shared-types-<version>.tgz`,
+    // `shared-config-<version>.tgz`) from the payload root into the install-dir
+    // root so the install-time `npm install --omit=dev …` (cwd = install_dir)
+    // resolves the `file:./shared-*-<version>.tgz` specifiers the flat
+    // production manifest emits for `@shared/types` / `@shared/config`. The
+    // filenames are version-derived, so they are matched by stable prefix/suffix
+    // (see `SANCTIONED_PAYLOAD_ROOT_FILE_PATTERNS`) rather than exact name —
+    // drift-proof across the repo-wide version bump. These are regular FILES,
+    // never a `node_modules`, so the Lean_Payload intent (Req 3.6) is preserved.
+    // Best-effort like the manifest files: a present-but-uncopyable tarball is a
+    // real filesystem error for an owned artifact and rolls back; an absent
+    // tarball is simply skipped (`sanctioned_shared_tarballs_in` only returns
+    // files that exist). Copied names join `written_files` so both rollback
+    // paths remove them.
+    for file_name in sanctioned_shared_tarballs_in(resource_root) {
+        let source = resource_root.join(&file_name);
+        let destination = install_dir.join(&file_name);
+        if let Err(error) = std::fs::copy(&source, &destination) {
+            written_files.push(file_name.clone());
+            rollback_written(install_dir, &written, &written_files);
+            return Err(CopyError::Copy {
+                server_name: file_name,
+                source,
+                destination,
+                error,
+            });
+        }
+        written_files.push(file_name);
+    }
+
     // Post-copy verification (Req 5.2/5.3): reuse the pure planner over the
     // install directory's present-and-non-empty outputs. On a gap, roll back so
     // a failed install leaves nothing behind, then report the exact set.
@@ -480,6 +592,13 @@ pub fn rollback_payload(install_dir: &Path) {
     // registration-failure rollback leaves nothing toolkit-owned behind at the
     // install-dir root either (best-effort, matching the tool-subtree removal).
     for file_name in SANCTIONED_PAYLOAD_ROOT_FILES {
+        let _ = std::fs::remove_file(install_dir.join(file_name));
+    }
+    // Likewise remove any copied `@shared/*` tarballs (bugfix:
+    // mcp-shared-module-resolution-fix, task 3.4), matched by the same stable
+    // prefix/suffix patterns the copy step used, so a rolled-back install leaves
+    // no tarball behind at the install-dir root either (best-effort).
+    for file_name in sanctioned_shared_tarballs_in(install_dir) {
         let _ = std::fs::remove_file(install_dir.join(file_name));
     }
 }
@@ -896,6 +1015,251 @@ mod copy_tests {
         for tool in canonical_payloads() {
             assert!(!install.path().join(tool.server_name).exists());
         }
+    }
+
+    /// Option B (bugfix: mcp-shared-module-resolution-fix, task 3.4): the two
+    /// version-derived `@shared/*` tarballs (`shared-types-<version>.tgz`,
+    /// `shared-config-<version>.tgz`) staged at the payload root are copied into
+    /// the install-dir root (matched by stable prefix/suffix, drift-proof across
+    /// the version bump) so the install-time `npm install` resolves the `file:`
+    /// specifiers. No `node_modules` is ever created.
+    #[test]
+    fn copy_payload_copies_shared_tarballs() {
+        let res = TempDir::new("res_tgz");
+        let install = TempDir::new("install_tgz");
+        make_full_resource_root(res.path());
+        // Stage all seven version-derived tarballs at the payload root
+        // (= install_dir): the two @shared/* tarballs (5.4.3) plus the five
+        // llm-toolkit-* tarballs (5.4.4 follow-up, task 8.4).
+        write_file(&res.path().join("shared-types-5.4.3.tgz"), "fake-types-tarball\n");
+        write_file(&res.path().join("shared-config-5.4.3.tgz"), "fake-config-tarball\n");
+        write_file(
+            &res.path().join("llm-toolkit-ask-user-5.4.4.tgz"),
+            "fake-ask-user\n",
+        );
+        write_file(
+            &res.path().join("llm-toolkit-calculator-5.4.4.tgz"),
+            "fake-calculator\n",
+        );
+        write_file(
+            &res.path().join("llm-toolkit-clock-5.4.4.tgz"),
+            "fake-clock\n",
+        );
+        write_file(
+            &res.path().join("llm-toolkit-document-scraper-5.4.4.tgz"),
+            "fake-document-scraper\n",
+        );
+        write_file(
+            &res.path().join("llm-toolkit-observability-5.4.4.tgz"),
+            "fake-observability\n",
+        );
+
+        let result = copy_payload(res.path(), install.path());
+        assert!(result.is_ok(), "expected success, got {:?}", result.err());
+
+        // Both @shared/* tarballs landed at the install-dir root with bytes intact.
+        let staged_types = install.path().join("shared-types-5.4.3.tgz");
+        let staged_config = install.path().join("shared-config-5.4.3.tgz");
+        assert!(staged_types.is_file(), "shared-types tarball must be copied");
+        assert!(staged_config.is_file(), "shared-config tarball must be copied");
+        assert_eq!(
+            std::fs::read_to_string(&staged_types).unwrap(),
+            "fake-types-tarball\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&staged_config).unwrap(),
+            "fake-config-tarball\n"
+        );
+
+        // All five llm-toolkit-* tarballs landed at the install-dir root too.
+        for (name, body) in [
+            ("llm-toolkit-ask-user-5.4.4.tgz", "fake-ask-user\n"),
+            ("llm-toolkit-calculator-5.4.4.tgz", "fake-calculator\n"),
+            ("llm-toolkit-clock-5.4.4.tgz", "fake-clock\n"),
+            (
+                "llm-toolkit-document-scraper-5.4.4.tgz",
+                "fake-document-scraper\n",
+            ),
+            ("llm-toolkit-observability-5.4.4.tgz", "fake-observability\n"),
+        ] {
+            let staged = install.path().join(name);
+            assert!(staged.is_file(), "{name} must be copied");
+            assert_eq!(std::fs::read_to_string(&staged).unwrap(), body);
+        }
+
+        // Lean_Payload: no `node_modules` is ever created by the copy step.
+        assert!(
+            !install.path().join("node_modules").exists(),
+            "copy must never create install_dir/node_modules"
+        );
+
+        // The nine tool trees still verify.
+        assert!(verify_install_dir(install.path()).is_complete());
+    }
+
+    /// The tarball match is version-agnostic: a DIFFERENT version in the middle
+    /// of the filename (e.g. a future bump) is still copied, proving the
+    /// prefix/suffix match is drift-proof and never pinned to one version.
+    #[test]
+    fn copy_payload_copies_shared_tarballs_for_any_version() {
+        let res = TempDir::new("res_tgz_ver");
+        let install = TempDir::new("install_tgz_ver");
+        make_full_resource_root(res.path());
+        write_file(&res.path().join("shared-types-9.9.9.tgz"), "t\n");
+        write_file(&res.path().join("shared-config-9.9.9.tgz"), "c\n");
+
+        copy_payload(res.path(), install.path()).expect("copy");
+
+        assert!(install.path().join("shared-types-9.9.9.tgz").is_file());
+        assert!(install.path().join("shared-config-9.9.9.tgz").is_file());
+    }
+
+    /// Absent `@shared/*` tarballs are NON-fatal (best-effort, exactly like the
+    /// manifest files): `copy_payload` still succeeds and copies nothing extra.
+    #[test]
+    fn copy_payload_succeeds_when_shared_tarballs_absent() {
+        let res = TempDir::new("res_notgz");
+        let install = TempDir::new("install_notgz");
+        make_full_resource_root(res.path());
+        // Intentionally stage NO tarballs.
+
+        let result = copy_payload(res.path(), install.path());
+        assert!(result.is_ok(), "expected success, got {:?}", result.err());
+        assert!(sanctioned_shared_tarballs_in(install.path()).is_empty());
+        assert!(verify_install_dir(install.path()).is_complete());
+    }
+
+    /// Only sanctioned tarball shapes are copied: an unrelated `.tgz` whose name
+    /// does not match a sanctioned prefix is NOT carried into the install dir.
+    #[test]
+    fn copy_payload_ignores_unsanctioned_tarballs() {
+        let res = TempDir::new("res_badtgz");
+        let install = TempDir::new("install_badtgz");
+        make_full_resource_root(res.path());
+        write_file(&res.path().join("shared-types-5.4.3.tgz"), "ok\n");
+        // A random tarball not matching any sanctioned prefix/suffix.
+        write_file(&res.path().join("some-other-pkg-1.0.0.tgz"), "nope\n");
+
+        copy_payload(res.path(), install.path()).expect("copy");
+
+        assert!(install.path().join("shared-types-5.4.3.tgz").is_file());
+        assert!(
+            !install.path().join("some-other-pkg-1.0.0.tgz").exists(),
+            "unsanctioned tarball must not be copied into install_dir"
+        );
+    }
+
+    /// A copy failure rolls back the copied `@shared/*` tarballs too: when a
+    /// later tool copy / verification fails, no tarball is left behind. Here we
+    /// trigger the registration-failure rollback path which must also remove the
+    /// tarballs (see `rollback_payload_removes_shared_tarballs`); this test
+    /// covers the in-`copy_payload` rollback via `rollback_written` by forcing a
+    /// verification gap after the tarballs are copied.
+    #[test]
+    fn copy_payload_rolls_back_shared_tarballs_on_failure() {
+        let res = TempDir::new("res_tgz_rb");
+        let install = TempDir::new("install_tgz_rb");
+        make_full_resource_root(res.path());
+        write_file(&res.path().join("shared-types-5.4.3.tgz"), "t\n");
+        write_file(&res.path().join("shared-config-5.4.3.tgz"), "c\n");
+        // Remove one tool's source so the copy fails before reaching the
+        // tarball/verification stage — rollback must leave the install dir empty
+        // (the tarballs are copied AFTER the tool trees, so this specifically
+        // asserts a mid-copy failure leaves nothing, and the next test covers a
+        // post-tarball rollback).
+        let victim = canonical_payloads()[3].server_name;
+        std::fs::remove_dir_all(res.path().join(victim)).expect("remove victim");
+
+        let result = copy_payload(res.path(), install.path());
+        assert!(result.is_err(), "expected copy failure");
+        assert!(
+            sanctioned_shared_tarballs_in(install.path()).is_empty(),
+            "rollback must leave no @shared/* tarball behind"
+        );
+        assert!(!install.path().join("shared-types-5.4.3.tgz").exists());
+        assert!(!install.path().join("shared-config-5.4.3.tgz").exists());
+    }
+
+    /// `rollback_payload` (the registration-failure path) removes the copied
+    /// `@shared/*` tarballs too, so a rolled-back install leaves nothing
+    /// toolkit-owned at the install-dir root.
+    #[test]
+    fn rollback_payload_removes_shared_tarballs() {
+        let res = TempDir::new("res_rb_tgz");
+        let install = TempDir::new("install_rb_tgz");
+        make_full_resource_root(res.path());
+        write_file(&res.path().join("shared-types-5.4.3.tgz"), "t\n");
+        write_file(&res.path().join("shared-config-5.4.3.tgz"), "c\n");
+
+        copy_payload(res.path(), install.path()).expect("copy");
+        assert!(install.path().join("shared-types-5.4.3.tgz").is_file());
+        assert!(install.path().join("shared-config-5.4.3.tgz").is_file());
+
+        rollback_payload(install.path());
+
+        assert!(
+            !install.path().join("shared-types-5.4.3.tgz").exists(),
+            "rollback must remove the staged shared-types tarball"
+        );
+        assert!(
+            !install.path().join("shared-config-5.4.3.tgz").exists(),
+            "rollback must remove the staged shared-config tarball"
+        );
+        // Tool subtrees are also gone (existing rollback semantics).
+        for tool in canonical_payloads() {
+            assert!(!install.path().join(tool.server_name).exists());
+        }
+    }
+
+    /// Unit coverage for the sanctioned-tarball name matcher: known shapes match
+    /// across versions; wrong prefix/suffix and the empty-version edge do not.
+    #[test]
+    fn is_sanctioned_shared_tarball_matches_only_known_shapes() {
+        // @shared/* tarballs (5.4.3).
+        assert!(is_sanctioned_shared_tarball("shared-types-5.4.3.tgz"));
+        assert!(is_sanctioned_shared_tarball("shared-config-5.4.3.tgz"));
+        assert!(is_sanctioned_shared_tarball("shared-types-10.0.0-beta.1.tgz"));
+
+        // llm-toolkit-* tarballs (5.4.4 follow-up) — all five stems match
+        // across versions.
+        assert!(is_sanctioned_shared_tarball("llm-toolkit-ask-user-5.4.4.tgz"));
+        assert!(is_sanctioned_shared_tarball(
+            "llm-toolkit-calculator-5.4.4.tgz"
+        ));
+        assert!(is_sanctioned_shared_tarball("llm-toolkit-clock-5.4.4.tgz"));
+        assert!(is_sanctioned_shared_tarball(
+            "llm-toolkit-document-scraper-5.4.4.tgz"
+        ));
+        assert!(is_sanctioned_shared_tarball(
+            "llm-toolkit-observability-5.4.4.tgz"
+        ));
+        assert!(is_sanctioned_shared_tarball(
+            "llm-toolkit-observability-10.0.0-beta.1.tgz"
+        ));
+
+        // Wrong suffix / wrong prefix / unrelated names are rejected.
+        assert!(!is_sanctioned_shared_tarball("shared-types-5.4.3.zip"));
+        assert!(!is_sanctioned_shared_tarball("shared-other-5.4.3.tgz"));
+        assert!(!is_sanctioned_shared_tarball("package.json"));
+        assert!(!is_sanctioned_shared_tarball("some-other-pkg-1.0.0.tgz"));
+        // An unknown llm-toolkit-* package stem must NOT match — only the five
+        // sanctioned stems are provisioned.
+        assert!(!is_sanctioned_shared_tarball("llm-toolkit-ask-user-5.4.4.zip"));
+        assert!(!is_sanctioned_shared_tarball("llm-toolkit-unknown-5.4.4.tgz"));
+        assert!(!is_sanctioned_shared_tarball("llm-toolkit-5.4.4.tgz"));
+
+        // Empty version segment must NOT match (prefix+suffix overlap guard).
+        assert!(!is_sanctioned_shared_tarball("shared-types-.tgz"));
+        assert!(!is_sanctioned_shared_tarball("shared-config-.tgz"));
+        assert!(!is_sanctioned_shared_tarball("llm-toolkit-ask-user-.tgz"));
+        assert!(!is_sanctioned_shared_tarball("llm-toolkit-calculator-.tgz"));
+        assert!(!is_sanctioned_shared_tarball("llm-toolkit-clock-.tgz"));
+        assert!(!is_sanctioned_shared_tarball(
+            "llm-toolkit-document-scraper-.tgz"
+        ));
+        assert!(!is_sanctioned_shared_tarball(
+            "llm-toolkit-observability-.tgz"
+        ));
     }
 
 }

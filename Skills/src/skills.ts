@@ -93,7 +93,7 @@ export async function executeSkill(
 
     if (schema.required && schema.required.length > 0) {
       for (const key of schema.required) {
-        if (!(key in params)) {
+        if (!Object.hasOwn(params, key)) {
           return createErrorResponse(
             ErrorCode.INVALID_INPUT,
             `Missing required param: ${key}`,

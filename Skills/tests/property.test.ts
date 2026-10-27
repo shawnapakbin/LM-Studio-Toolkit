@@ -324,6 +324,27 @@ describe("Property: missing required params rejected", () => {
       { numRuns: 15 },
     );
   });
+
+  test("inherited object properties do not satisfy required params", async () => {
+    const name = `required-inherited-${Math.random().toString(36).slice(2, 7)}`;
+    await defineSkill({
+      name,
+      description: "inherited parameter regression",
+      paramSchema: {
+        type: "object",
+        properties: { toString: { type: "string" } },
+        required: ["toString"],
+      },
+      steps: [{ type: "prompt", template: "hello" }],
+    });
+
+    const result = await executeSkill({ name, params: {} });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errorCode).toBe("INVALID_INPUT");
+    }
+  });
 });
 
 // ─── Task 14.8: tool_call step args interpolation round-trip ──────────────────

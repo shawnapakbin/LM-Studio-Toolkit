@@ -9,10 +9,11 @@
  * ---------------
  * `generate-production-manifest.ts` (task 3.3) is the single source of truth
  * for the flat production `package.json` + resolved `package-lock.json` staged
- * into `install_dir` (at `Installer/src-tauri/payload/runtime-manifest/`). If a
- * tool's runtime `dependencies` change and the committed manifest is NOT
- * regenerated, the staged manifest drifts from the source tool manifests and
- * the installer's Runtimes step can silently reintroduce root cause H1
+ * into `install_dir` (from the committed source artifacts at
+ * `Installer/src-tauri/runtime-manifest/`). If a tool's runtime `dependencies`
+ * change and the committed manifest is NOT regenerated, the staged manifest
+ * drifts from the source tool manifests and the installer's Runtimes step can
+ * silently reintroduce root cause H1
  * (`noResolvableManifestInInstallDir`) — the exact defect this bugfix closes.
  *
  * This check re-runs the generator into an ISOLATED temp dir and asserts the
@@ -82,7 +83,7 @@ export interface VerifyOptions {
   /**
    * Directory holding the committed artifacts to check. Defaults to the
    * generator's own default output dir
-   * (`Installer/src-tauri/payload/runtime-manifest`).
+   * (`Installer/src-tauri/runtime-manifest`).
    */
   committedDir?: string;
   /** When false, only package.json is regenerated + compared (no lockfile). */
@@ -187,13 +188,13 @@ export function verifyProductionManifest(opts: VerifyOptions = {}): VerifyResult
 
 /**
  * The default committed-artifacts dir, resolved the same way the generator
- * anchors its default output dir: `Installer/src-tauri/payload/runtime-manifest`.
+ * anchors its default output dir: `Installer/src-tauri/runtime-manifest`.
  */
 function defaultCommittedDir(): string {
   const invoked = invokedScriptPath();
   const scriptDir = invoked ? resolve(invoked, "..") : resolve(".");
-  // scripts/ -> Installer/ -> Installer/src-tauri/payload/runtime-manifest
-  return resolve(scriptDir, "..", "src-tauri", "payload", "runtime-manifest");
+  // scripts/ -> Installer/ -> Installer/src-tauri/runtime-manifest
+  return resolve(scriptDir, "..", "src-tauri", "runtime-manifest");
 }
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
@@ -243,7 +244,7 @@ function main(): void {
     "[verify-runtime-manifest] Fix: run `npm run generate:runtime-manifest` (in Installer/) and commit the updated",
   );
   console.error(
-    "[verify-runtime-manifest]      Installer/src-tauri/payload/runtime-manifest/package.json + package-lock.json.",
+    "[verify-runtime-manifest]      Installer/src-tauri/runtime-manifest/package.json + package-lock.json.",
   );
   process.exit(1);
 }

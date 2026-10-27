@@ -38,12 +38,7 @@ import * as path from "node:path";
 /** `Installer/` root, from this test file's location (`Installer/tests/property`). */
 const installerRoot = path.resolve(__dirname, "..", "..");
 /** The real committed staged runtime manifest + lockfile. */
-const committedRuntimeManifestDir = path.resolve(
-  installerRoot,
-  "src-tauri",
-  "payload",
-  "runtime-manifest",
-);
+const committedRuntimeManifestDir = path.resolve(installerRoot, "src-tauri", "runtime-manifest");
 
 /** The first `npm` on PATH (Windows ships `npm.cmd`), or `undefined`. */
 function findNpm(): string | undefined {

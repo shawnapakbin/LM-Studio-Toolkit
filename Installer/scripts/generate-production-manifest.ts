@@ -39,7 +39,7 @@
  *   (i.e. `tsx scripts/generate-production-manifest.ts`).
  * Flags:
  *   --out <dir>      write artifacts into <dir> (default:
- *                    Installer/src-tauri/payload/runtime-manifest).
+ *                    Installer/src-tauri/runtime-manifest).
  *   --no-lockfile    emit only package.json; skip the temp-dir lockfile resolve
  *                    (useful for a fast, offline manifest-only check).
  *   --dry-run        compute and print the flat manifest, but write nothing.
@@ -103,11 +103,12 @@ function repoRootOf(): string {
 
 /**
  * The default output directory for the generated artifacts:
- * `Installer/src-tauri/payload/runtime-manifest/`. Task 3.4 stages these flat
- * files into the payload; this generator only writes them here.
+ * `Installer/src-tauri/runtime-manifest/`. Task 3.4 stages these flat files
+ * into the payload; this generator writes its source artifacts beside the
+ * payload so staging can clear and recreate the payload directory.
  */
 export function defaultOutputDir(): string {
-  return resolve(installerRootOf(), "src-tauri", "payload", "runtime-manifest");
+  return resolve(installerRootOf(), "src-tauri", "runtime-manifest");
 }
 
 // ─── Source-manifest enumeration ─────────────────────────────────────────────

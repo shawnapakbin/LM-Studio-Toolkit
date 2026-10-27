@@ -459,10 +459,10 @@ export function stagePayload(repoRootDir: string, stagingRoot: string): void {
  *   land at `install_dir/runtime-manifest/` where npm would never read it.
  *
  * The generator (`generate-production-manifest.ts`, task 3.3) is the single
- * source of truth. Its default output dir is `payload/runtime-manifest/`, which
- * `stagePayload` clears with the rest of the payload; so we (re)generate into a
- * location OUTSIDE the freshly-cleared staging root, then copy the two flat
- * files to the payload root. This NEVER generates or copies a `node_modules`.
+ * source of truth. Its default output dir is the sibling
+ * `src-tauri/runtime-manifest/`, outside the payload directory that
+ * `stagePayload` clears. We (re)generate there, then copy the two flat files to
+ * the payload root. This NEVER generates or copies a `node_modules`.
  */
 export function stageRuntimeManifest(installerRootDir: string, stagingRoot: string): void {
   // Generate into `<installerRoot>/src-tauri/runtime-manifest/` — a sibling of

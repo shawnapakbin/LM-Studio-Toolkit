@@ -53,12 +53,7 @@ const installerRoot = path.resolve(__dirname, "..", "..");
 /** Repository root: one level up from `Installer/`. */
 const repoRootDir = path.resolve(installerRoot, "..");
 /** The real committed runtime-manifest artifacts the installer ships. */
-const committedRuntimeManifestDir = path.resolve(
-  installerRoot,
-  "src-tauri",
-  "payload",
-  "runtime-manifest",
-);
+const committedRuntimeManifestDir = path.resolve(installerRoot, "src-tauri", "runtime-manifest");
 
 /** The version-derived `@shared/*` tarball filenames (produced by `npm pack`). */
 const sharedTarballNames = sharedTarballFileNames(resolveRootVersion(repoRootDir));

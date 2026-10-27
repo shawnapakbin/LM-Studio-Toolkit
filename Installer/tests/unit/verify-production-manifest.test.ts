@@ -31,7 +31,7 @@ const installerRoot = resolve(__dirname, "..", "..");
 /** Repo root: one level above `Installer/`. */
 const repoRoot = resolve(installerRoot, "..");
 /** The real committed artifacts dir the installer ships. */
-const committedDir = resolve(installerRoot, "src-tauri", "payload", "runtime-manifest");
+const committedDir = resolve(installerRoot, "src-tauri", "runtime-manifest");
 
 describe("verify-production-manifest — drift check (manifest-only)", () => {
   it("reports NO drift against the real committed package.json", () => {

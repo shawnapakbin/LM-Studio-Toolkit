@@ -144,6 +144,7 @@ Installer/src-tauri/*.log
 Installer/src-tauri/*.txt
 Installer/src-tauri/*.exit
 Installer/src-tauri/*.exe.manifest
+!Installer/src-tauri/llm-toolkit-installer.exe.manifest
 Installer/src-tauri/proptest-regressions/
 stage-payload.log
 # Stray local build/debug logs and scratch files directly under Installer/

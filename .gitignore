@@ -146,6 +146,12 @@ Installer/src-tauri/*.exit
 Installer/src-tauri/*.exe.manifest
 Installer/src-tauri/proptest-regressions/
 stage-payload.log
+# Stray local build/debug logs and scratch files directly under Installer/
+Installer/*.log
+# Ad-hoc standalone Rust scratch check (not part of the crate build)
+Installer/src-tauri/matcher_check.rs
+# One-off local install-reproduction script
+repro-install.ps1
 
 # Internal dot-directories — local only, not published (per workspace.md dot-dir rule, v5.1.1)
 .Manifesto/

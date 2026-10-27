@@ -1,0 +1,33 @@
+{
+  "name": "verify-before-done",
+  "description": "Run a build, test, or lint command and report success ONLY when the output is clean (zero failures/errors). Designed for small local models: enforces a disciplined verify-then-report loop so a task is never claimed done on dirty output.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "verify_command": {
+        "type": "string",
+        "description": "The exact build, test, or lint command to run (e.g. 'npm test', 'npm run build', 'npm run lint')"
+      },
+      "project_context": {
+        "type": "string",
+        "description": "Context about the project to pick the right verification command (language, build tool, test runner, linter)"
+      }
+    },
+    "required": ["verify_command"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Project context: {{project_context}}\n\nStep 1 — Choose/confirm the verification command:\n- Decide whether the task needs a build, test, or lint check (or more than one)\n- Confirm that {{verify_command}} is the right command for this project_context\n- If the command looks wrong for the context, pick the correct build/test/lint command instead before running\n- A verification command is non-negotiable before claiming done"
+    },
+    {
+      "type": "tool_call",
+      "tool": "terminal",
+      "args": { "command": "{{verify_command}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Parse the command output:\n- Read the full output from the verification command\n- Count failures and errors (failed tests, build errors, lint errors)\n- Report SUCCESS ONLY when the parsed output shows zero failures and zero errors\n- Otherwise, do NOT claim success: summarize exactly what failed (names, counts, error messages) and STOP\n- Never report a task as done on dirty output"
+    }
+  ]
+}

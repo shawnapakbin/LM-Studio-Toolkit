@@ -1,0 +1,46 @@
+{
+  "name": "grounded-file-edit",
+  "description": "Edit a file safely by grounding every change in what is actually on disk. First read the file, then plan and apply the minimal edit for the requested change, then re-read the file to confirm the change landed exactly as intended with no unintended side effects. Designed for small local models that otherwise hallucinate file contents: it forces a read-before-edit then re-read-to-confirm loop so edits are verified against real output rather than assumptions. Reports the change as confirmed, or reverts when the re-read does not match.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "file_path": {
+        "type": "string",
+        "description": "Path to the file to edit"
+      },
+      "change_description": {
+        "type": "string",
+        "description": "Description of the change to make to the file"
+      },
+      "language": {
+        "type": "string",
+        "description": "Programming language of the file (optional, aids analysis)"
+      }
+    },
+    "required": ["file_path", "change_description"]
+  },
+  "steps": [
+    {
+      "type": "tool_call",
+      "tool": "terminal",
+      "args": { "command": "cat {{file_path}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "You just read {{file_path}} (language: {{language}}). Work ONLY from the exact content returned by the read above — do not assume or invent any lines.\n\nPlan the minimal edit for this change: {{change_description}}\n\nProduce:\n1. The exact original snippet to change (copied verbatim from the read output, with enough surrounding context to be unique)\n2. The exact replacement snippet\n3. Confirmation that nothing else in the file is touched"
+    },
+    {
+      "type": "prompt",
+      "template": "Apply the edit to {{file_path}} now: replace the original snippet with the replacement snippet from the previous step, leaving everything else unchanged. Write the changed file to disk."
+    },
+    {
+      "type": "tool_call",
+      "tool": "terminal",
+      "args": { "command": "cat {{file_path}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "Compare the re-read output of {{file_path}} above against the intended change: {{change_description}}\n\nVerify:\n- The replacement snippet is present exactly as planned\n- No unintended lines were added, removed, or altered\n\nIf the change is present and nothing unintended changed, report: CONFIRMED, with a short summary of what changed.\nIf the output does not match the intended change, or anything unintended changed, revert the file to its original content and report: REVERTED, with the reason."
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "safe-shell-command",
+  "description": "Construct, preview, and safely run a shell command for a stated intent. First build the exact command and dry-run or preview it (print the command, use --dry-run/-n or echo where supported) so its effect is visible before anything executes. Then assess reversibility: if the operation is destructive, require explicit user confirmation and wait for a clear yes before running. Only after preview and (where needed) confirmation does the command execute, and the output is parsed to confirm the command did what was intended. Designed for small local models that otherwise run risky commands blindly: it forces a preview-then-confirm loop so irreversible actions never fire without a human check.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "intent": {
+        "type": "string",
+        "description": "What the command should accomplish, or the exact command to run"
+      },
+      "working_dir": {
+        "type": "string",
+        "description": "Directory in which the command should run"
+      },
+      "is_destructive": {
+        "type": "string",
+        "description": "Whether the operation may be destructive or irreversible ('yes', 'no', or 'unknown')"
+      }
+    },
+    "required": ["intent"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Construct the exact shell command for this intent: {{intent}}\nTarget working directory: {{working_dir}}\n\nDo NOT execute anything yet. Instead:\n1. Print the exact command you would run, verbatim\n2. Dry-run or preview it where supported (use --dry-run or -n, or wrap in echo) so its effect is visible without changing anything\n3. Explain in plain language what the command does, which files or resources it touches, and its expected effect"
+    },
+    {
+      "type": "prompt",
+      "template": "Assess the reversibility of the command from the previous step. Caller-supplied hint: {{is_destructive}}\n\n- Classify the operation as reversible or destructive/irreversible (deletes, overwrites, force operations, bulk or recursive changes, remote or production mutations count as destructive)\n- If it is destructive or irreversible, you MUST require explicit user confirmation: state exactly what will be changed and that it cannot be easily undone, then stop and wait for a clear 'yes' before proceeding\n- If it is clearly safe and reversible, note that and continue\n- If reversibility is unknown, treat it as destructive and require confirmation"
+    },
+    {
+      "type": "tool_call",
+      "tool": "terminal",
+      "args": { "command": "{{intent}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "Parse the command output above. Confirm whether the command did what was intended for: {{intent}}\n\n- Summarize what actually happened based on the real output (exit status, created/changed/removed resources, any errors)\n- Compare against the expected effect from the preview step\n- If it matches, report: CONFIRMED, with a short summary of the result\n- If it does not match or produced errors, report: MISMATCH, with the discrepancy and a suggested next step (do not retry destructive commands without fresh confirmation)"
+    }
+  ]
+}

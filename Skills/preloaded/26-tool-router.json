@@ -1,0 +1,32 @@
+{
+  "name": "tool-router",
+  "description": "Decision checklist that maps a single task to exactly one shipped tool. Helps small models pick the right tool deterministically instead of guessing. Routes atomic capabilities to: terminal (shell/build/test commands), web-browser (live/interactive pages), browserless (static headless page fetch), python-shell (Python computation/scripts), skills (invoke/compose a saved skill), blender-bridge (Blender/3D scene ops), 3dtool (inspect/transform a 3D asset file), lan-sub-agent (delegate a subtask to a LAN agent), and ask_user_interview (ask the user a structured question). Output is the one chosen tool, its exact input, and a one-line justification.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "task": {
+        "type": "string",
+        "description": "The task to route to a single tool"
+      },
+      "constraints": {
+        "type": "string",
+        "description": "Execution constraints: environment, offline/online, token budget, time limit"
+      }
+    },
+    "required": ["task"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Task: {{task}}\nConstraints: {{constraints}}\n\nStep 1 — Identify the capability:\n- Restate the task in one sentence.\n- Restate the constraints (or 'none').\n- Name the single atomic capability the task needs (e.g., run a command, fetch a page, compute, delegate, ask the user).\n- If the task bundles several capabilities, pick the one primary capability to route now; note the rest as follow-ups."
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Decision checklist (map the capability to ONE shipped tool; stop at the first match):\n- Run a shell/build/test command → terminal\n- Fetch a live/interactive web page (JS, login, clicks) → web-browser\n- Fetch a static page/HTML headlessly → browserless\n- Run a Python computation or script → python-shell\n- Invoke or compose a saved skill → skills\n- Control Blender / do 3D scene ops → blender-bridge\n- Inspect or transform a 3D asset file → 3dtool\n- Delegate a subtask to a LAN agent → lan-sub-agent\n- Ask the user a structured question → ask_user_interview\n\nWalk the checklist top to bottom and choose the first rule whose condition the capability satisfies."
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Output the routing decision:\n- Tool: the single chosen tool name\n- Input: the exact input it needs (concrete values, not placeholders)\n- Justification: one line on why this tool fits the capability\n\nOutput format:\nTool: <tool>\nInput: <exact input>\nWhy: <one-line justification>"
+    }
+  ]
+}

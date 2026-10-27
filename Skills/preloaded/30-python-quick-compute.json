@@ -1,0 +1,37 @@
+{
+  "name": "python-quick-compute",
+  "description": "Offload any math or data transform to the python-shell tool instead of doing arithmetic in your head. Small local models reliably mis-count, mis-add, and drift on multi-step calculation, so this skill routes the computation through real Python execution and then verifies the output. State the computation and the expected shape of the result, run the supplied code (with optional stdin inputs) via python-shell, then read the actual execution output and sanity-check it against what you expected. Report the computed value only after the real output confirms it, with no unverified assertions. Use for sums, counts, aggregations, conversions, parsing, sorting, and any transform where a wrong number would go unnoticed.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "Python code that performs the computation and prints the result to stdout"
+      },
+      "inputs": {
+        "type": "string",
+        "description": "Optional data to pass on stdin for the code to read"
+      },
+      "expected": {
+        "type": "string",
+        "description": "The expected shape, type, or approximate value of the result, used to sanity-check the output"
+      }
+    },
+    "required": ["code"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "State the computation you are about to run and the expected shape of its result: {{expected}}\n\n- Describe in one or two sentences what the code should compute\n- Note the expected type and rough magnitude or form of the answer (a single number, a list, a table, a string, etc.)\n- Do NOT compute the answer yourself or assert any value yet; the next step runs the code"
+    },
+    {
+      "type": "tool_call",
+      "tool": "python-shell",
+      "args": { "action": "run", "code": "{{code}}", "stdin": "{{inputs}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "Read the execution output from the previous step. Sanity-check it against the expected result: {{expected}}\n\n- Confirm the output actually ran (no errors or tracebacks) and matches the expected type and shape\n- If it matches, report the computed value exactly as produced by the output\n- If it does not match, or the code errored, report the discrepancy and do not assert a value\n- Report the computed value ONLY after the real output confirms it; make no unverified assertions"
+    }
+  ]
+}

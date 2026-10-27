@@ -1,0 +1,41 @@
+{
+  "name": "run-and-fix-loop",
+  "description": "Bounded run -> read error -> one targeted fix -> re-run loop for Code tasks. Designed for small local models: enforces a hard step cap so the model makes exactly one targeted fix per iteration and stops instead of spinning on repeated failures.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "run_command": {
+        "type": "string",
+        "description": "The exact command to run each iteration (e.g. 'npm test', 'npm run build', 'pytest')"
+      },
+      "max_iterations": {
+        "type": "string",
+        "description": "Maximum number of run-fix iterations before stopping (default to a small number like 3 if unset)"
+      },
+      "context": {
+        "type": "string",
+        "description": "Context about the code and failure to guide the targeted fix (language, build tool, test runner, suspected cause)"
+      }
+    },
+    "required": ["run_command"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Context: {{context}}\n\nStep 1 — Set the loop bound:\n- Do NOT exceed {{max_iterations}} iterations of the run-fix loop\n- If max_iterations is unset, default to a small number (such as 3)\n- Each iteration is: run the command, read the error, apply exactly ONE targeted fix, re-run\n- Once the bound is reached, STOP and report the remaining failures instead of continuing"
+    },
+    {
+      "type": "tool_call",
+      "tool": "terminal",
+      "args": { "command": "{{run_command}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Read and fix:\n- Read the full error output from the command\n- Identify the FIRST root cause (the earliest failure, not downstream symptoms)\n- Select exactly ONE targeted fix for that single root cause\n- Apply only that one fix — do not make unrelated changes in the same iteration"
+    },
+    {
+      "type": "prompt",
+      "template": "Step 3 — Re-run and decide:\n- Re-run the same command ({{run_command}}) via the terminal\n- If it passes (zero failures/errors), report SUCCESS and STOP\n- If it still fails AND the {{max_iterations}} bound is not yet reached, repeat from Step 2 (read the error, apply one targeted fix)\n- If it still fails AND the bound is reached, STOP and report the remaining failures (names, counts, error messages)"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "web-research-grounded",
+  "description": "Answer a question by fetching real web pages first, then responding only with claims that cite those fetched sources. Designed for small local models that tend to hallucinate URLs, quotes, and facts: it forces a fetch-before-answer order and a citation gate so every statement is traceable to content that was actually retrieved. Plan which page(s) to read, fetch them with the browserless tool (headless static fetch), and build the answer strictly from the returned text. Any claim not supported by the fetched content is discarded rather than guessed. Use web-browser instead when the page needs a live or interactive browser (JavaScript, login, clicks). Sources are capped so the model stays focused and does not pad the answer with unread references.",
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "The question to answer using fetched web sources"
+      },
+      "url": {
+        "type": "string",
+        "description": "The page URL to fetch (or candidate URLs, newline- or comma-separated)"
+      },
+      "max_sources": {
+        "type": "string",
+        "description": "Maximum number of fetched sources to cite (default to a small number like 3 if unset)"
+      }
+    },
+    "required": ["query"]
+  },
+  "steps": [
+    {
+      "type": "prompt",
+      "template": "Question: {{query}}\nTarget page(s): {{url}}\n\nStep 1 — Plan the fetch (do NOT answer from memory yet):\n- Identify {{url}}, or if no URL is given, list the candidate URLs most likely to hold the answer\n- State exactly what you need to extract from each page to answer {{query}}\n- Note that the next step fetches the page with the browserless tool (headless static fetch). If the page needs a live or interactive browser (JavaScript, login, clicks), use the web-browser tool instead of browserless.\n- Do not assert any fact until the page content has actually been retrieved"
+    },
+    {
+      "type": "tool_call",
+      "tool": "browserless",
+      "args": { "action": "fetch", "url": "{{url}}" }
+    },
+    {
+      "type": "prompt",
+      "template": "Step 2 — Answer strictly from the fetched content above for: {{query}}\n\n- Every claim in your answer MUST cite the fetched source it came from (title and URL)\n- Build the answer only from text that was actually returned by the fetch; do not add facts, quotes, or URLs from memory\n- Discard any claim that the fetched content does not support — do not guess or fill gaps\n- Cite at most {{max_sources}} sources (default to a small number such as 3 if unset); if the fetched content does not answer {{query}}, say so plainly instead of inventing an answer\n\nOutput format:\n- Answer: the grounded response\n- Citations: numbered list of (title, URL) for each source used"
+    }
+  ]
+}

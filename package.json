@@ -1,6 +1,6 @@
 {
   "name": "lm-studio-toolkit",
-  "version": "5.4.4",
+  "version": "5.4.5",
   "description": "Enterprise-grade LLM agent toolkit with multi-tool orchestration",
   "private": true,
   "main": "dist/index.js",

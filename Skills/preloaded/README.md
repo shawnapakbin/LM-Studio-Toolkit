@@ -28,6 +28,14 @@ These JSON files are bundled with the LLM Toolkit and automatically seeded into 
 | 20 | self-improvement-log | Meta |
 | 21 | prompt-engineering | Meta |
 | 22 | tool-discovery | Meta |
+| 23 | ask-user-interview | Meta |
+| 24 | grounded-file-edit | Code |
+| 25 | verify-before-done | Code |
+| 26 | tool-router | Meta |
+| 27 | web-research-grounded | Knowledge |
+| 28 | run-and-fix-loop | Code |
+| 29 | safe-shell-command | Code |
+| 30 | python-quick-compute | Data |
 
 ## JSON Schema
 

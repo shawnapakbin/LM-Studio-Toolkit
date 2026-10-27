@@ -109,6 +109,8 @@ const lineAllowList = [
   /token_count/i,
   /ECM_AUTO_COMPACT_SUMMARY_MAX_TOKENS/i,
   /ECM_MODEL_CONTEXT_LIMIT/i,
+  // The Common-Controls strong-name token is a public SDK identifier, not a credential.
+  /publicKeyToken\s*=\s*["']6595b64144ccf1df["']/i,
 ];
 
 const checks = [

@@ -246,6 +246,8 @@ jobs:
         run: npm run -w Installer check:versions
       - name: "Type check (Installer)"
         run: npm run -w Installer typecheck
+      - name: "Build tool artifacts for Installer tests"
+        run: npm run build
       - name: "Verify runtime manifest is in sync (drift guard)"
         # Manifest-sync guard (bugfix runtimes-npm-install-nonzero-exit, Req
         # 2.1, 2.2): re-run the flat-production-manifest generator into a temp
